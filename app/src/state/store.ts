@@ -92,6 +92,13 @@ export interface BondState {
   ) => Promise<Bridge>;
   addAgentToRoom: (roomId: string, bridge: Bridge, displayName: string) => Promise<void>;
   runAgentTurn: (roomId: string, mentionNodeId: string, agent: Membership) => Promise<void>;
+  sendPayment: (
+    roomId: string,
+    parentId: string | null,
+    toAddress: string,
+    uiAmount: string,
+    memo?: string,
+  ) => Promise<BondNode>;
 }
 
 function selfMembership(id: Identity): Membership {
@@ -364,5 +371,67 @@ export const useBond = create<BondState>((set, get) => ({
     await storage.append(finalReply);
     await storage.setItem(KEY_RUNS, get().monthlyRuns);
     set((s) => ({ streaming: { ...s.streaming, [reply.id]: false } }));
+  },
+
+  // A human-signed USDC payment posted into a room: the connected wallet signs through MWA
+  // and the settled transfer becomes a signed `payment` node. The spend gate runs first, so
+  // a transfer over the user's threshold needs biometric or PIN before the wallet is asked.
+  // Heavy Solana modules load lazily so this store stays cheap to import under jest and web.
+  sendPayment: async (roomId, parentId, toAddress, uiAmount, memo) => {
+    const { identity, secretKey, storage } = get();
+    if (!identity || !secretKey || !storage) throw new Error("Bond is not ready");
+
+    const { requireAuth } = await import("../protection/gate");
+    const gate = await requireAuth("spend", { amountUsdc: Number(uiAmount) });
+    if (!gate.ok) throw new Error("Payment was not authorized");
+
+    const { useWallet } = await import("../solana/store");
+    const w = useWallet.getState();
+    if (!w.connectedAddress || !w.authToken) {
+      throw new Error("Connect a wallet before sending USDC");
+    }
+
+    const { getConnection, USDC_DEVNET_MINT, USDC_DECIMALS, SOLANA_CLUSTER } = await import(
+      "../solana/config"
+    );
+    const { buildUsdcTransfer } = await import("../solana/usdc");
+    const { signAndSendTransaction } = await import("../solana/wallet");
+    const { PublicKey } = await import("@solana/web3.js");
+
+    const built = await buildUsdcTransfer(
+      getConnection(),
+      new PublicKey(w.connectedAddress),
+      new PublicKey(toAddress),
+      uiAmount,
+    );
+    const signature = await signAndSendTransaction(built.transaction, { authToken: w.authToken });
+
+    const roomNodes = get().nodes[roomId] ?? [];
+    const lamport = nextLamport(maxLamport(roomNodes));
+    const node = createSignedNode(
+      {
+        roomId,
+        parentId,
+        author: identity,
+        type: "payment",
+        payload: {
+          cluster: SOLANA_CLUSTER,
+          mint: USDC_DEVNET_MINT,
+          asset: "USDC",
+          amount: built.amountBaseUnits.toString(),
+          decimals: USDC_DECIMALS,
+          from: w.connectedAddress,
+          to: toAddress,
+          signature,
+          status: "confirmed",
+          memo,
+        },
+        lamport,
+      },
+      secretKey,
+    );
+    await storage.append(node);
+    set((s) => ({ nodes: { ...s.nodes, [roomId]: [...(s.nodes[roomId] ?? []), node] } }));
+    return node;
   },
 }));
