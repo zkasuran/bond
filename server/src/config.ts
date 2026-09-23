@@ -9,6 +9,9 @@ function required(name: string, fallback: string): string {
   return value == null || value === "" ? fallback : value;
 }
 
+// Devnet USDC mint. This is the token the payment tools move on devnet.
+const DEVNET_USDC = "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU";
+
 export const config = {
   // Port the HTTP + WebSocket server binds to.
   port: Number(process.env.PORT ?? 8080),
@@ -23,6 +26,38 @@ export const config = {
   openaiBaseUrl: required("OPENAI_BASE_URL", "https://api.openai.com/v1"),
   openaiApiKey: process.env.OPENAI_API_KEY ?? "",
   openaiModel: required("OPENAI_MODEL", "gpt-4o-mini"),
+
+  // Agent runtime. The provider is chosen at request time, defaulting to this.
+  // "openai" reuses the OpenAI-compatible endpoint above, so the built-in
+  // agent works with no extra setup. "anthropic" needs ANTHROPIC_API_KEY.
+  aiProvider: required("AI_PROVIDER", "openai").toLowerCase(),
+  anthropicApiKey: process.env.ANTHROPIC_API_KEY ?? "",
+
+  // Optional model override for the agent loop. Empty falls back to a
+  // provider default (openai -> OPENAI_MODEL, anthropic -> a Claude default).
+  agentModel: process.env.AGENT_MODEL ?? "",
+
+  // Ceiling on tool-calling steps in one turn. The loop stops when it reaches
+  // this many steps even if the model would keep going.
+  agentMaxSteps: Number(process.env.AGENT_MAX_STEPS ?? 8),
+
+  // The agent self-custodies a server-held keypair, because a mobile wallet
+  // (MWA / Seed Vault) always prompts and cannot sign unattended. Accepts a
+  // base58 secret key or a JSON array of bytes. Empty means an ephemeral
+  // keypair is generated per process (fine for read-only demos, cannot hold
+  // funds across restarts).
+  agentSolanaSecret: process.env.AGENT_SOLANA_SECRET ?? "",
+
+  // Solana RPC. Devnet by default so the payment tools never touch mainnet
+  // funds.
+  solanaRpcUrl: required("SOLANA_RPC_URL", "https://api.devnet.solana.com"),
+
+  // The USDC mint the balance and transfer tools use on devnet.
+  usdcMint: required("USDC_MINT", DEVNET_USDC),
+
+  // Optional MCP skill server. When set, its tools are imported over
+  // StreamableHTTP and exposed to the agent under the mcp_ namespace.
+  mcpSkillUrl: process.env.MCP_SKILL_URL ?? "",
 };
 
 export type Config = typeof config;

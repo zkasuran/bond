@@ -5,6 +5,7 @@ import Fastify from "fastify";
 import fastifyStatic from "@fastify/static";
 import { config } from "./config.js";
 import { gatewayRoutes } from "./gateway.js";
+import { agentRoutes } from "./agent/route.js";
 import { mountSync } from "./sync.js";
 
 function bearerFrom(header?: string): string | null {
@@ -39,6 +40,7 @@ async function main(): Promise<void> {
   app.get("/health", async () => ({ ok: true }));
 
   await app.register(gatewayRoutes);
+  await app.register(agentRoutes);
 
   // Serve the web build as the same origin when it has been exported. Without
   // it the API still runs, the site just is not hosted here yet.

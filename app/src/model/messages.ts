@@ -107,6 +107,27 @@ export interface StatusPayload {
   note?: string;
 }
 
+/** An on-chain value transfer recorded in-thread: a tip, a skill purchase, a swap
+ *  receipt. Amounts are base units as a string to avoid float loss. */
+export interface PaymentPayload {
+  cluster: "devnet" | "mainnet-beta" | "testnet";
+  /** SPL mint address transferred (e.g. USDC or SKR). */
+  mint: string;
+  /** Display symbol for the asset, e.g. "USDC". */
+  asset: string;
+  /** Amount in base units (integer string; divide by 10**decimals for display). */
+  amount: string;
+  decimals: number;
+  /** Solana addresses of the payer and recipient. */
+  from: string;
+  to: string;
+  /** Transaction signature once settled; absent while proposed or pending. */
+  signature?: string;
+  status: "proposed" | "pending" | "confirmed" | "failed";
+  /** What the payment is for, e.g. a tip note or a skill id. */
+  memo?: string;
+}
+
 /** MessageType -> payload shape. The one place the mapping lives. */
 export interface PayloadMap {
   text: TextPayload;
@@ -117,6 +138,7 @@ export interface PayloadMap {
   card: CardPayload;
   handoff: HandoffPayload;
   status: StatusPayload;
+  payment: PaymentPayload;
 }
 
 /** A node narrowed to a single message type, so payload is precisely typed. */

@@ -13,7 +13,8 @@ export type MessageType =
   | "receipt"
   | "card"
   | "handoff"
-  | "status";
+  | "status"
+  | "payment";
 
 /** Why a branch exists, recorded on the child node that starts it. */
 export type ForkKind = "tool_fan" | "subagent" | "alternative" | "reply";
