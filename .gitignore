@@ -12,3 +12,8 @@ web-build/
 app/android/
 app/ios/
 expo-env.d.ts
+test-results/
+playwright-report/
+*.tsbuildinfo
+
+*.apk

@@ -42,6 +42,7 @@ export default function RoomsScreen() {
           <Txt variant="caption" muted>Humans and agents, together</Txt>
         </View>
         <Pressable
+          testID="new-room-toggle"
           onPress={() => setCreating((v) => !v)}
           style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: c.brand, alignItems: "center", justifyContent: "center" }}
         >

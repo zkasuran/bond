@@ -78,6 +78,7 @@ npx tsc --noEmit     # types
 npx jest             # 34 unit tests: signing + falsification, threading, bridge, storage
 npx expo lint        # 0 errors
 npx expo export -p web   # bundles all 13 routes
+npx playwright test  # 2 end-to-end flows: create a room, sign a message, verify the badge
 ```
 
 ## Build for Android
@@ -86,6 +87,12 @@ npx expo export -p web   # bundles all 13 routes
 --profile production` produces the AAB in the cloud (no local Android SDK needed). See
 `docs/SUBMIT-PACKET.md` for the full Google Play and RevenueCat setup and the closed-test
 runway.
+
+A signed release APK has already been built and lives at `Bond-1.0.0.apk` (115 MB,
+universal across all four ABIs, JS bundled with Hermes, package `com.zkasuran.bond`, target
+SDK 36). It is signed with the debug keystore so it sideloads on any device or emulator for
+testing. A Play upload needs an AAB signed with a release keystore, which is what the EAS
+production profile produces.
 
 ## AI disclosure
 

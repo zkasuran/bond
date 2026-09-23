@@ -9,7 +9,10 @@ a human can do.
 - App: Expo SDK 57, React Native, TypeScript, Expo Router. Android-first plus a web build.
 - `tsc --noEmit` clean, `expo lint` 0 errors, `jest` 34 tests passing (signing with a
   falsification test, threading, the bridge adapters, storage), `expo export -p web`
-  bundles all 13 routes.
+  bundles all 13 routes, and `playwright test` passes 2 end-to-end flows on the web build.
+- A signed release APK is built: `Bond-1.0.0.apk` (115 MB, universal across all four ABIs,
+  Hermes, JS bundled, package com.zkasuran.bond, target SDK 36). It is debug-keystore signed
+  for sideload and device testing. A Play upload uses an EAS-built AAB with a release key.
 - Backend proven end to end: `/health` ok, bearer auth enforced (401 without, 200 with),
   a real chat completion round-tripped through the house gateway.
 - Screens: onboarding, Rooms, Room view (branching threads, collapse, @mention routing,

@@ -105,6 +105,7 @@ export function Composer({
           }}
         />
         <Pressable
+          testID="composer-send"
           onPress={send}
           disabled={!text.trim()}
           style={{
