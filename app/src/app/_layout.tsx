@@ -54,7 +54,6 @@ export default function RootLayout() {
               <Stack.Screen name="protection" options={{ presentation: "modal" }} />
               <Stack.Screen name="market/index" />
               <Stack.Screen name="market/[id]" />
-              <Stack.Screen name="paywall" options={{ presentation: "modal" }} />
             </Stack>
           </LockGate>
         </View>

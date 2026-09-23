@@ -2,7 +2,7 @@
 // the did:key held on this device (or a lower-assurance web session), shown with its
 // signature state so it reads as verifiable at a glance. Plan status comes from the "pro"
 // entitlement, never a product id, so pricing can change without touching this screen.
-import { type ComponentProps, useCallback, useEffect, useState } from "react";
+import { type ComponentProps } from "react";
 import { ScrollView, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -14,9 +14,6 @@ import { Avatar } from "@/components/ui/Avatar";
 import { VerifiedBadge, Pill } from "@/components/ui/Badge";
 import { useTokens } from "@/theme";
 import { useBond } from "@/state/store";
-import { useEntitlements } from "@/paywall/useEntitlements";
-import { presentPaywall, restore } from "@/paywall/revenuecat";
-import { FREE_MONTHLY_RUNS } from "@/paywall/plans";
 
 type IoniconName = ComponentProps<typeof Ionicons>["name"];
 
@@ -25,45 +22,6 @@ export default function YouScreen() {
   const router = useRouter();
   const identity = useBond((s) => s.identity);
   const assurance = useBond((s) => s.assurance);
-  const monthlyRuns = useBond((s) => s.monthlyRuns);
-
-  const isPro = useEntitlements((s) => s.isPro);
-  const entitlementsReady = useEntitlements((s) => s.ready);
-  const initEntitlements = useEntitlements((s) => s.init);
-  const refreshEntitlements = useEntitlements((s) => s.refresh);
-
-  const [upgrading, setUpgrading] = useState(false);
-  const [restoring, setRestoring] = useState(false);
-
-  // Nothing else configures RevenueCat, so settle the entitlement here. On web or in
-  // Expo Go every underlying call is a no-op that resolves to the free tier, so this is
-  // safe to run on mount.
-  useEffect(() => {
-    if (!entitlementsReady) void initEntitlements();
-  }, [entitlementsReady, initEntitlements]);
-
-  const onUpgrade = useCallback(async () => {
-    setUpgrading(true);
-    try {
-      const outcome = await presentPaywall();
-      // On web or Expo Go the native paywall cannot run, so fall back to the branded
-      // in-app paywall that still shows the full comparison.
-      if (outcome === "unavailable") router.push("/paywall");
-    } finally {
-      await refreshEntitlements();
-      setUpgrading(false);
-    }
-  }, [refreshEntitlements, router]);
-
-  const onRestore = useCallback(async () => {
-    setRestoring(true);
-    try {
-      await restore();
-    } finally {
-      await refreshEntitlements();
-      setRestoring(false);
-    }
-  }, [refreshEntitlements]);
 
   if (!identity) {
     return (
@@ -85,10 +43,6 @@ export default function YouScreen() {
     ? "Your signing key is held in this device's secure hardware and never leaves it."
     : "This is a web identity, so it is lower assurance. Keys live in browser storage with no secure enclave.";
 
-  const runPct = Math.min(1, monthlyRuns / FREE_MONTHLY_RUNS);
-  const runsLeft = Math.max(0, FREE_MONTHLY_RUNS - monthlyRuns);
-  const meterColor = runPct >= 1 ? c.tampered : runPct >= 0.8 ? c.warning : c.brand;
-
   return (
     <Screen edges={["top"]}>
       <ScrollView
@@ -98,7 +52,7 @@ export default function YouScreen() {
         <View style={{ gap: space[1] }}>
           <Txt variant="display">You</Txt>
           <Txt variant="body" muted>
-            Your identity, plan and settings.
+            Your identity, wallet and settings.
           </Txt>
         </View>
 
@@ -201,116 +155,6 @@ export default function YouScreen() {
           </Card>
         </View>
 
-        {/* Bond Pro */}
-        <View>
-          <SectionLabel>Bond Pro</SectionLabel>
-          <Card style={{ gap: space[4] }}>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: space[3] }}>
-              <View
-                style={{
-                  width: 44,
-                  height: 44,
-                  borderRadius: radius.md,
-                  backgroundColor: isPro ? c.brand : c.brandSoft,
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <Ionicons
-                  name={isPro ? "star" : "star-outline"}
-                  size={22}
-                  color={isPro ? "#FFFFFF" : c.brand}
-                />
-              </View>
-              <View style={{ flex: 1, gap: 2 }}>
-                <Txt variant="heading">{isPro ? "Bond Pro" : "Free plan"}</Txt>
-                <Txt variant="caption" muted>
-                  {isPro
-                    ? "Your whole team of agents in one verified space."
-                    : "Upgrade to unlock your whole team of agents."}
-                </Txt>
-              </View>
-              {isPro ? <Pill label="Active" tone="brand" /> : null}
-            </View>
-
-            {isPro ? (
-              <View style={{ gap: space[1] }}>
-                <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-                  <Txt variant="callout">Agent runs this month</Txt>
-                  <Txt variant="callout" color={c.brand}>
-                    Unlimited
-                  </Txt>
-                </View>
-                <Txt variant="caption" muted>
-                  {monthlyRuns} runs used this month.
-                </Txt>
-              </View>
-            ) : (
-              <View style={{ gap: space[2] }}>
-                <View
-                  style={{
-                    flexDirection: "row",
-                    justifyContent: "space-between",
-                    alignItems: "baseline",
-                  }}
-                >
-                  <Txt variant="callout">Agent runs this month</Txt>
-                  <Txt variant="callout" color={meterColor}>
-                    {monthlyRuns} / {FREE_MONTHLY_RUNS}
-                  </Txt>
-                </View>
-                <View
-                  style={{
-                    height: 8,
-                    borderRadius: radius.pill,
-                    backgroundColor: c.surfaceSunken,
-                    overflow: "hidden",
-                    flexDirection: "row",
-                  }}
-                >
-                  <View style={{ flex: runPct, backgroundColor: meterColor }} />
-                  <View style={{ flex: 1 - runPct }} />
-                </View>
-                <Txt variant="caption" muted>
-                  {runsLeft > 0
-                    ? `${runsLeft} runs left before you reach the free cap.`
-                    : "You have reached the free cap. Upgrade for unlimited runs."}
-                </Txt>
-              </View>
-            )}
-
-            {isPro ? (
-              <View style={{ gap: space[2] }}>
-                <Txt variant="caption" muted>
-                  Manage or cancel anytime from your app store account.
-                </Txt>
-                <Button
-                  title="Restore purchases"
-                  variant="ghost"
-                  loading={restoring}
-                  onPress={onRestore}
-                />
-              </View>
-            ) : (
-              <View style={{ gap: space[2] }}>
-                <Button
-                  title="Upgrade to Pro"
-                  variant="primary"
-                  loading={upgrading}
-                  onPress={onUpgrade}
-                  left={<Ionicons name="sparkles" size={16} color="#FFFFFF" />}
-                />
-                <Button
-                  title="Restore purchases"
-                  variant="ghost"
-                  loading={restoring}
-                  onPress={onRestore}
-                />
-              </View>
-            )}
-          </Card>
-        </View>
-
         {/* Settings */}
         <View>
           <SectionLabel>Settings</SectionLabel>
@@ -322,12 +166,6 @@ export default function YouScreen() {
               label="Key storage"
               value={secure ? "Device secure hardware" : "Web session"}
               valueColor={secure ? c.verified : c.warning}
-            />
-            <SettingRow
-              icon="star-outline"
-              label="Plan"
-              value={isPro ? "Bond Pro" : "Free"}
-              valueColor={isPro ? c.brand : undefined}
               last
             />
           </Card>
