@@ -156,6 +156,45 @@ export default function YouScreen() {
           </Card>
         </View>
 
+        {/* Wallet and security */}
+        <View>
+          <SectionLabel>Wallet and security</SectionLabel>
+          <Card style={{ gap: space[3] }}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: space[3] }}>
+              <View
+                style={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: radius.md,
+                  backgroundColor: c.brandSoft,
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Ionicons name="wallet-outline" size={22} color={c.brand} />
+              </View>
+              <View style={{ flex: 1, gap: 2 }}>
+                <Txt variant="heading">Solana wallet</Txt>
+                <Txt variant="caption" muted>
+                  Your identity key is also your Solana address. Connect a Seeker wallet to send USDC or swap in a room.
+                </Txt>
+              </View>
+            </View>
+            <Button
+              title="Open wallet"
+              variant="primary"
+              onPress={() => router.push("/wallet")}
+              left={<Ionicons name="wallet" size={16} color="#FFFFFF" />}
+            />
+            <Button
+              title="Protection"
+              variant="ghost"
+              onPress={() => router.push("/protection")}
+              left={<Ionicons name="shield-checkmark-outline" size={16} color={c.brand} />}
+            />
+          </Card>
+        </View>
+
         {/* Bond Pro */}
         <View>
           <SectionLabel>Bond Pro</SectionLabel>
