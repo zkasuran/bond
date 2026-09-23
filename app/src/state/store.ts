@@ -4,6 +4,7 @@
 import { create } from "zustand";
 import { ulid } from "ulidx";
 import type { BondNode, Identity } from "../model/node";
+import type { PayloadMap } from "../model/messages";
 import type {
   AdapterKind,
   GatewayAdapter,
@@ -311,6 +312,18 @@ export const useBond = create<BondState>((set, get) => ({
         },
       }));
 
+    // Agent tool activity (balance, USDC transfer, swap, skills) lands as tool_call /
+    // tool_result nodes nested under the reply, so the room shows what the agent did.
+    const appendToolNode = async <K extends "tool_call" | "tool_result">(
+      type: K,
+      payload: PayloadMap[K],
+    ) => {
+      const lam = nextLamport(maxLamport(get().nodes[roomId] ?? []));
+      const toolNode = makeNode<K>({ roomId, parentId: reply.id, author, type, payload, lamport: lam });
+      await storage.append(toolNode);
+      set((s) => ({ nodes: { ...s.nodes, [roomId]: [...(s.nodes[roomId] ?? []), toolNode] } }));
+    };
+
     let text = "";
     if (!bridge || bridge.status === "error") {
       text = "This agent's bridge is not connected. Open Agents to connect one.";
@@ -325,6 +338,18 @@ export const useBond = create<BondState>((set, get) => ({
           if (ev.kind === "text") {
             text += ev.delta;
             updateBody(text);
+          } else if (ev.kind === "tool_call") {
+            await appendToolNode("tool_call", {
+              callId: ev.id,
+              name: ev.name,
+              arguments: (ev.args ?? {}) as Record<string, unknown>,
+            });
+          } else if (ev.kind === "tool_result") {
+            const content =
+              typeof ev.result === "string"
+                ? [{ type: "text" as const, text: ev.result }]
+                : [{ type: "text" as const, text: JSON.stringify(ev.result) }];
+            await appendToolNode("tool_result", { callId: ev.id, content, isError: ev.isError });
           } else if (ev.kind === "error") {
             text += (text ? "\n\n" : "") + `[error] ${ev.message}`;
             updateBody(text);
