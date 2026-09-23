@@ -61,6 +61,25 @@ export function didToPublicKey(did: string): Uint8Array {
   return bytes.slice(2);
 }
 
+/** 32-byte ed25519 public key -> base58 Solana address (the bare pubkey, no multicodec prefix). */
+export function publicKeyToSolanaAddress(publicKey: Uint8Array): string {
+  return base58.encode(publicKey);
+}
+
+/** base58 Solana address -> 32-byte ed25519 public key. Throws if it is not 32 bytes. */
+export function solanaAddressToPublicKey(address: string): Uint8Array {
+  const bytes = base58.decode(address);
+  if (bytes.length !== 32) {
+    throw new Error("not a 32-byte ed25519 Solana address");
+  }
+  return bytes;
+}
+
+/** The Solana address of a did:key ed25519 identity. Same key, base58 of the bare pubkey. */
+export function didToSolanaAddress(did: string): string {
+  return publicKeyToSolanaAddress(didToPublicKey(did));
+}
+
 export function signBytes(message: Uint8Array, secretKey: Uint8Array): Uint8Array {
   return ed.sign(message, secretKey);
 }
