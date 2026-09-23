@@ -12,6 +12,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { useBond } from "@/state/store";
 import { useTokens } from "@/theme";
+import { LockGate } from "@/protection/LockGate";
 
 void SplashScreen.preventAutoHideAsync();
 
@@ -39,17 +40,21 @@ export default function RootLayout() {
       <SafeAreaProvider>
         <StatusBar style={scheme === "dark" ? "light" : "dark"} />
         <View style={{ flex: 1, backgroundColor: c.bg }}>
-          <Stack
-            screenOptions={{
-              headerShown: false,
-              contentStyle: { backgroundColor: c.bg },
-            }}
-          >
-            <Stack.Screen name="(tabs)" />
-            <Stack.Screen name="onboarding" options={{ animation: "fade" }} />
-            <Stack.Screen name="bridge/connect" options={{ presentation: "modal" }} />
-            <Stack.Screen name="paywall" options={{ presentation: "modal" }} />
-          </Stack>
+          <LockGate>
+            <Stack
+              screenOptions={{
+                headerShown: false,
+                contentStyle: { backgroundColor: c.bg },
+              }}
+            >
+              <Stack.Screen name="(tabs)" />
+              <Stack.Screen name="onboarding" options={{ animation: "fade" }} />
+              <Stack.Screen name="bridge/connect" options={{ presentation: "modal" }} />
+              <Stack.Screen name="wallet" options={{ presentation: "modal" }} />
+              <Stack.Screen name="protection" options={{ presentation: "modal" }} />
+              <Stack.Screen name="paywall" options={{ presentation: "modal" }} />
+            </Stack>
+          </LockGate>
         </View>
       </SafeAreaProvider>
     </GestureHandlerRootView>

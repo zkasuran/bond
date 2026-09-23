@@ -18,7 +18,17 @@ function timeOf(iso: string): string {
 function bodyText(node: BondNode): string {
   if (isType(node, "text")) return node.payload.body;
   if (isType(node, "tool_call")) return `called ${node.payload.name}`;
-  if (isType(node, "tool_result")) return "tool result";
+  if (isType(node, "tool_result")) {
+    const first = node.payload.content.find((part) => part.type === "text");
+    if (first && first.type === "text") return first.text;
+    return node.payload.isError ? "tool error" : "tool result";
+  }
+  if (isType(node, "payment")) {
+    const p = node.payload;
+    const amount = Number(p.amount) / 10 ** p.decimals;
+    const verb = p.status === "confirmed" ? "sent" : p.status;
+    return `${verb} ${amount} ${p.asset}${p.memo ? ` (${p.memo})` : ""}`;
+  }
   return `[${node.type}]`;
 }
 
