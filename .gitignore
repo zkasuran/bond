@@ -17,3 +17,9 @@ playwright-report/
 *.tsbuildinfo
 
 *.apk
+
+# publish + submission artifacts, never shipped to the public repo
+CONTENT-*.html
+DEMO-*.mp4
+/upload-*/
+/submit/
