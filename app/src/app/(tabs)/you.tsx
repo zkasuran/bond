@@ -192,6 +192,12 @@ export default function YouScreen() {
               onPress={() => router.push("/protection")}
               left={<Ionicons name="shield-checkmark-outline" size={16} color={c.brand} />}
             />
+            <Button
+              title="Browse skills"
+              variant="ghost"
+              onPress={() => router.push("/market")}
+              left={<Ionicons name="grid-outline" size={16} color={c.brand} />}
+            />
           </Card>
         </View>
 
