@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { KeyboardAvoidingView, Platform, ScrollView, View } from "react-native";
+import { Keyboard, KeyboardAvoidingView, Platform, ScrollView, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import Animated from "react-native-reanimated";
@@ -208,7 +208,12 @@ export default function RoomScreen() {
           replyingTo={replyTo}
           onCancelReply={() => setReplyTo(null)}
           onSend={send}
-          onRequestPay={() => setPayOpen(true)}
+          onRequestPay={() => {
+            // Close the message keyboard first, so it does not come back over the receipt
+            // card when the pay sheet closes.
+            Keyboard.dismiss();
+            setPayOpen(true);
+          }}
         />
       </KeyboardAvoidingView>
 
