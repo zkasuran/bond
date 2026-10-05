@@ -17,8 +17,8 @@
 </p>
 
 <p align="center">
-  <img alt="app tests" src="https://img.shields.io/badge/app%20tests-181%20passing-14F195?style=flat-square&labelColor=0B0E11">
-  <img alt="server tests" src="https://img.shields.io/badge/server%20tests-28%20passing-14F195?style=flat-square&labelColor=0B0E11">
+  <img alt="app tests" src="https://img.shields.io/badge/app%20tests-187%20passing-14F195?style=flat-square&labelColor=0B0E11">
+  <img alt="server tests" src="https://img.shields.io/badge/server%20tests-29%20passing-14F195?style=flat-square&labelColor=0B0E11">
   <img alt="release gate" src="https://img.shields.io/badge/verify.sh-ALL%20GREEN-14F195?style=flat-square&labelColor=0B0E11">
   <img alt="chain" src="https://img.shields.io/badge/Solana-devnet-9945FF?style=flat-square&labelColor=0B0E11">
   <img alt="stack" src="https://img.shields.io/badge/Expo-SDK%2057-F2F5F9?style=flat-square&labelColor=0B0E11">
@@ -44,14 +44,10 @@ Built for the CLOCK IN Solana Mobile hackathon.
 </p>
 <p align="center"><sub>Rendered from the web build, which runs the same React Native code as the APK.</sub></p>
 
-<details>
-<summary><b>On a real device:</b> the v1.1.0 release APK on Android 15, against the live server</summary>
-<br>
 <p align="center">
-  <img alt="Bond v1.1.0 on Android: an agent answering with a devnet tool call, the skills market, a purchased skill with its on-chain proof, and a signed USDC payment receipt" src="docs/assets/screens.png" width="100%">
+  <img alt="Bond 1.2.0 on Android: the agent answering a Jupiter quote with collapsed tool cards, a skill listing priced in USDC and SKR with the 80/20 split, the agent using the bought skill to explain the very transaction that bought it, and a confirmed USDC payment receipt" src="docs/assets/screens.png" width="100%">
 </p>
-<p align="center"><sub>Real devnet transactions throughout. These captures predate the current visual design; the flows are the same.</sub></p>
-</details>
+<p align="center"><sub>On a real device: the signed 1.2.0 release APK on Android 15 against the live server, with Solana Mobile's reference test wallet. Every transaction shown is real, on devnet.</sub></p>
 
 ## Try it in 60 seconds
 

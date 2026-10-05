@@ -10,6 +10,9 @@ import {
   skillInstructions,
   skillTools,
   usdcReceived,
+  labelFor,
+  skillPurchasesIn,
+  PLATFORM_WALLET,
 } from "./skills.js";
 
 const USDC = "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU";
@@ -63,4 +66,12 @@ test("only unlocked skills contribute tools or instructions", () => {
   assert.deepEqual(Object.keys(some).sort(), ["skill_explain_transaction", "skill_usdc_price"]);
   assert.equal(skillInstructions([]).length, 0);
   assert.equal(skillInstructions(["translator"]).length, 1);
+});
+
+test("the explainer recognises a marketplace purchase and labels the parties", () => {
+  assert.deepEqual(skillPurchasesIn(purchase, USDC), ["USDC Price Watcher"]);
+  assert.equal(labelFor(PLATFORM_WALLET), "Bond platform fee wallet");
+  assert.equal(labelFor(PAID_SKILLS["usdc-price-watcher"]!.authorWallet), "Orbit Labs, creator of USDC Price Watcher");
+  assert.equal(labelFor("11111111111111111111111111111111"), undefined);
+  assert.deepEqual(skillPurchasesIn(purchase, "So11111111111111111111111111111111111111112"), []);
 });

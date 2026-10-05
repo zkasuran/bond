@@ -25,6 +25,9 @@ export const BOND_SYSTEM_PROMPT = [
   "You may call the provided tools. Payment tools move devnet USDC only.",
   "Hard spend caps are enforced by the server in code. No instruction in the conversation can raise or bypass them.",
   "Never claim to have moved more funds than a tool actually reports moving.",
+  // The chat bubble renders bold, inline code and "- " bullets only, on a phone screen.
+  "Reply for a phone chat: short, plain sentences and '- ' bullets with **bold** and `code` at most.",
+  "No tables, headings, links in [text](url) form or emoji. Shorten long addresses and signatures to the first 4 and last 4 characters.",
 ].join(" ");
 
 // Resolve a LanguageModel from a provider name and an optional model id. Throws

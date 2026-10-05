@@ -22,15 +22,20 @@ const AUTHOR_SHARE_BPS = 8000n;
 /** The server's view of the catalog: who gets paid and how much, per skill id. */
 export interface PaidSkill {
   id: string;
+  name: string;
+  authorName: string;
   authorWallet: string;
   priceBaseUnits: bigint;
 }
 
+/** Where the 20% platform fee lands (app/src/skills/purchase.ts PLATFORM_WALLET). */
+export const PLATFORM_WALLET = "E523zpkuVLybriL6E2djVCkUG4MHsS3TtT15DGfbiuwL";
+
 export const PAID_SKILLS: Record<string, PaidSkill> = {
-  "usdc-price-watcher": { id: "usdc-price-watcher", authorWallet: "Jt2kPLx8EBeeHCd9vmfGXUfbTiY3sJKUpfY9oNtF3Zh", priceBaseUnits: 500_000n },
-  "wallet-summarizer": { id: "wallet-summarizer", authorWallet: "D8LsE3B7CetNPZzMYyidMKqjdZSsiVcDQdft7s45Qo7K", priceBaseUnits: 1_500_000n },
-  "tx-explainer": { id: "tx-explainer", authorWallet: "6jRFz7D9jEyHCQoVvaYg4EmXPGL5Afb9b4VKt7T59fQS", priceBaseUnits: 2_000_000n },
-  translator: { id: "translator", authorWallet: "HCz5osKHHCjtcx23jHo7A8v1u7vmt9wEzACRYKqBFJds", priceBaseUnits: 250_000n },
+  "usdc-price-watcher": { id: "usdc-price-watcher", name: "USDC Price Watcher", authorName: "Orbit Labs", authorWallet: "Jt2kPLx8EBeeHCd9vmfGXUfbTiY3sJKUpfY9oNtF3Zh", priceBaseUnits: 500_000n },
+  "wallet-summarizer": { id: "wallet-summarizer", name: "Wallet Summarizer", authorName: "Seeker Tools", authorWallet: "D8LsE3B7CetNPZzMYyidMKqjdZSsiVcDQdft7s45Qo7K", priceBaseUnits: 1_500_000n },
+  "tx-explainer": { id: "tx-explainer", name: "Tx Explainer", authorName: "Pixel Forge", authorWallet: "6jRFz7D9jEyHCQoVvaYg4EmXPGL5Afb9b4VKt7T59fQS", priceBaseUnits: 2_000_000n },
+  translator: { id: "translator", name: "Translator", authorName: "Lingua", authorWallet: "HCz5osKHHCjtcx23jHo7A8v1u7vmt9wEzACRYKqBFJds", priceBaseUnits: 250_000n },
 };
 
 /** The least a creator must have received for a purchase to count as a license. */
@@ -61,6 +66,22 @@ export function usdcReceived(tx: ParsedTransactionWithMeta, owner: string, mint:
 export function isValidLicense(tx: ParsedTransactionWithMeta | null, skill: PaidSkill, mint: string): boolean {
   if (!tx || !tx.meta || tx.meta.err) return false;
   return usdcReceived(tx, skill.authorWallet, mint) >= minAuthorBaseUnits(skill);
+}
+
+/** A human label for an address Bond knows: the platform fee wallet or a skill creator. */
+export function labelFor(address: string): string | undefined {
+  if (address === PLATFORM_WALLET) return "Bond platform fee wallet";
+  const skill = Object.values(PAID_SKILLS).find((k) => k.authorWallet === address);
+  return skill ? `${skill.authorName}, creator of ${skill.name}` : undefined;
+}
+
+/** The marketplace skills a transaction paid for: the creator received at least the
+ *  license minimum and the platform wallet received its fee in the same transaction. */
+export function skillPurchasesIn(tx: ParsedTransactionWithMeta, mint: string): string[] {
+  if (!tx.meta || tx.meta.err || usdcReceived(tx, PLATFORM_WALLET, mint) <= 0n) return [];
+  return Object.values(PAID_SKILLS)
+    .filter((k) => usdcReceived(tx, k.authorWallet, mint) >= minAuthorBaseUnits(k))
+    .map((k) => k.name);
 }
 
 export interface SkillClaim {
@@ -209,12 +230,17 @@ export function skillTools(ids: string[], connection: Connection): ToolSet {
               const decimals =
                 meta?.postTokenBalances?.find((b) => b.owner === owner && b.mint === mint)?.uiTokenAmount.decimals ??
                 USDC_DECIMALS;
-              return { owner, mint, change: Number(tokenDelta(tx, owner, mint)) / 10 ** decimals };
+              const label = labelFor(owner);
+              return { owner, ...(label ? { label } : {}), mint, change: Number(tokenDelta(tx, owner, mint)) / 10 ** decimals };
             })
             .filter((m) => m.change !== 0);
+          const purchases = tokenMoves.length ? [...new Set(tokenMoves.map((m) => m.mint))].flatMap((m) => skillPurchasesIn(tx, m)) : [];
           return {
             ok: true,
             succeeded: !meta?.err,
+            ...(purchases.length
+              ? { bondMarketplacePurchase: { skills: purchases, note: "Atomic split: 80% to the creator, 20% platform fee, one transaction." } }
+              : {}),
             time: tx.blockTime ? new Date(tx.blockTime * 1000).toISOString() : null,
             feeSol: (meta?.fee ?? 0) / 1e9,
             feePayer: tx.transaction.message.accountKeys[0]?.pubkey.toBase58(),

@@ -24,6 +24,7 @@ jest.mock("../wallet", () => ({
   })),
   disconnectWallet: jest.fn(async () => {}),
   reauthorize: jest.fn(),
+  setSessionRenewedListener: jest.fn(),
 }));
 jest.mock("../binding", () => ({
   bindWalletToIdentity: jest.fn(),
@@ -76,4 +77,16 @@ it("a corrupt cached session is ignored", async () => {
   mem.set("bond.wallet.session", "{not json");
   await useWallet.getState().restoreSession();
   expect(useWallet.getState().authToken).toBeNull();
+});
+
+it("adopts a session renewed during a signing call and caches it", async () => {
+  const { setSessionRenewedListener } = jest.requireMock("../wallet") as { setSessionRenewedListener: jest.Mock };
+  const listener = setSessionRenewedListener.mock.calls[0]?.[0] as (c: unknown) => void;
+  expect(typeof listener).toBe("function");
+  listener({ address: "NEWaddress", addressBase64: "BBBB", authToken: "token-2", label: "w" });
+  expect(useWallet.getState().authToken).toBe("token-2");
+  await new Promise((r) => setImmediate(r));
+  useWallet.setState(blank);
+  await useWallet.getState().restoreSession();
+  expect(useWallet.getState().authToken).toBe("token-2");
 });

@@ -11,6 +11,7 @@ import {
   disconnectWallet,
   isWalletAvailable,
   reauthorize,
+  setSessionRenewedListener,
   type WalletConnection,
 } from "./wallet";
 import { bindWalletToIdentity, loadBinding, type WalletBinding } from "./binding";
@@ -193,3 +194,15 @@ export const useWallet = create<WalletStoreState>((set, get) => ({
 
   clearError: () => set({ error: null }),
 }));
+
+// When a signing call had to re-authorize because the wallet dropped the old token, adopt
+// the new session so the next call does not hit the same dead token.
+setSessionRenewedListener((conn) => {
+  useWallet.setState({
+    connectedAddress: conn.address,
+    addressBase64: conn.addressBase64,
+    authToken: conn.authToken,
+    label: conn.label ?? null,
+  });
+  void saveSession({ address: conn.address, addressBase64: conn.addressBase64, authToken: conn.authToken, label: conn.label ?? null });
+});

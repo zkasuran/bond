@@ -61,6 +61,31 @@ function toConnection(result: AuthorizationResultLike): WalletConnection {
   };
 }
 
+type MwaWalletLike = {
+  authorize: (p: { chain: string; identity: typeof APP_IDENTITY }) => Promise<unknown>;
+  reauthorize: (p: { auth_token: string; identity: typeof APP_IDENTITY }) => Promise<unknown>;
+};
+
+// Called whenever a privileged call had to fall back to a fresh authorize, so the store can
+// replace the dead token it holds. Set by solana/store.ts; a no-op until then.
+let onSessionRenewed: (conn: WalletConnection) => void = () => {};
+export function setSessionRenewedListener(fn: (conn: WalletConnection) => void): void {
+  onSessionRenewed = fn;
+}
+
+/** Inside one MWA session: replay the cached token, and when the wallet has revoked or
+ *  expired it (MWA error -1, "authorization request failed"), ask for a fresh authorization
+ *  instead of failing the user's action. The wallet shows its approve sheet once. */
+export async function reauthorizeOrAuthorize(wallet: MwaWalletLike, authToken: string): Promise<WalletConnection> {
+  try {
+    return toConnection((await wallet.reauthorize({ auth_token: authToken, identity: APP_IDENTITY })) as AuthorizationResultLike);
+  } catch {
+    const conn = toConnection((await wallet.authorize({ chain: MWA_CHAIN, identity: APP_IDENTITY })) as AuthorizationResultLike);
+    onSessionRenewed(conn);
+    return conn;
+  }
+}
+
 /** Authorize Bond with the wallet and return the connected account plus an auth token.
  *  The token is cached by the caller (store.ts) and replayed via reauthorize so the user
  *  is not asked to pick an account on every action. */
@@ -103,9 +128,9 @@ export async function signMessage(
   assertAndroid();
   const transact = await loadTransact();
   return transact(async (wallet) => {
-    await wallet.reauthorize({ auth_token: ctx.authToken, identity: APP_IDENTITY });
+    const conn = await reauthorizeOrAuthorize(wallet as unknown as MwaWalletLike, ctx.authToken);
     const signed = await wallet.signMessages({
-      addresses: [ctx.addressBase64],
+      addresses: [conn.addressBase64],
       payloads: [message],
     });
     return signed[0];
@@ -122,7 +147,7 @@ export async function signAndSendTransaction(
   assertAndroid();
   const transact = await loadTransact();
   return transact(async (wallet) => {
-    await wallet.reauthorize({ auth_token: ctx.authToken, identity: APP_IDENTITY });
+    await reauthorizeOrAuthorize(wallet as unknown as MwaWalletLike, ctx.authToken);
     const signatures = await wallet.signAndSendTransactions({
       transactions: [tx],
       minContextSlot: ctx.minContextSlot,
