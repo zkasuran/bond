@@ -140,9 +140,9 @@ Everything runs on devnet with no real funds. Anything that touches mainnet is a
 | Agent runtime and tools | 🟢 Real tool-calling on MiniMax (OpenAI-compatible API), streamed into the thread |
 | Jupiter swap quote | 🔵 Real live mainnet quote, read only, no funds move |
 | SKR price and holder balance | 🔵 Real reads off Solana mainnet, nothing signed, no SKR moved |
-| Jupiter swap execution | 🟡 Gated behind an explicit confirm and real funds, operator only |
-| SKR transfers, swaps, staking | 🟡 Out of scope, mainnet and real funds, operator only |
-| dApp Store publish | 🟡 Pending, done post-win to claim. The APK is already signed with the release key; publishing needs mainnet SOL |
+| Jupiter swap execution | 🟡 Next, with the mainnet launch. The quote is live today; the agent returns an unsigned swap and never signs it, so signing in your own wallet comes with mainnet |
+| SKR transfers, swaps, staking | 🟡 Next, with the mainnet launch. Out of scope for the hackathon build; the SKR price and holder discount are live today |
+| dApp Store publish | 🟡 Ships after judging. The APK is already signed with the release key |
 
 🟢 real on devnet &nbsp;·&nbsp; 🔵 mainnet, read only &nbsp;·&nbsp; 🟡 gated or pending
 
@@ -253,7 +253,7 @@ What the hardening covers, with the file that holds each defence listed in [`SEC
 - [x] Read-only SKR touchpoint for the Solana Mobile Stack
 - [x] Hardening gate, threat model, licensing
 - [x] One brand and motion system across the app, the website and the docs
-- [ ] dApp Store publish (post-win, needs a release keystore and mainnet SOL)
+- [ ] dApp Store publish (after judging; the APK is already release-signed)
 - [ ] Jupiter swap execution and SKR writes (mainnet, real funds, operator-gated)
 
 ## Licence

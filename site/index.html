@@ -361,7 +361,7 @@
       <button type="button" role="tab" aria-selected="true" data-filter="all">All <span>12</span></button>
       <button type="button" role="tab" aria-selected="false" data-filter="real">Real on devnet <span>7</span></button>
       <button type="button" role="tab" aria-selected="false" data-filter="read">Mainnet read only <span>2</span></button>
-      <button type="button" role="tab" aria-selected="false" data-filter="gated">Gated or pending <span>3</span></button>
+      <button type="button" role="tab" aria-selected="false" data-filter="gated">Next, with mainnet <span>3</span></button>
     </div>
     <ul class="caps">
       <li data-kind="real"><i></i><b><code>did:key</code> identity, signing, verification</b><span>Real, on device, verified on read</span></li>
@@ -373,9 +373,9 @@
       <li data-kind="real"><i></i><b>Agent runtime and tools</b><span>Real tool-calling on MiniMax (OpenAI-compatible), streamed into the thread</span></li>
       <li data-kind="read"><i></i><b>Jupiter swap quote</b><span>Real live mainnet quote, read only, no funds move</span></li>
       <li data-kind="read"><i></i><b>SKR price and holder balance</b><span>Real reads off Solana mainnet, nothing signed, no SKR moved</span></li>
-      <li data-kind="gated"><i></i><b>Jupiter swap execution</b><span>Gated behind an explicit confirm and real funds, operator only</span></li>
-      <li data-kind="gated"><i></i><b>SKR transfers, swaps, staking</b><span>Out of scope, mainnet and real funds, operator only</span></li>
-      <li data-kind="gated"><i></i><b>dApp Store publish</b><span>Pending. The APK is already signed with the release key; publishing needs mainnet SOL</span></li>
+      <li data-kind="gated"><i></i><b>Jupiter swap execution</b><span>Next, with mainnet. The quote is live today; the agent returns an unsigned swap and never signs it</span></li>
+      <li data-kind="gated"><i></i><b>SKR transfers, swaps, staking</b><span>Next, with mainnet. The SKR price and holder discount are live today</span></li>
+      <li data-kind="gated"><i></i><b>dApp Store publish</b><span>Ships after judging. The APK is already signed with the release key</span></li>
     </ul>
   </div>
 </section>
