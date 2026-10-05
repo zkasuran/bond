@@ -29,9 +29,15 @@ export default function RoomsScreen() {
 
   const preview = (roomId: string): string => {
     const ns = nodes[roomId] ?? [];
-    const last = ns[ns.length - 1];
-    if (!last) return "No messages yet";
-    return isType(last, "text") ? last.payload.body || "…" : `[${last.type}]`;
+    if (ns.length === 0) return "No messages yet";
+    // Show the latest thing a person would read: a text body or a payment, not the
+    // agent's tool plumbing that follows its reply.
+    for (let i = ns.length - 1; i >= 0; i--) {
+      const n = ns[i]!;
+      if (isType(n, "text") && n.payload.body) return n.payload.body.replace(/[*`]/g, "").trim();
+      if (n.type === "payment") return "Payment";
+    }
+    return "…";
   };
 
   return (

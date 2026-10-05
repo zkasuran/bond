@@ -63,6 +63,9 @@ export interface SendTurnInput {
   /** which addressable agent to route to, when the runtime has more than one. */
   agentTarget?: string;
   signal?: AbortSignal;
+  /** Purchase proofs for installed skills. The Bond runtime verifies each signature on
+   *  chain before the skill's tools join the turn; other adapters ignore it. */
+  skills?: { id: string; signature: string }[];
 }
 
 export interface GatewayAdapter {

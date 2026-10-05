@@ -20,6 +20,7 @@ import { nextLamport } from "../model/thread";
 import { branchToLeaf, createSignedNode, maxLamport } from "./engine";
 import { agentMentions, threadToChatMessages } from "../rooms/routing";
 import type { SyncClient } from "../sync/client";
+import { useSkills } from "../skills/registry";
 
 const BOND_AGENT_DID = "did:bond:assistant";
 const SYSTEM_PROMPT =
@@ -391,6 +392,8 @@ export const useBond = create<BondState>((set, get) => ({
           controller.abort();
         }, INACTIVITY_MS);
       };
+      // Installed skills ride along as purchase proofs; the runtime verifies each on chain.
+      await useSkills.getState().load().catch(() => {});
       try {
         armInactivity();
         for await (const ev of bridge.adapter.sendTurn({
@@ -398,6 +401,10 @@ export const useBond = create<BondState>((set, get) => ({
           sessionKey: roomId,
           messages,
           signal: controller.signal,
+          skills: Object.values(useSkills.getState().entitlements).map((e) => ({
+            id: e.skillId,
+            signature: e.signature,
+          })),
         })) {
           armInactivity(); // every event resets the inactivity window
           if (ev.kind === "text") {

@@ -59,6 +59,7 @@ export class BondOwnGatewayAdapter extends GenericOpenAIAdapter {
     const body: Record<string, unknown> = { messages, runId: input.threadId };
     if (system) body.system = system;
     if (this.config.model) body.model = this.config.model;
+    if (input.skills?.length) body.skills = input.skills;
 
     let res: Response;
     try {

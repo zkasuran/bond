@@ -17,7 +17,8 @@ function sampleAuthor(wallet: string, displayName: string): SkillAuthor {
   return { wallet, displayName, did: publicKeyToDid(solanaAddressToPublicKey(wallet)) };
 }
 
-// Four real sample skills across the shelves. Prices sit either side of the default spend
+// Four sample skills across the shelves, each really runnable: the Bond runtime unlocks
+// a skill for a turn once it has verified the purchase transaction on chain. Prices sit either side of the default spend
 // gate (1 USDC) so the buy flow exercises both the waved-through and the prompted path.
 export const SKILL_CATALOG: Skill[] = [
   {
@@ -28,11 +29,10 @@ export const SKILL_CATALOG: Skill[] = [
     category: "finance",
     author: sampleAuthor("Jt2kPLx8EBeeHCd9vmfGXUfbTiY3sJKUpfY9oNtF3Zh", "Orbit Labs"),
     price: { asset: "USDC", amount: "0.50" },
-    distribution: "http",
-    endpoint: "https://skills.bond.zkasuran.dev/price",
+    distribution: "hosted",
     tools: [
       {
-        name: "usdc_price",
+        name: "skill_usdc_price",
         description: "Get the current price of a token in USDC.",
         inputSchema: {
           type: "object",
@@ -56,11 +56,10 @@ export const SKILL_CATALOG: Skill[] = [
     category: "wallet",
     author: sampleAuthor("D8LsE3B7CetNPZzMYyidMKqjdZSsiVcDQdft7s45Qo7K", "Seeker Tools"),
     price: { asset: "USDC", amount: "1.50" },
-    distribution: "mcp",
-    endpoint: "https://skills.bond.zkasuran.dev/mcp/wallet-summarizer",
+    distribution: "hosted",
     tools: [
       {
-        name: "summarize_wallet",
+        name: "skill_summarize_wallet",
         description: "Summarize balances and recent transactions for a Solana address.",
         inputSchema: {
           type: "object",
@@ -77,33 +76,30 @@ export const SKILL_CATALOG: Skill[] = [
     ],
   },
   {
-    id: "meme-image-generator",
-    name: "Meme Image Generator",
+    id: "tx-explainer",
+    name: "Tx Explainer",
     description:
-      "Turns a prompt and an optional caption into a shareable image and drops it into the room. Handy for a reaction, a sticker or a quick banner.",
-    category: "media",
+      "Paste a transaction signature and get it in plain words: who paid whom, how much, which programs ran and whether it succeeded. Read only.",
+    category: "developer",
     author: sampleAuthor("6jRFz7D9jEyHCQoVvaYg4EmXPGL5Afb9b4VKt7T59fQS", "Pixel Forge"),
     price: { asset: "USDC", amount: "2.00" },
-    distribution: "http",
-    endpoint: "https://skills.bond.zkasuran.dev/meme",
+    distribution: "hosted",
     tools: [
       {
-        name: "generate_meme",
-        description: "Generate an image from a prompt with optional top and bottom captions.",
+        name: "skill_explain_transaction",
+        description: "Decode a devnet transaction signature into transfers, fee, programs and outcome.",
         inputSchema: {
           type: "object",
           properties: {
-            prompt: { type: "string", description: "What the image should show." },
-            topText: { type: "string", description: "Optional caption across the top." },
-            bottomText: { type: "string", description: "Optional caption across the bottom." },
+            signature: { type: "string", description: "The base58 transaction signature." },
           },
-          required: ["prompt"],
+          required: ["signature"],
         },
       },
     ],
     permissions: [
-      "Send your prompt to an image model",
-      "Post the generated image into the current room",
+      "Read a transaction you give it from Solana devnet",
+      "Read only, it never moves funds",
     ],
   },
   {

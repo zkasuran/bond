@@ -16,6 +16,7 @@ import { useTokens } from "@/theme";
 import { LockGate } from "@/protection/LockGate";
 import { Txt } from "@/components/ui/Text";
 import { Button } from "@/components/ui/Button";
+import { useWallet } from "@/solana/store";
 
 void SplashScreen.preventAutoHideAsync();
 
@@ -64,6 +65,7 @@ export default function RootLayout() {
 
   useEffect(() => {
     void init();
+    void useWallet.getState().restoreSession();
   }, [init]);
 
   useEffect(() => {

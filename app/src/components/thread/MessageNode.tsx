@@ -9,6 +9,7 @@ import { useTokens } from "@/theme";
 import { Avatar } from "@/components/ui/Avatar";
 import { VerifiedBadge } from "@/components/ui/Badge";
 import { Txt } from "@/components/ui/Text";
+import { parseMarkdownLite } from "./markdown";
 import {
   paymentView,
   toolCallView,
@@ -87,10 +88,23 @@ export const MessageNode = memo(function MessageNode({
         ) : streaming && bodyText(node).length === 0 ? (
           <Txt variant="body" muted>thinking…</Txt>
         ) : (
-          <Txt variant="body">
-            {bodyText(node)}
-            {streaming ? <Txt variant="body" color={c.brand}> ▍</Txt> : null}
-          </Txt>
+          <View style={{ gap: 2 }}>
+            {parseMarkdownLite(bodyText(node)).map((line, i, all) => (
+              <View key={i} style={{ flexDirection: "row" }}>
+                {line.bullet ? <Txt variant="body" style={{ width: 16 }}>•</Txt> : null}
+                <Txt variant="body" style={{ flex: 1 }}>
+                  {line.spans.map((s, j) =>
+                    s.code ? (
+                      <Txt key={j} variant="mono" style={{ fontSize: 14 }}>{s.text}</Txt>
+                    ) : (
+                      <Txt key={j} variant="body" style={s.bold ? { fontWeight: "700" } : undefined}>{s.text}</Txt>
+                    ),
+                  )}
+                  {streaming && i === all.length - 1 ? <Txt variant="body" color={c.brand}> ▍</Txt> : null}
+                </Txt>
+              </View>
+            ))}
+          </View>
         )}
 
         <View style={{ flexDirection: "row", alignItems: "center", gap: space[4], marginTop: 2 }}>
@@ -271,7 +285,7 @@ function ToolCard({ node }: { node: BondNode }) {
         </Txt>
       </View>
       {body ? (
-        <Txt variant="mono" muted numberOfLines={8}>{body}</Txt>
+        <Txt variant="mono" muted numberOfLines={10}>{body}</Txt>
       ) : null}
       <Txt variant="caption" faint>{view.disclaimer}</Txt>
     </View>

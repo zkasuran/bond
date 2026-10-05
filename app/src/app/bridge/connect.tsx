@@ -22,6 +22,7 @@ import { Pill } from "@/components/ui/Badge";
 import { ADAPTER_LIST, type AdapterInfo } from "@/bridge/registry";
 import { useBond } from "@/state/store";
 import type { AdapterKind, GatewayConfig } from "@/bridge/adapter";
+import { useAndroidKeyboardInset } from "@/hooks/use-keyboard-inset";
 
 const ICON: Record<AdapterKind, keyof typeof Ionicons.glyphMap> = {
   bond: "sparkles",
@@ -63,6 +64,7 @@ function Field({
 }
 
 export default function ConnectBridgeScreen() {
+  const keyboardInset = useAndroidKeyboardInset();
   const { c, space, radius } = useTokens();
   const router = useRouter();
   const [kind, setKind] = useState<AdapterKind | null>(null);
@@ -148,8 +150,11 @@ export default function ConnectBridgeScreen() {
       </View>
 
       <KeyboardAvoidingView
-        style={{ flex: 1 }}
+        style={{ flex: 1, paddingBottom: keyboardInset }}
+        // iOS only: Android is edge-to-edge, where this under-measures, so Android pads
+        // by the measured keyboard height instead (useAndroidKeyboardInset).
         behavior={Platform.OS === "ios" ? "padding" : undefined}
+        enabled={Platform.OS === "ios"}
       >
         <ScrollView
           style={{ flex: 1 }}

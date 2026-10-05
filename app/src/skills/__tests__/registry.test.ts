@@ -55,10 +55,16 @@ describe("SKILL_CATALOG", () => {
     }
   });
 
-  it("gives an endpoint to http and mcp skills and none to instruction skills", () => {
+  it("gives an endpoint only to http and mcp skills, never to hosted or instruction skills", () => {
     for (const skill of SKILL_CATALOG) {
-      if (skill.distribution === "instructions") expect(skill.endpoint).toBeUndefined();
-      else expect(typeof skill.endpoint).toBe("string");
+      if (skill.distribution === "http" || skill.distribution === "mcp") expect(typeof skill.endpoint).toBe("string");
+      else expect(skill.endpoint).toBeUndefined();
+    }
+  });
+
+  it("names hosted tools in the skill_ namespace the Bond runtime unlocks", () => {
+    for (const skill of SKILL_CATALOG.filter((s) => s.distribution === "hosted")) {
+      for (const t of skill.tools) expect(t.name.startsWith("skill_")).toBe(true);
     }
   });
 });
@@ -96,10 +102,10 @@ describe("useSkills store", () => {
 
   it("uninstall forgets the entitlement and persists the removal", async () => {
     await useSkills.getState().load();
-    await useSkills.getState().install(entitlementFor("meme-image-generator"));
-    await useSkills.getState().uninstall("meme-image-generator");
+    await useSkills.getState().install(entitlementFor("tx-explainer"));
+    await useSkills.getState().uninstall("tx-explainer");
 
-    expect(useSkills.getState().isInstalled("meme-image-generator")).toBe(false);
+    expect(useSkills.getState().isInstalled("tx-explainer")).toBe(false);
     expect(SecureStore.deleteItemAsync).not.toHaveBeenCalled(); // uninstall rewrites the map, it does not delete the item
   });
 

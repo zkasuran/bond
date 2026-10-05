@@ -9,6 +9,7 @@ import { gatewayRoutes } from "./gateway.js";
 import { agentRoutes } from "./agent/route.js";
 import { mountSync } from "./sync.js";
 import { buildCsp, hashesForDist } from "./csp.js";
+import { androidAssetLinks } from "./assetlinks.js";
 import {
   HTTP_RATE_BURST,
   HTTP_RATE_PER_SEC,
@@ -88,6 +89,21 @@ async function main(): Promise<void> {
   });
 
   app.get("/health", async () => ({ ok: true }));
+
+  // Digital Asset Links: proves this origin (the app's Mobile Wallet Adapter identity
+  // URI) belongs to the Android app signed with the release key, so a wallet can
+  // verify the dApp instead of warning "verification failed". Public data only.
+  const assetLinks = androidAssetLinks(process.env.ANDROID_PACKAGE, process.env.ANDROID_CERT_SHA256);
+  if (assetLinks) {
+    // Serialized by hand: Solana Mobile's verifier requires the Content-Type to be exactly
+    // "application/json" and rejects the "; charset=utf-8" Fastify would append.
+    const body = JSON.stringify(assetLinks);
+    app.get("/.well-known/assetlinks.json", async (_req, reply) => {
+      reply.raw.writeHead(200, { "content-type": "application/json", "cache-control": "public, max-age=300" });
+      reply.raw.end(body);
+      return reply.hijack();
+    });
+  }
 
   await app.register(gatewayRoutes);
   await app.register(agentRoutes);

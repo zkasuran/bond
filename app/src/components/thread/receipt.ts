@@ -134,7 +134,15 @@ function flattenContent(content: ContentPart[] | undefined): string {
 }
 
 export function toolResultView(payload: ToolResultPayload): ToolView {
-  const text = flattenContent(payload.content);
+  const raw = flattenContent(payload.content);
+  // Tools return JSON; indent it so a result card reads as fields, not one long line.
+  let text = raw;
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (parsed && typeof parsed === "object") text = JSON.stringify(parsed, null, 2);
+  } catch {
+    // Not JSON: show as-is.
+  }
   return {
     name: "result",
     resultText: text || (payload.isError ? "tool error" : "tool result"),

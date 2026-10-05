@@ -2,6 +2,7 @@
 // streams AdapterEvent messages as SSE, one event per message, so the app's
 // bond adapter can consume them with no translation. Sits behind the same
 // bearer auth as the rest of /v1 (enforced in index.ts).
+import { parseClaims } from "./skills.js";
 import type { FastifyInstance } from "fastify";
 import type { ModelMessage } from "ai";
 import { runAgentTurn } from "./loop.js";
@@ -44,6 +45,8 @@ export async function agentRoutes(app: FastifyInstance): Promise<void> {
     const provider = typeof body.provider === "string" ? body.provider : undefined;
     const model = typeof body.model === "string" ? body.model : undefined;
     const runId = typeof body.runId === "string" ? body.runId : undefined;
+    // Purchase signatures the app holds. Each is verified on chain before its skill unlocks.
+    const skills = parseClaims(body.skills);
     // The step count is clamped to the hard ceiling. A client that asks for more
     // (or a non-number) gets MAX_AGENT_STEPS, never an unbounded loop. The system
     // prompt is fixed on the server and is not read from the body.
@@ -79,6 +82,7 @@ export async function agentRoutes(app: FastifyInstance): Promise<void> {
         maxSteps,
         signal: ac.signal,
         runId,
+        skills,
       })) {
         reply.raw.write(sseFor(event));
       }

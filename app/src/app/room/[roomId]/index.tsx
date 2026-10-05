@@ -20,10 +20,12 @@ import { MessageNode } from "@/components/thread/MessageNode";
 import { Composer } from "@/components/thread/Composer";
 import { PaySheet } from "@/components/thread/PaySheet";
 import { lastPaymentCounterparty } from "@/components/thread/receipt";
+import { useAndroidKeyboardInset } from "@/hooks/use-keyboard-inset";
 
 const EMPTY: never[] = [];
 
 export default function RoomScreen() {
+  const keyboardInset = useAndroidKeyboardInset();
   const { c, space } = useTokens();
   const { roomId } = useLocalSearchParams<{ roomId: string }>();
   const rid = roomId ?? "";
@@ -117,8 +119,11 @@ export default function RoomScreen() {
       </View>
 
       <KeyboardAvoidingView
-        style={{ flex: 1 }}
+        style={{ flex: 1, paddingBottom: keyboardInset }}
+        // iOS only: Android is edge-to-edge, where this under-measures, so Android pads
+        // by the measured keyboard height instead (useAndroidKeyboardInset).
         behavior={Platform.OS === "ios" ? "padding" : undefined}
+        enabled={Platform.OS === "ios"}
         keyboardVerticalOffset={Platform.OS === "ios" ? 8 : 0}
       >
         <ScrollView

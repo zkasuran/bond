@@ -10,6 +10,8 @@ import { config } from "../config.js";
 import { MAX_AGENT_STEPS } from "../limits.js";
 import { type AdapterEvent, errText } from "./events.js";
 import { buildTools } from "./tools.js";
+import { skillInstructions, skillTools, verifyClaims, type SkillClaim } from "./skills.js";
+import { Connection } from "@solana/web3.js";
 
 const ANTHROPIC_DEFAULT_MODEL = "claude-3-5-sonnet-latest";
 
@@ -170,6 +172,8 @@ export interface RunAgentTurnInput {
   maxSteps?: number;
   signal?: AbortSignal;
   runId?: string;
+  /** Skill purchase claims from the app, verified on chain before anything unlocks. */
+  skills?: SkillClaim[];
 }
 
 // Build the tools, resolve the model, run one turn, tear the tools down. This is
@@ -189,12 +193,17 @@ export async function* runAgentTurn(input: RunAgentTurnInput): AsyncGenerator<Ad
   }
 
   const built = await buildTools();
+  // Paid skills: unlock only what a confirmed on-chain payment proves the user bought.
+  const connection = new Connection(config.solanaRpcUrl, "confirmed");
+  const unlocked = input.skills?.length ? await verifyClaims(connection, input.skills, config.usdcMint) : [];
+  const tools = { ...built.tools, ...skillTools(unlocked, connection) };
+  const system = [BOND_SYSTEM_PROMPT, ...skillInstructions(unlocked)].join(" ");
   try {
     yield* streamAgent({
       model,
-      tools: built.tools,
+      tools,
       messages: input.messages,
-      system: BOND_SYSTEM_PROMPT,
+      system,
       maxSteps: input.maxSteps,
       signal: input.signal,
       runId: input.runId,

@@ -359,7 +359,7 @@ footer .brand{color:var(--ink)}
       <div class="card">
         <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16l-1.5 12.5a1 1 0 01-1 .9H6.5a1 1 0 01-1-.9L4 7zM9 7V5a3 3 0 016 0v2"/></svg></div>
         <h3>A marketplace that pays builders</h3>
-        <p>A builder publishes a signed skill and gets paid on-chain. Each sale is one atomic USDC transfer that splits the price to the creator and the platform.</p>
+        <p>A builder publishes a signed skill and gets paid on-chain. Each sale is one atomic USDC transfer that splits the price to the creator and the platform, and that payment is the license: the agent runtime checks it on chain before the skill's tools join a turn.</p>
       </div>
       <div class="card">
         <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6l7-3z"/><path d="M9.5 12l1.8 1.8L15 10"/></svg></div>
@@ -406,7 +406,8 @@ footer .brand{color:var(--ink)}
           <tr><td class="cap">Agent USDC payment</td><td><span class="dot real"></span>Real on devnet from the server keypair, hard-capped. Needs a funded devnet keypair, otherwise an ephemeral unfunded one</td></tr>
           <tr><td class="cap">Balance reads</td><td><span class="dot real"></span>Real, on devnet</td></tr>
           <tr><td class="cap">Skill purchase, atomic USDC split</td><td><span class="dot real"></span>Real on devnet, the transaction signature is kept as proof of purchase</td></tr>
-          <tr><td class="cap">Agent runtime and tools</td><td><span class="dot real"></span>Real tool-calling on the MiniMax plan (OpenAI-compatible), streamed into the thread</td></tr>
+          <tr><td class="cap">Purchased skills in the agent</td><td><span class="dot real"></span>Real, unlocked per turn by an on-chain license check. Listings and creators are seeded samples</td></tr>
+          <tr><td class="cap">Agent runtime and tools</td><td><span class="dot real"></span>Real tool-calling on MiniMax (OpenAI-compatible), streamed into the thread</td></tr>
           <tr><td class="cap">Jupiter swap quote</td><td><span class="dot real"></span>Real live mainnet quote, read only, no funds move</td></tr>
           <tr><td class="cap">Jupiter swap execution</td><td><span class="dot hold"></span>Gated behind an explicit confirm and real funds, operator only</td></tr>
           <tr><td class="cap">SKR price and holder balance</td><td><span class="dot real"></span>Real reads off Solana mainnet, nothing signed, no SKR moved</td></tr>
@@ -425,8 +426,8 @@ footer .brand{color:var(--ink)}
       <p class="lead">One command is the release gate. CI runs the same script, so a judge and a reviewer get the same verdict.</p>
     </div>
     <div class="grid stats">
-      <div class="stat"><div class="num">169</div><div class="lab">app tests passing</div><div class="bar"></div></div>
-      <div class="stat"><div class="num">20</div><div class="lab">server tests passing</div><div class="bar"></div></div>
+      <div class="stat"><div class="num">178</div><div class="lab">app tests passing</div><div class="bar"></div></div>
+      <div class="stat"><div class="num">28</div><div class="lab">server tests passing</div><div class="bar"></div></div>
       <div class="stat"><div class="num">16</div><div class="lab">web routes exported</div><div class="bar"></div></div>
     </div>
     <div class="grid devgrid" style="margin-top:24px">
@@ -487,12 +488,16 @@ npx expo start --web</code></pre>
     <div id="get" style="scroll-margin-top:calc(var(--h) + 16px); background:var(--panel); border:1px solid var(--edge); border-radius:var(--r); padding:22px 24px; margin-bottom:12px; display:flex; gap:18px; flex-wrap:wrap; align-items:center; justify-content:space-between">
       <div style="max-width:62ch">
         <div style="font-weight:700; color:var(--ink); font-size:1.05rem; margin-bottom:4px">Get the app</div>
-        <p class="src">A signed APK and the Solana dApp Store listing are published at submission. Android-first, with a web build for anyone who cannot sideload an APK.</p>
+        <p class="src">Sideload the signed Android APK (release key, Mobile Wallet Adapter built in), or open the live web build, no install. Everything settles on Solana devnet.</p>
       </div>
+      <div style="display:flex; gap:10px; flex-wrap:wrap">
+      <a class="btn" href="https://github.com/zkasuran/bond/releases/latest">Download the APK</a>
+      <a class="btn btn-outline" href="https://bond.zkasuran.dev">Open the web build</a>
       <a class="btn btn-outline" href="https://github.com/zkasuran/bond">
         <svg viewBox="0 0 16 16" aria-hidden="true" fill="currentColor"><path d="M8 0C3.6 0 0 3.6 0 8a8 8 0 005.5 7.6c.4.1.5-.2.5-.4v-1.4c-2.2.5-2.7-1-2.7-1-.4-.9-.9-1.2-.9-1.2-.7-.5.1-.5.1-.5.8.1 1.2.8 1.2.8.7 1.2 1.9.9 2.3.7.1-.5.3-.9.5-1.1-1.8-.2-3.6-.9-3.6-3.9 0-.9.3-1.6.8-2.1-.1-.2-.4-1 .1-2.1 0 0 .7-.2 2.2.8a7.6 7.6 0 014 0c1.5-1 2.2-.8 2.2-.8.5 1.1.2 1.9.1 2.1.5.5.8 1.2.8 2.1 0 3-1.8 3.7-3.6 3.9.3.3.6.8.6 1.6v2.4c0 .2.1.5.6.4A8 8 0 0016 8c0-4.4-3.6-8-8-8z"/></svg>
         Read the source
       </a>
+      </div>
     </div>
     <div class="frow">
       <span class="brand" style="font-weight:800">Bond<b style="color:var(--acc)">.</b></span>

@@ -17,8 +17,10 @@ export type SkillCategory =
 /** How a purchased skill reaches the runtime that runs it.
  *  - "instructions": a prompt or SKILL.md the agent follows, no network call.
  *  - "http": a plain HTTP endpoint the agent calls with the tool arguments.
- *  - "mcp": a Model Context Protocol server the runtime connects to by URL. */
-export type SkillDistribution = "instructions" | "http" | "mcp";
+ *  - "mcp": a Model Context Protocol server the runtime connects to by URL.
+ *  - "hosted": runs inside the Bond agent runtime, unlocked per turn once the server has
+ *    verified the purchase transaction on chain. */
+export type SkillDistribution = "instructions" | "http" | "mcp" | "hosted";
 
 /** The creator who published a skill and receives the author cut on every sale. `did` is
  *  the creator's did:key and `wallet` is the same ed25519 key as a base58 Solana address,
@@ -82,5 +84,7 @@ export function distributionLabel(distribution: SkillDistribution): string {
       return "HTTP tool";
     case "mcp":
       return "MCP server";
+    case "hosted":
+      return "Bond runtime, unlocked by your payment";
   }
 }

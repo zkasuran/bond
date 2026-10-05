@@ -41,7 +41,7 @@ const BPS_DENOMINATOR = 10_000n;
 export const CREATOR_SKR_HOLDER_DISCOUNT_BPS: Record<string, number> = {
   "usdc-price-watcher": 1500,
   "wallet-summarizer": 2000,
-  "meme-image-generator": 500,
+  "tx-explainer": 500,
 };
 
 /** The creator-set SKR holder discount for a skill id, in basis points, before the holder

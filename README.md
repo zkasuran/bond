@@ -17,8 +17,8 @@
 </p>
 
 <p align="center">
-  <img alt="app tests" src="https://img.shields.io/badge/app%20tests-169%20passing-14F195">
-  <img alt="server tests" src="https://img.shields.io/badge/server%20tests-20%20passing-14F195">
+  <img alt="app tests" src="https://img.shields.io/badge/app%20tests-178%20passing-14F195">
+  <img alt="server tests" src="https://img.shields.io/badge/server%20tests-28%20passing-14F195">
   <img alt="web routes" src="https://img.shields.io/badge/web%20export-16%20routes-14F195">
   <img alt="licence" src="https://img.shields.io/badge/licence-SAND--1.0-3178C6">
   <img alt="stack" src="https://img.shields.io/badge/Expo-SDK%2057-000000">
@@ -45,6 +45,7 @@ Open the live web build at **https://bond.zkasuran.dev** (no install), or sidelo
 | 4 | Mention the agent and ask for a balance | The agent streams a `tool_call`, runs it on devnet, streams the `tool_result`, then answers in the thread |
 | 5 | Tap pay, enter an amount | Biometric or PIN prompt (if you set one), then a USDC transfer that lands as a signed receipt card |
 | 6 | Open the marketplace and buy a skill | One atomic USDC transfer splits the price to the creator and the platform, with the signature kept as proof |
+| 7 | Ask the agent to use the skill you bought | The server checks your purchase transaction on chain, then the skill's tool joins the agent's turn |
 
 The agent runtime is live on MiniMax (OpenAI-compatible API), so a mention gets a real tool-calling turn, not a canned reply.
 
@@ -80,7 +81,7 @@ sequenceDiagram
 | Pay a teammate in a thread | Tap pay, enter an amount, USDC moves through Mobile Wallet Adapter and lands as a receipt |
 | Ask an agent for on-chain facts | Mention it, it runs balance and swap-quote tools and answers in the room |
 | Let an agent pay for you | The agent sends USDC on its own keypair under a hard, code-enforced spend cap |
-| Buy a skill for your agent | One atomic USDC transfer splits the price to the creator and the platform |
+| Buy a skill for your agent | One atomic USDC transfer splits the price to the creator and the platform, and the payment itself unlocks the skill's tools for the agent |
 | Sell a skill you built | Publish a signed skill manifest, get paid on-chain each time it sells |
 | Protect value | Set a PIN or biometric per trigger: open app, run a skill, spend over a threshold |
 
@@ -91,7 +92,8 @@ sequenceDiagram
 | Chat message authorship | The device `did:key` | Ed25519 signature re-verified on every read, tampered nodes dropped |
 | On-chain identity and human payment | The Seeker wallet, custodied by Seed Vault | Mobile Wallet Adapter signs, Bond only ever sees signed bytes |
 | Agent payments | A server-held agent keypair | A hard per-transfer and per-process USDC cap enforced in code, not by a prompt |
-| Skill ownership | The buyer's wallet | The on-chain USDC transfer signature is the proof, re-checkable on chain |
+| Skill ownership | The buyer's wallet | The purchase transaction is the license: the server re-reads it on chain each session and unlocks the skill only if it paid the creator. A signature reused for another skill unlocks nothing |
+| App identity to the wallet | The release signing key | `/.well-known/assetlinks.json` on the identity origin, so Mobile Wallet Adapter shows Bond as verified |
 | Protection factor | `expo-local-authentication` | An app-layer gate that fails closed when no factor is available |
 
 ## What is real and what is simulated
@@ -105,12 +107,13 @@ Everything runs on devnet with no real funds. Anything that touches mainnet is a
 | Agent USDC payment | Real on devnet from the server keypair, hard-capped. Needs a funded devnet keypair, otherwise an ephemeral unfunded one |
 | Balance reads | Real, on devnet |
 | Skill purchase, atomic USDC split | Real on devnet, the transaction signature is kept as proof of purchase |
-| Agent runtime and tools | Real tool-calling on the MiniMax plan (OpenAI-compatible), streamed into the thread |
+| Purchased skills running in the agent | Real: three skills run on the Bond runtime (price watcher, wallet summarizer, tx explainer) and one is instructions only, each unlocked by an on-chain license check. The four listings and their creators are samples seeded for the demo |
+| Agent runtime and tools | Real tool-calling on MiniMax (OpenAI-compatible API), streamed into the thread |
 | Jupiter swap quote | Real live mainnet quote, read only, no funds move |
 | Jupiter swap execution | Gated behind an explicit confirm and real funds, operator only |
 | SKR price and holder balance | Real reads off Solana mainnet, nothing signed, no SKR moved |
 | SKR transfers, swaps, staking | Out of scope, mainnet and real funds, operator only |
-| dApp Store publish | Pending, done post-win to claim, needs a release keystore and mainnet SOL |
+| dApp Store publish | Pending, done post-win to claim. The APK is already signed with the release key; publishing needs mainnet SOL |
 
 ## Architecture
 
@@ -128,7 +131,7 @@ flowchart LR
   end
   App -->|signed nodes, agent turns| V1
   App <-->|node log, re-verified| Sync
-  V1 --> GW --> MiniMax[(MiniMax plan)]
+  V1 --> GW --> MiniMax[(MiniMax)]
   V1 -->|balance, transferChecked| Devnet[(Solana devnet)]
   App -->|USDC via MWA| Devnet
   App -->|live quote, SKR read| Mainnet[(Solana mainnet, read only)]
@@ -170,12 +173,16 @@ It streams Server-Sent Events: `turn_start`, `text` deltas, `tool_call`, `tool_r
 
 ## Build the Android APK
 
+Locally, with the Android SDK and a release keystore:
+
 ```bash
 cd app
-eas build --platform android --profile production-apk
+npx expo prebuild -p android
+export BOND_KEYSTORE=/path/to/release.keystore BOND_KEYSTORE_ALIAS=bond BOND_KEYSTORE_PASSWORD=...
+cd android && ./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a,x86_64
 ```
 
-The `production-apk` profile emits a signed APK (the dApp Store wants an APK, not an AAB). A config plugin injects the `solana-wallet` manifest query that Mobile Wallet Adapter needs for wallet discovery on Android 11 and up.
+Or on EAS with `eas build --platform android --profile production-apk`. Either way the result is a signed APK (the dApp Store wants an APK, not an AAB). Two config plugins shape the native project: one injects the `solana-wallet` manifest query that Mobile Wallet Adapter needs for wallet discovery on Android 11 and up, the other signs the release build with the key named in the environment (falling back to debug signing when none is set).
 
 ## Built to be attacked
 
