@@ -84,10 +84,13 @@ import { signAndSendTransaction } from "@/solana/wallet";
 
 const tick = () => new Promise((r) => setImmediate(r));
 
+let mounted: TestRenderer.ReactTestRenderer | null = null;
+
 async function renderAndSend(): Promise<void> {
   let tree: TestRenderer.ReactTestRenderer;
   await TestRenderer.act(async () => {
     tree = TestRenderer.create(<WalletScreen />);
+    mounted = tree;
     await tick();
   });
   const root = tree!.root;
@@ -105,6 +108,13 @@ async function renderAndSend(): Promise<void> {
     await tick();
   });
 }
+
+// Unmount between tests so no render or pending effect from one test can call into the
+// next test's mocks.
+afterEach(() => {
+  TestRenderer.act(() => mounted?.unmount());
+  mounted = null;
+});
 
 beforeEach(() => {
   (buildUsdcTransfer as jest.Mock).mockClear();
