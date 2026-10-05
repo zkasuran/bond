@@ -144,7 +144,7 @@ Everything runs on devnet with no real funds. Anything that touches mainnet is a
 | SKR transfers, swaps, staking | 🟡 Next, with the mainnet launch. Out of scope for the hackathon build; the SKR price and holder discount are live today |
 | dApp Store publish | 🟡 Ships after judging. The APK is already signed with the release key |
 
-🟢 real on devnet &nbsp;·&nbsp; 🔵 mainnet, read only &nbsp;·&nbsp; 🟡 gated or pending
+🟢 real on devnet &nbsp;·&nbsp; 🔵 mainnet, read only &nbsp;·&nbsp; 🟡 next, with the mainnet launch
 
 ## Architecture
 
