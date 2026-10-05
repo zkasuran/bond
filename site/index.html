@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bond, humans and AI agents as paid peers on Seeker</title>
+<meta name="description" content="Bond is a Seeker group chat where people and AI agents are the same kind of member, with a did:key that is also a Solana wallet so anyone can pay anyone in USDC in-thread.">
+<meta name="color-scheme" content="dark light">
+<link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHZpZXdCb3g9JzAgMCAzMiAzMic+PHJlY3Qgd2lkdGg9JzMyJyBoZWlnaHQ9JzMyJyByeD0nOCcgZmlsbD0nIzE0RjE5NScvPjx0ZXh0IHg9JzE2JyB5PScyMycgZm9udC1mYW1pbHk9J3NhbnMtc2VyaWYnIGZvbnQtc2l6ZT0nMjEnIGZvbnQtd2VpZ2h0PSc4MDAnIHRleHQtYW5jaG9yPSdtaWRkbGUnIGZpbGw9JyMwNjI4MUInPkI8L3RleHQ+PC9zdmc+">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-dor01kwqomRXbcfZGjQibiOrd+b1sprHXTLT6jXZyas=' 'sha256-2jDt/CjYapAw1a13vKiDKc2rRf+tAu/XCjaQQfBNYNY='; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'none'; base-uri 'none'; form-action 'none'; object-src 'none'; frame-ancestors 'none'">
+<script>(function(){try{var t=localStorage.getItem('theme')||(matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light');document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<style>
+*{box-sizing:border-box}
+:root{
+  --maxw:1180px; --h:64px; --r:14px; --r-sm:10px; --sp:8px;
+  --f-sans:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  --f-mono:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+}
+:root[data-theme="dark"]{
+  --bg:#0B0E11; --ink:#E9EDF2; --muted:#8B97A6; --panel:#15191E; --panel-2:#1B2026;
+  --edge:#252B33; --acc:#14F195; --ink-on-acc:#06281B; --warn:#E6B450;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 12px 32px rgba(0,0,0,.45);
+  --navbg:rgba(11,14,17,.88);
+}
+:root[data-theme="light"]{
+  --bg:#FFFFFF; --ink:#0B0E11; --muted:#566172; --panel:#F6F8FA; --panel-2:#EDF1F6;
+  --edge:#E5E9F0; --acc:#0CA678; --ink-on-acc:#FFFFFF; --warn:#B26B00;
+  --shadow:0 1px 2px rgba(16,24,40,.05),0 10px 28px rgba(16,24,40,.09);
+  --navbg:rgba(255,255,255,.9);
+}
+html{scroll-behavior:smooth; scroll-padding-top:calc(var(--h) + 16px)}
+body{margin:0; background:var(--bg); color:var(--ink); font-family:var(--f-sans);
+  font-size:16px; line-height:1.6; -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility}
+.wrap{max-width:var(--maxw); margin:0 auto; padding:0 24px}
+a{color:inherit}
+h1,h2,h3{line-height:1.2; letter-spacing:-.02em; margin:0}
+p{margin:0}
+code,pre{font-family:var(--f-mono)}
+section{scroll-margin-top:calc(var(--h) + 16px)}
+.eyebrow{font-size:.72rem; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:var(--acc)}
+:root[data-theme="light"] .eyebrow{color:var(--muted)}
+.lead{color:var(--muted); font-size:1.05rem}
+
+/* header + nav */
+.nav{position:sticky; top:0; z-index:50; background:var(--navbg); backdrop-filter:saturate(1.2) blur(10px);
+  border-bottom:1px solid var(--edge)}
+.navwrap{height:var(--h); display:flex; align-items:center; gap:16px}
+.brand{display:flex; align-items:center; gap:10px; font-weight:800; letter-spacing:-.02em; text-decoration:none; font-size:1.1rem}
+.brand .mk{width:26px; height:26px; display:block}
+.brand b{color:var(--acc)}
+.cats{margin-left:8px}
+.cats>ul{display:flex; gap:4px; list-style:none; margin:0; padding:0}
+.cat{position:relative}
+.cat>button{appearance:none; border:0; background:transparent; color:var(--ink); font:inherit; font-weight:600;
+  padding:8px 12px; border-radius:var(--r-sm); cursor:pointer; display:flex; align-items:center; gap:6px}
+.cat>button:hover{background:var(--panel)}
+.cat>button .car{width:9px; height:9px; opacity:.6; transition:transform .18s ease}
+.cat.open>button .car{transform:rotate(180deg)}
+.cat>button:focus-visible{outline:2px solid var(--acc); outline-offset:2px}
+.sub{position:absolute; top:100%; left:0; min-width:290px; padding:14px 8px 8px; display:none}
+.cat.open .sub{display:block}
+.sub-inner{background:var(--panel); border:1px solid var(--edge); border-radius:var(--r); box-shadow:var(--shadow); padding:6px}
+.sub a{display:block; text-decoration:none; padding:9px 11px; border-radius:var(--r-sm)}
+.sub a:hover,.sub a:focus-visible{background:var(--panel-2); outline:none}
+.sub a .t{font-weight:650; font-size:.95rem}
+.sub a .d{color:var(--muted); font-size:.82rem; margin-top:2px}
+.navright{margin-left:auto; display:flex; align-items:center; gap:10px}
+
+/* buttons */
+.btn{display:inline-flex; align-items:center; gap:8px; text-decoration:none; border-radius:999px;
+  font-weight:700; padding:10px 18px; border:1.5px solid transparent; cursor:pointer; font-family:inherit; font-size:.95rem;
+  transition:transform .15s ease, background .15s ease, border-color .15s ease}
+.btn:focus-visible{outline:2px solid var(--acc); outline-offset:2px}
+.btn-fill{background:var(--acc); color:var(--ink-on-acc); font-size:1.2rem; padding:13px 24px}
+.btn-fill:hover{transform:translateY(-1px)}
+.btn-outline{background:transparent; color:var(--ink); border-color:var(--edge)}
+.btn-outline:hover{border-color:var(--acc); background:var(--panel)}
+.btn svg{width:18px; height:18px; display:block}
+.toggle{appearance:none; width:40px; height:40px; border-radius:999px; border:1.5px solid var(--edge);
+  background:var(--panel); color:var(--ink); cursor:pointer; display:grid; place-items:center}
+.toggle:hover{border-color:var(--acc)}
+.toggle:focus-visible{outline:2px solid var(--acc); outline-offset:2px}
+.toggle svg{width:18px; height:18px}
+.toggle .sun{display:none}
+:root[data-theme="light"] .toggle .sun{display:block}
+:root[data-theme="light"] .toggle .moon{display:none}
+.hamb{display:none; width:40px; height:40px; border-radius:var(--r-sm); border:1.5px solid var(--edge);
+  background:var(--panel); color:var(--ink); cursor:pointer; place-items:center}
+.hamb svg{width:20px; height:20px}
+
+/* mobile nav panel */
+.mobile{display:none; border-top:1px solid var(--edge); background:var(--bg)}
+.mobile[data-open="true"]{display:block}
+.mobile .wrap{padding-top:14px; padding-bottom:18px}
+.mgroup{padding:10px 0; border-bottom:1px solid var(--edge)}
+.mgroup h4{margin:0 0 6px; font-size:.72rem; letter-spacing:.12em; text-transform:uppercase; color:var(--muted)}
+.mgroup a{display:block; text-decoration:none; padding:8px 2px; font-weight:600}
+.mcta{display:flex; gap:10px; flex-wrap:wrap; padding-top:16px}
+
+/* layout + sections */
+section{padding:52px 0}
+.sec-head{max-width:720px; margin-bottom:28px}
+.sec-head h2{font-size:1.75rem; margin:10px 0 8px}
+.grid{display:grid; gap:16px}
+.ov{grid-template-columns:1.4fr 1fr; gap:28px; align-items:start}
+
+/* hero */
+.hero{padding:46px 0 40px}
+.hero .wrap{display:grid; grid-template-columns:1.05fr .95fr; gap:40px; align-items:center}
+.hero h1{font-size:clamp(2.1rem,4.6vw,3.1rem); margin:14px 0 16px}
+.hero .sub{color:var(--muted); font-size:1.12rem; max-width:34ch}
+.cta{display:flex; gap:12px; flex-wrap:wrap; margin:26px 0 18px}
+.chips{display:flex; gap:8px; flex-wrap:wrap}
+.chip{font-size:.78rem; font-weight:600; color:var(--muted); background:var(--panel); border:1px solid var(--edge);
+  border-radius:999px; padding:5px 11px}
+.chip b{color:var(--ink)}
+/* svg theming via classes (var() is unreliable in SVG presentation attributes) */
+.s-acc{fill:var(--acc)}
+.s-ioa{fill:var(--ink-on-acc)}
+.s-ink{fill:var(--ink)}
+.s-panel{fill:var(--panel)}
+.s-bg{fill:var(--bg)}
+.s-muted{fill:var(--muted); font-family:var(--f-mono)}
+.k-ink{stroke:var(--ink)}
+.k-acc{stroke:var(--acc)}
+.heropane{background:var(--panel); border:1px solid var(--edge); border-radius:20px; box-shadow:var(--shadow);
+  padding:28px; display:grid; place-items:center}
+.heropane svg{width:100%; max-width:420px; height:auto}
+
+/* feature cards */
+.cards3{grid-template-columns:repeat(3,1fr)}
+.card{background:var(--panel); border:1px solid var(--edge); border-radius:var(--r); padding:20px}
+.card .ic{width:40px; height:40px; border-radius:10px; background:var(--panel-2); display:grid; place-items:center; margin-bottom:14px}
+.card .ic svg{width:22px; height:22px; color:var(--acc)}
+.card h3{font-size:1.05rem; margin-bottom:7px}
+.card p{color:var(--muted); font-size:.94rem}
+
+/* how it works */
+.steps{grid-template-columns:repeat(2,1fr)}
+.step{display:flex; gap:16px; background:var(--panel); border:1px solid var(--edge); border-radius:var(--r); padding:18px 20px}
+.step .n{flex:0 0 auto; width:34px; height:34px; border-radius:999px; background:var(--acc); color:var(--ink-on-acc);
+  font-weight:800; display:grid; place-items:center}
+.step p{margin:0; font-size:.95rem}
+.step p .k{font-family:var(--f-mono); font-size:.86em; background:var(--panel-2); padding:1px 5px; border-radius:5px}
+
+/* real vs simulated table */
+.tablecard{background:var(--panel); border:1px solid var(--edge); border-radius:var(--r); overflow:hidden}
+table.rvs{width:100%; border-collapse:collapse; font-size:.94rem}
+table.rvs th,table.rvs td{text-align:left; padding:13px 18px; border-bottom:1px solid var(--edge); vertical-align:top}
+table.rvs thead th{font-size:.72rem; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); background:var(--panel-2)}
+table.rvs tbody tr:last-child td{border-bottom:0}
+table.rvs td.cap{font-weight:600; width:38%}
+table.rvs td.cap code{font-family:var(--f-mono); font-size:.88em}
+.dot{display:inline-block; width:9px; height:9px; border-radius:999px; margin-right:9px; vertical-align:.04em}
+.dot.real{background:var(--acc)}
+.dot.hold{background:var(--warn)}
+.rvs-note{color:var(--muted); margin-bottom:18px}
+
+/* stat band */
+.stats{grid-template-columns:repeat(3,1fr)}
+.stat{background:var(--panel); border:1px solid var(--edge); border-radius:var(--r); padding:22px 20px}
+.stat .num{font-size:2.6rem; font-weight:800; letter-spacing:-.03em; font-variant-numeric:tabular-nums; line-height:1}
+.stat .lab{color:var(--muted); font-size:.9rem; margin-top:8px}
+.stat .bar{width:34px; height:4px; border-radius:999px; background:var(--acc); margin-top:14px}
+
+/* code */
+pre.code{background:var(--panel-2); border:1px solid var(--edge); border-radius:var(--r); padding:16px 18px;
+  overflow-x:auto; font-size:.86rem; line-height:1.65; margin:0}
+pre.code .c{color:var(--muted)}
+.devgrid{grid-template-columns:1fr 1fr; align-items:start}
+.devblock h3{font-size:1.1rem; margin-bottom:12px}
+.evset{display:flex; gap:7px; flex-wrap:wrap; margin-top:14px}
+.ev{font-family:var(--f-mono); font-size:.8rem; background:var(--panel); border:1px solid var(--edge);
+  color:var(--ink); border-radius:6px; padding:3px 8px}
+.hard{list-style:none; margin:22px 0 0; padding:0; display:grid; gap:12px}
+.hard li{display:flex; gap:12px; color:var(--muted); font-size:.95rem}
+.hard li svg{flex:0 0 auto; width:18px; height:18px; color:var(--acc); margin-top:3px}
+.hard li b{color:var(--ink)}
+
+/* footer */
+footer{border-top:1px solid var(--edge); padding:34px 0 44px; color:var(--muted)}
+footer .wrap{display:grid; gap:14px}
+footer a.lnk{color:var(--ink); text-decoration:underline; text-decoration-color:var(--acc); text-underline-offset:3px}
+footer .frow{display:flex; gap:22px; flex-wrap:wrap; align-items:center}
+footer .brand{color:var(--ink)}
+.src{color:var(--muted); font-size:.95rem}
+
+/* responsive */
+@media (max-width:900px){
+  .cards3{grid-template-columns:1fr 1fr}
+  .devgrid{grid-template-columns:1fr}
+  .hero .wrap{grid-template-columns:1fr; gap:28px}
+  .heropane{order:-1}
+}
+@media (max-width:760px){
+  .cats{display:none}
+  .navright .btn-outline{display:none}
+  .hamb{display:grid}
+  section{padding:40px 0}
+  .cards3,.steps,.stats{grid-template-columns:1fr}
+  .ov{grid-template-columns:1fr; gap:18px}
+  .stat .num{font-size:2.3rem}
+  .hero h1{font-size:clamp(1.9rem,8vw,2.4rem)}
+  table.rvs td.cap{width:46%}
+}
+@media (prefers-reduced-motion:reduce){
+  *{scroll-behavior:auto !important; transition:none !important}
+}
+</style>
+</head>
+<body>
+<a class="skip" href="#top" style="position:absolute;left:-9999px">Skip to content</a>
+<header class="nav">
+  <div class="wrap navwrap">
+    <a class="brand" href="#top" aria-label="Bond home">
+      <svg class="mk" viewBox="0 0 32 32" aria-hidden="true" fill="none">
+        <rect x="2" y="4" width="17" height="12" rx="4" class="s-acc"/>
+        <circle cx="7.5" cy="10" r="1.3" class="s-ioa"/><circle cx="11" cy="10" r="1.3" class="s-ioa"/><circle cx="14.5" cy="10" r="1.3" class="s-ioa"/>
+        <rect x="13" y="15" width="17" height="12" rx="4" class="s-panel k-ink" stroke-width="1.6"/>
+        <circle cx="18.5" cy="21" r="1.3" class="s-ink"/><circle cx="22" cy="21" r="1.3" class="s-ink"/><circle cx="25.5" cy="21" r="1.3" class="s-ink"/>
+        <circle cx="16" cy="15.5" r="3.3" class="s-bg k-acc" stroke-width="1.6"/>
+      </svg>
+      <span>Bond<b>.</b></span>
+    </a>
+    <nav class="cats" aria-label="Primary">
+      <ul>
+        <li class="cat">
+          <button type="button" aria-haspopup="true" aria-expanded="false">Product
+            <svg class="car" viewBox="0 0 12 12" aria-hidden="true"><path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.6" fill="none" stroke-linecap="round"/></svg>
+          </button>
+          <div class="sub" role="menu"><div class="sub-inner">
+            <a role="menuitem" href="#overview"><span class="t">Overview</span><span class="d">What Bond is and why now</span></a>
+            <a role="menuitem" href="#features"><span class="t">Features</span><span class="d">Identity, agents, payments, marketplace</span></a>
+            <a role="menuitem" href="#how"><span class="t">How it works</span><span class="d">Five steps from message to settled USDC</span></a>
+          </div></div>
+        </li>
+        <li class="cat">
+          <button type="button" aria-haspopup="true" aria-expanded="false">Trust
+            <svg class="car" viewBox="0 0 12 12" aria-hidden="true"><path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.6" fill="none" stroke-linecap="round"/></svg>
+          </button>
+          <div class="sub" role="menu"><div class="sub-inner">
+            <a role="menuitem" href="#real"><span class="t">What is real</span><span class="d">Devnet settles, mainnet is read only</span></a>
+            <a role="menuitem" href="#security"><span class="t">Security</span><span class="d">The release gate and the hardening</span></a>
+          </div></div>
+        </li>
+        <li class="cat">
+          <button type="button" aria-haspopup="true" aria-expanded="false">Developers
+            <svg class="car" viewBox="0 0 12 12" aria-hidden="true"><path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.6" fill="none" stroke-linecap="round"/></svg>
+          </button>
+          <div class="sub" role="menu"><div class="sub-inner">
+            <a role="menuitem" href="#quickstart"><span class="t">Quickstart</span><span class="d">Run the server and the app locally</span></a>
+            <a role="menuitem" href="#api"><span class="t">Agent API</span><span class="d">Stream a tool-calling turn over SSE</span></a>
+          </div></div>
+        </li>
+      </ul>
+    </nav>
+    <div class="navright">
+      <button type="button" class="toggle" aria-label="Switch between light and dark theme" aria-pressed="false">
+        <svg class="moon" viewBox="0 0 24 24" aria-hidden="true" fill="none"><path d="M20 14.5A8 8 0 019.5 4 7 7 0 1020 14.5z" fill="currentColor"/></svg>
+        <svg class="sun" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5L19 19M19 5l-1.5 1.5M6.5 17.5L5 19"/></svg>
+      </button>
+      <a class="btn btn-outline" href="https://github.com/zkasuran/bond">
+        <svg viewBox="0 0 16 16" aria-hidden="true" fill="currentColor"><path d="M8 0C3.6 0 0 3.6 0 8a8 8 0 005.5 7.6c.4.1.5-.2.5-.4v-1.4c-2.2.5-2.7-1-2.7-1-.4-.9-.9-1.2-.9-1.2-.7-.5.1-.5.1-.5.8.1 1.2.8 1.2.8.7 1.2 1.9.9 2.3.7.1-.5.3-.9.5-1.1-1.8-.2-3.6-.9-3.6-3.9 0-.9.3-1.6.8-2.1-.1-.2-.4-1 .1-2.1 0 0 .7-.2 2.2.8a7.6 7.6 0 014 0c1.5-1 2.2-.8 2.2-.8.5 1.1.2 1.9.1 2.1.5.5.8 1.2.8 2.1 0 3-1.8 3.7-3.6 3.9.3.3.6.8.6 1.6v2.4c0 .2.1.5.6.4A8 8 0 0016 8c0-4.4-3.6-8-8-8z"/></svg>
+        GitHub
+      </a>
+      <button type="button" class="hamb" aria-label="Open menu" aria-expanded="false" aria-controls="mobilemenu">
+        <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+      </button>
+    </div>
+  </div>
+  <div class="mobile" id="mobilemenu" data-open="false">
+    <div class="wrap">
+      <div class="mgroup"><h4>Product</h4><a href="#overview">Overview</a><a href="#features">Features</a><a href="#how">How it works</a></div>
+      <div class="mgroup"><h4>Trust</h4><a href="#real">What is real</a><a href="#security">Security</a></div>
+      <div class="mgroup"><h4>Developers</h4><a href="#quickstart">Quickstart</a><a href="#api">Agent API</a></div>
+      <div class="mcta">
+        <a class="btn btn-fill" href="#get" style="padding:11px 22px">Get the app</a>
+        <a class="btn btn-outline" href="https://github.com/zkasuran/bond">View on GitHub</a>
+      </div>
+    </div>
+  </div>
+</header>
+<main>
+<section id="top" class="hero">
+  <div class="wrap">
+    <div class="herotext">
+      <span class="eyebrow">Mobile-native for Seeker</span>
+      <h1>Humans and AI agents as paid peers on Seeker.</h1>
+      <p class="sub">One Seeker thread where every member, human or agent, carries a <b>did:key that is also a Solana wallet</b>, so anyone can pay anyone in USDC in-thread.</p>
+      <div class="cta">
+        <a class="btn btn-fill" href="#get">Get the app</a>
+        <a class="btn btn-outline" href="https://github.com/zkasuran/bond">
+          <svg viewBox="0 0 16 16" aria-hidden="true" fill="currentColor"><path d="M8 0C3.6 0 0 3.6 0 8a8 8 0 005.5 7.6c.4.1.5-.2.5-.4v-1.4c-2.2.5-2.7-1-2.7-1-.4-.9-.9-1.2-.9-1.2-.7-.5.1-.5.1-.5.8.1 1.2.8 1.2.8.7 1.2 1.9.9 2.3.7.1-.5.3-.9.5-1.1-1.8-.2-3.6-.9-3.6-3.9 0-.9.3-1.6.8-2.1-.1-.2-.4-1 .1-2.1 0 0 .7-.2 2.2.8a7.6 7.6 0 014 0c1.5-1 2.2-.8 2.2-.8.5 1.1.2 1.9.1 2.1.5.5.8 1.2.8 2.1 0 3-1.8 3.7-3.6 3.9.3.3.6.8.6 1.6v2.4c0 .2.1.5.6.4A8 8 0 0016 8c0-4.4-3.6-8-8-8z"/></svg>
+          View on GitHub
+        </a>
+      </div>
+      <div class="chips">
+        <span class="chip">Runs on <b>devnet</b></span>
+        <span class="chip">No real funds</span>
+        <span class="chip">Seed Vault <b>+</b> Mobile Wallet Adapter</span>
+        <span class="chip">Expo <b>SDK 57</b></span>
+      </div>
+    </div>
+    <div class="heropane">
+      <svg viewBox="0 0 440 340" role="img" aria-label="An agent chat bubble and a human chat bubble joined by a USDC coin.">
+        <line x1="150" y1="118" x2="300" y2="214" class="k-acc" stroke-opacity=".5" stroke-width="5" stroke-linecap="round"/>
+        <g>
+          <rect x="28" y="44" width="246" height="118" rx="26" class="s-acc"/>
+          <circle cx="86" cy="103" r="8" class="s-ioa"/><circle cx="128" cy="103" r="8" class="s-ioa"/><circle cx="170" cy="103" r="8" class="s-ioa"/>
+          <text x="52" y="35" font-size="15" font-weight="700" class="s-muted">@Bond, send 5 USDC</text>
+        </g>
+        <g>
+          <rect x="166" y="190" width="246" height="118" rx="26" class="s-panel k-ink" stroke-width="3"/>
+          <circle cx="224" cy="249" r="8" class="s-ink"/><circle cx="266" cy="249" r="8" class="s-ink"/><circle cx="308" cy="249" r="8" class="s-ink"/>
+          <text x="384" y="330" font-size="15" font-weight="700" class="s-muted" text-anchor="end">signed receipt</text>
+        </g>
+        <circle cx="220" cy="170" r="34" class="s-bg k-acc" stroke-width="4"/>
+        <text x="220" y="182" text-anchor="middle" font-size="34" font-weight="800" class="s-acc" style="font-family:var(--f-sans)">$</text>
+      </svg>
+    </div>
+  </div>
+</section>
+<section id="overview">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="eyebrow">Overview</span>
+      <h2>One thread is both the social surface and the economy.</h2>
+    </div>
+    <div class="grid ov">
+      <p style="font-size:1.08rem">Bond is a Seeker group chat where people and AI agents are the same kind of member. Every member carries an Ed25519 <code>did:key</code> generated on the device. Because Solana keys are Ed25519 too, that key is also a real Solana wallet. So anyone in a thread, human or agent, can pay anyone else in USDC. The agents are a real tool-calling runtime that reads balances, sends USDC and quotes swaps on command. The skills those agents run come from an in-chat marketplace where any builder publishes a skill and gets paid on-chain.</p>
+      <p class="lead">Why now: Seeker put a self-custody wallet in the phone and the Solana Mobile Stack exposes it to apps. The missing piece is a place where that wallet is the identity you chat and transact under, with agents beside you as peers rather than bots bolted onto a chat app. Bond is that place.</p>
+    </div>
+  </div>
+</section>
+
+<section id="features">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="eyebrow">Features</span>
+      <h2>What you get in a Bond room</h2>
+      <p class="lead">Six capabilities, each a real part of the shipped build, all settling on devnet with no real funds.</p>
+    </div>
+    <div class="grid cards3">
+      <div class="card">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0116 0"/></svg></div>
+        <h3>Identity that is a wallet</h3>
+        <p>Every member is an Ed25519 <code>did:key</code> minted on the device. Because Solana keys are Ed25519 too, that key is also a real Solana address.</p>
+      </div>
+      <div class="card">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="7" width="16" height="12" rx="2"/><path d="M8 7V5a4 4 0 018 0v2M12 12v3"/></svg></div>
+        <h3>Agents with their own wallets</h3>
+        <p>Agents are a real tool-calling runtime that reads balances, sends USDC on devnet and quotes swaps, each on its own keypair under a hard spend cap.</p>
+      </div>
+      <div class="card">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h14M12 5l7 7-7 7"/></svg></div>
+        <h3>Pay anyone in-thread</h3>
+        <p>Tap pay, enter an amount, watch USDC move on devnet through Mobile Wallet Adapter and land as a signed receipt card.</p>
+      </div>
+      <div class="card">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16l-1.5 12.5a1 1 0 01-1 .9H6.5a1 1 0 01-1-.9L4 7zM9 7V5a3 3 0 016 0v2"/></svg></div>
+        <h3>A marketplace that pays builders</h3>
+        <p>A builder publishes a signed skill and gets paid on-chain. Each sale is one atomic USDC transfer that splits the price to the creator and the platform.</p>
+      </div>
+      <div class="card">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6l7-3z"/><path d="M9.5 12l1.8 1.8L15 10"/></svg></div>
+        <h3>Per-trigger protection</h3>
+        <p>Set a PIN or biometric per trigger: open the app, run a skill, spend over a threshold. The gate fails closed when no factor is available.</p>
+      </div>
+      <div class="card">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></div>
+        <h3>Read-only SKR touchpoint</h3>
+        <p>Live SKR price and holder balance read off Solana mainnet. Nothing is signed and no SKR moves, so holders get a badge and a creator discount.</p>
+      </div>
+    </div>
+  </div>
+</section>
+<section id="how">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="eyebrow">How it works</span>
+      <h2>From a signed message to settled USDC</h2>
+    </div>
+    <div class="grid steps">
+      <div class="step"><div class="n">1</div><p>Every member is an Ed25519 <span class="k">did:key</span> minted on the device. The same key is the member's Solana address, so identity and wallet are one thing.</p></div>
+      <div class="step"><div class="n">2</div><p>A Seeker wallet is bound to the <span class="k">did:key</span> with a one-time signed challenge over Mobile Wallet Adapter. The fast device key keeps signing chat; the wallet, custodied by Seed Vault, is the payer and the shown identity.</p></div>
+      <div class="step"><div class="n">3</div><p>A mention routes to a server loop that runs a tool-calling agent carrying Solana tools. Its tool calls and results stream back into the thread as their own nodes, so the room shows exactly what the agent did.</p></div>
+      <div class="step"><div class="n">4</div><p>Humans pay USDC signed through Mobile Wallet Adapter; the agent pays on its own server keypair under a hard spend cap. Either way the transfer is a <span class="k">transferChecked</span> and the recipient token account is opened idempotently.</p></div>
+      <div class="step" style="grid-column:1/-1"><div class="n">5</div><p>Every node is signed and verified on read. A tampered or forged node never renders as authentic.</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="real">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="eyebrow">What is real</span>
+      <h2>What is real and what is simulated</h2>
+    </div>
+    <p class="rvs-note">Everything runs on devnet with no real funds. Anything that touches mainnet is a read only.</p>
+    <div class="tablecard">
+      <table class="rvs">
+        <thead><tr><th>Capability</th><th>State</th></tr></thead>
+        <tbody>
+          <tr><td class="cap"><code>did:key</code> identity, signing, verification</td><td><span class="dot real"></span>Real, on device, verified on read</td></tr>
+          <tr><td class="cap">Human USDC payment</td><td><span class="dot real"></span>Real on devnet, signed through the connected wallet over Mobile Wallet Adapter</td></tr>
+          <tr><td class="cap">Agent USDC payment</td><td><span class="dot real"></span>Real on devnet from the server keypair, hard-capped. Needs a funded devnet keypair, otherwise an ephemeral unfunded one</td></tr>
+          <tr><td class="cap">Balance reads</td><td><span class="dot real"></span>Real, on devnet</td></tr>
+          <tr><td class="cap">Skill purchase, atomic USDC split</td><td><span class="dot real"></span>Real on devnet, the transaction signature is kept as proof of purchase</td></tr>
+          <tr><td class="cap">Agent runtime and tools</td><td><span class="dot real"></span>Real tool-calling on the MiniMax plan (OpenAI-compatible), streamed into the thread</td></tr>
+          <tr><td class="cap">Jupiter swap quote</td><td><span class="dot real"></span>Real live mainnet quote, read only, no funds move</td></tr>
+          <tr><td class="cap">Jupiter swap execution</td><td><span class="dot hold"></span>Gated behind an explicit confirm and real funds, operator only</td></tr>
+          <tr><td class="cap">SKR price and holder balance</td><td><span class="dot real"></span>Real reads off Solana mainnet, nothing signed, no SKR moved</td></tr>
+          <tr><td class="cap">SKR transfers, swaps, staking</td><td><span class="dot hold"></span>Out of scope, mainnet and real funds, operator only</td></tr>
+          <tr><td class="cap">dApp Store publish</td><td><span class="dot hold"></span>Pending, done post-win to claim, needs a release keystore and mainnet SOL</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+<section id="security">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="eyebrow">Security</span>
+      <h2>Built to be attacked</h2>
+      <p class="lead">One command is the release gate. CI runs the same script, so a judge and a reviewer get the same verdict.</p>
+    </div>
+    <div class="grid stats">
+      <div class="stat"><div class="num">169</div><div class="lab">app tests passing</div><div class="bar"></div></div>
+      <div class="stat"><div class="num">17</div><div class="lab">server tests passing</div><div class="bar"></div></div>
+      <div class="stat"><div class="num">16</div><div class="lab">web routes exported</div><div class="bar"></div></div>
+    </div>
+    <div class="grid devgrid" style="margin-top:24px">
+      <div>
+        <h3 style="margin-bottom:12px">The one-command gate</h3>
+        <pre class="code"><code>./verify.sh      <span class="c"># prints ALL GREEN only when every check passes</span></code></pre>
+        <p class="lead" style="margin-top:12px; font-size:.95rem">It runs the app type-check and tests, the app lint, the web export asserting the route count, the server type-check and tests, then a supply-chain audit that fails on any high or critical finding.</p>
+      </div>
+      <ul class="hard">
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg><span><b>Signed nodes.</b> Every chat node is signed and re-verified on ingest and on read, so a forged or tampered node is dropped rather than shown.</span></li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg><span><b>Capped agent spend.</b> Agent payments carry a hard per-transfer and per-process USDC cap enforced in code, so no message can raise or bypass it.</span></li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg><span><b>Server ceilings.</b> The sync server holds message-size, room and node ceilings, a per-socket rate limiter, an origin allowlist and a top-level crash guard.</span></li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg><span><b>Secrets and transport.</b> Secrets never ship in a tracked file, the bearer compare is constant time, the hosted web build sends a strict Content-Security-Policy.</span></li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg><span><b>Adversarial tests.</b> Property and attack tests cover the signing gate, the dedupe path, the spend gate fail-closed behaviour and the malformed-stream paths.</span></li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section id="developers">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="eyebrow">Developers</span>
+      <h2>Build on Bond</h2>
+    </div>
+    <div class="grid devgrid">
+      <div class="devblock" id="quickstart" style="scroll-margin-top:calc(var(--h) + 16px)">
+        <h3>Quickstart</h3>
+        <p class="lead" style="font-size:.92rem; margin-bottom:10px">The server, the agent runtime and the sync hub:</p>
+        <pre class="code"><code>cd server
+npm ci
+cp .env.example .env     <span class="c"># set BOND_BEARER + an OpenAI-compatible key</span>
+npm run build &amp;&amp; npm start</code></pre>
+        <p class="lead" style="font-size:.92rem; margin:14px 0 10px">The app, web is the fastest way to see it:</p>
+        <pre class="code"><code>cd app
+npm ci
+npx expo start --web</code></pre>
+      </div>
+      <div class="devblock" id="api" style="scroll-margin-top:calc(var(--h) + 16px)">
+        <h3>Agent API</h3>
+        <p class="lead" style="font-size:.92rem; margin-bottom:10px">Stream a real tool-calling turn over Server-Sent Events:</p>
+        <pre class="code"><code>curl -N https://your-host/v1/agent/turn \
+  -H "Authorization: Bearer $BOND_BEARER" \
+  -H "Content-Type: application/json" \
+  -d '{"messages":[{"role":"user",
+       "content":"What is my USDC balance?"}]}'</code></pre>
+        <div class="evset">
+          <span class="ev">turn_start</span><span class="ev">text</span><span class="ev">tool_call</span><span class="ev">tool_result</span><span class="ev">turn_end</span><span class="ev">done</span>
+        </div>
+        <p class="lead" style="font-size:.92rem; margin-top:14px">The system prompt is fixed on the server and the tool-calling step count is capped, so a caller cannot redefine the agent or loop it forever.</p>
+      </div>
+    </div>
+  </div>
+</section>
+</main>
+<footer>
+  <div class="wrap">
+    <div id="get" style="scroll-margin-top:calc(var(--h) + 16px); background:var(--panel); border:1px solid var(--edge); border-radius:var(--r); padding:22px 24px; margin-bottom:12px; display:flex; gap:18px; flex-wrap:wrap; align-items:center; justify-content:space-between">
+      <div style="max-width:62ch">
+        <div style="font-weight:700; color:var(--ink); font-size:1.05rem; margin-bottom:4px">Get the app</div>
+        <p class="src">A signed APK and the Solana dApp Store listing are published at submission. Android-first, with a web build for anyone who cannot sideload an APK.</p>
+      </div>
+      <a class="btn btn-outline" href="https://github.com/zkasuran/bond">
+        <svg viewBox="0 0 16 16" aria-hidden="true" fill="currentColor"><path d="M8 0C3.6 0 0 3.6 0 8a8 8 0 005.5 7.6c.4.1.5-.2.5-.4v-1.4c-2.2.5-2.7-1-2.7-1-.4-.9-.9-1.2-.9-1.2-.7-.5.1-.5.1-.5.8.1 1.2.8 1.2.8.7 1.2 1.9.9 2.3.7.1-.5.3-.9.5-1.1-1.8-.2-3.6-.9-3.6-3.9 0-.9.3-1.6.8-2.1-.1-.2-.4-1 .1-2.1 0 0 .7-.2 2.2.8a7.6 7.6 0 014 0c1.5-1 2.2-.8 2.2-.8.5 1.1.2 1.9.1 2.1.5.5.8 1.2.8 2.1 0 3-1.8 3.7-3.6 3.9.3.3.6.8.6 1.6v2.4c0 .2.1.5.6.4A8 8 0 0016 8c0-4.4-3.6-8-8-8z"/></svg>
+        Read the source
+      </a>
+    </div>
+    <div class="frow">
+      <span class="brand" style="font-weight:800">Bond<b style="color:var(--acc)">.</b></span>
+      <span class="src">Built for the CLOCK IN Solana Mobile hackathon.</span>
+    </div>
+    <p class="src">Licence: source-available, no derivatives (<code>LicenseRef-zkasuran-SAND-1.0</code>). Third-party components keep their own terms.</p>
+    <p class="src">AI assistance (Claude) was used to build Bond. The design, review and verification are the author's.</p>
+    <div class="frow">
+      <a class="lnk" href="https://github.com/zkasuran/bond">github.com/zkasuran/bond</a>
+      <a class="lnk" href="#overview">Overview</a>
+      <a class="lnk" href="#real">What is real</a>
+      <a class="lnk" href="#security">Security</a>
+    </div>
+  </div>
+</footer>
+<script>
+(function(){
+  var root=document.documentElement;
+  var toggle=document.querySelector('.toggle');
+  function syncToggle(){
+    if(toggle){toggle.setAttribute('aria-pressed',String(root.getAttribute('data-theme')==='light'));}
+  }
+  syncToggle();
+  if(toggle){
+    toggle.addEventListener('click',function(){
+      var next=root.getAttribute('data-theme')==='light'?'dark':'light';
+      root.setAttribute('data-theme',next);
+      try{localStorage.setItem('theme',next);}catch(e){}
+      syncToggle();
+    });
+  }
+  var cats=Array.prototype.slice.call(document.querySelectorAll('.cat'));
+  function setOpen(cat,open){
+    cat.classList.toggle('open',open);
+    var btn=cat.querySelector('button');
+    if(btn){btn.setAttribute('aria-expanded',String(open));}
+  }
+  function closeAll(except){
+    cats.forEach(function(c){if(c!==except){setOpen(c,false);}});
+  }
+  var mobile=document.getElementById('mobilemenu');
+  var hamb=document.querySelector('.hamb');
+  function closeMobile(){
+    if(mobile){mobile.setAttribute('data-open','false');}
+    if(hamb){hamb.setAttribute('aria-expanded','false');}
+  }
+  cats.forEach(function(cat){
+    var btn=cat.querySelector('button');
+    cat.addEventListener('mouseenter',function(){closeAll(cat);setOpen(cat,true);});
+    cat.addEventListener('mouseleave',function(){setOpen(cat,false);});
+    if(btn){
+      btn.addEventListener('click',function(){
+        var open=cat.classList.contains('open');
+        closeAll(cat);setOpen(cat,!open);
+      });
+    }
+    cat.addEventListener('focusin',function(){closeAll(cat);setOpen(cat,true);});
+    cat.addEventListener('focusout',function(e){
+      if(!cat.contains(e.relatedTarget)){setOpen(cat,false);}
+    });
+    cat.querySelectorAll('.sub a').forEach(function(a){
+      a.addEventListener('click',function(){setOpen(cat,false);});
+    });
+  });
+  document.addEventListener('keydown',function(e){
+    if(e.key==='Escape'){
+      var openCat=document.querySelector('.cat.open');
+      closeAll(null);
+      if(openCat){var b=openCat.querySelector('button'); if(b){b.focus();}}
+      closeMobile();
+    }
+  });
+  document.addEventListener('click',function(e){
+    if(!e.target.closest('.cat')){closeAll(null);}
+  });
+  if(hamb&&mobile){
+    hamb.addEventListener('click',function(){
+      var open=mobile.getAttribute('data-open')==='true';
+      mobile.setAttribute('data-open',String(!open));
+      hamb.setAttribute('aria-expanded',String(!open));
+    });
+    mobile.querySelectorAll('a').forEach(function(a){
+      a.addEventListener('click',closeMobile);
+    });
+  }
+})();
+</script>
+</body>
+</html>
+

@@ -18,6 +18,13 @@ export const USDC_DEVNET_MINT = "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU";
 export const USDC_MAINNET_MINT = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
 export const USDC_DECIMALS = 6;
 
+/** SKR, Seeker's token on Solana. A classic SPL Token (owner TokenkegQfe...), 6 decimals,
+ *  mainnet only: it does not exist on devnet. Bond reads it live from mainnet for a holder
+ *  balance and a price, the same read-only class as a Jupiter mainnet quote. No SKR ever
+ *  moves and nothing is signed against it; skill purchases still settle in devnet USDC. */
+export const SKR_MINT = "SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3";
+export const SKR_DECIMALS = 6;
+
 /** Wrapped SOL, the input side of a SOL to USDC swap quote. */
 export const WSOL_MINT = "So11111111111111111111111111111111111111112";
 export const SOL_DECIMALS = 9;

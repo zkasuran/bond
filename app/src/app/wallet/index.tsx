@@ -4,7 +4,7 @@
 // view; executing a swap is mainnet and moves real funds, so this screen shows the quote
 // and leaves execution gated. Built on Bond's tokens and ui components.
 import { useCallback, useEffect, useState } from "react";
-import { ScrollView, TextInput, View } from "react-native";
+import { Linking, Pressable, ScrollView, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { PublicKey } from "@solana/web3.js";
 import { Screen } from "@/components/ui/Screen";
@@ -18,14 +18,17 @@ import { WalletConnectButton, shortenAddress } from "@/solana/WalletConnectButto
 import {
   getConnection,
   LAMPORTS_PER_SOL,
+  SOLANA_CLUSTER,
   SOL_DECIMALS,
   USDC_DECIMALS,
   USDC_MAINNET_MINT,
   WSOL_MINT,
 } from "@/solana/config";
-import { buildUsdcTransfer, getUsdcBalance } from "@/solana/usdc";
+import { buildUsdcTransfer, fromBaseUnits, getUsdcBalance, toBaseUnits } from "@/solana/usdc";
 import { getQuote, summarizeQuote, type QuoteSummary } from "@/solana/swap";
 import { signAndSendTransaction } from "@/solana/wallet";
+import { explorerTxUrl } from "@/solana/explorer";
+import { requireAuth } from "@/protection/gate";
 
 function SectionLabel({ children }: { children: string }) {
   const { space } = useTokens();
@@ -83,7 +86,7 @@ function Field({
 }
 
 function Row({ label, value, valueColor }: { label: string; value: string; valueColor?: string }) {
-  const { c, space } = useTokens();
+  const { space } = useTokens();
   return (
     <View style={{ flexDirection: "row", justifyContent: "space-between", paddingVertical: space[1] }}>
       <Txt variant="callout" muted>
@@ -95,6 +98,14 @@ function Row({ label, value, valueColor }: { label: string; value: string; value
     </View>
   );
 }
+
+/** Format a USDC price per SKR for display, trimming trailing zeros. Six decimals keeps a
+ *  sub-cent price readable without turning into scientific notation. */
+export function formatSkrPrice(priceInUsdc: number): string {
+  if (!Number.isFinite(priceInUsdc) || priceInUsdc <= 0) return "unavailable";
+  const trimmed = priceInUsdc.toFixed(6).replace(/\.?0+$/, "");
+  return `1 SKR = ${trimmed} USDC`;
+}
 export default function WalletScreen() {
   const { c, space } = useTokens();
   const identity = useBond((s) => s.identity);
@@ -103,6 +114,8 @@ export default function WalletScreen() {
   const binding = useWallet((s) => s.binding);
   const bindIdentity = useWallet((s) => s.bindIdentity);
   const loadStoredBinding = useWallet((s) => s.loadStoredBinding);
+  const skr = useBond((s) => s.skr);
+  const refreshSkr = useBond((s) => s.refreshSkr);
 
   const [sol, setSol] = useState<string | null>(null);
   const [usdc, setUsdc] = useState<string | null>(null);
@@ -141,8 +154,19 @@ export default function WalletScreen() {
   }, [identity, loadStoredBinding]);
 
   useEffect(() => {
-    void refreshBalance();
+    // Defer the first refresh out of the effect body so the loading flag is not set
+    // synchronously during render. Cleared on unmount.
+    const t = setTimeout(() => void refreshBalance(), 0);
+    return () => clearTimeout(t);
   }, [refreshBalance]);
+
+  useEffect(() => {
+    // SKR is read live from mainnet and needs no wallet for the price, so refresh on mount
+    // and whenever the connected address changes. refreshSkr is optional-called so a mocked
+    // store without it never crashes the screen.
+    const t = setTimeout(() => void refreshSkr?.(address ?? null), 0);
+    return () => clearTimeout(t);
+  }, [address, refreshSkr]);
   const onSend = useCallback(async () => {
     setSendError(null);
     setSendResult(null);
@@ -157,8 +181,31 @@ export default function WalletScreen() {
       setSendError("That recipient is not a valid Solana address.");
       return;
     }
+    // Parse with the transfer's own decimal parser so the gate sees the real amount.
+    let amountUsdc: number;
+    try {
+      const base = toBaseUnits(sendAmount.trim(), USDC_DECIMALS);
+      if (base <= 0n) throw new Error("Amount must be greater than zero");
+      amountUsdc = Number(fromBaseUnits(base, USDC_DECIMALS));
+    } catch {
+      setSendError("Enter a valid USDC amount.");
+      return;
+    }
     setSending(true);
     try {
+      // Route through the spend gate before building or signing anything, the same gate the
+      // in-thread pay flow uses. A denied or fail-closed gate stops the send here.
+      const gate = await requireAuth("spend", { amountUsdc });
+      if (!gate.ok) {
+        setSendError(
+          gate.outcome === "no_pin"
+            ? "Set a PIN in Protection to approve payments."
+            : gate.outcome === "locked_out"
+              ? "Too many attempts. Try again shortly."
+              : "Payment was not approved.",
+        );
+        return;
+      }
       const connection = getConnection();
       const built = await buildUsdcTransfer(connection, new PublicKey(address), to, sendAmount.trim());
       const signature = await signAndSendTransaction(built.transaction, { authToken });
@@ -260,9 +307,20 @@ export default function WalletScreen() {
               does not exist yet.
             </Txt>
             {sendResult ? (
-              <Txt variant="mono" color={c.verified} selectable>
-                Sent. Signature {shortenAddress(sendResult, 8, 8)}
-              </Txt>
+              <View style={{ gap: space[1] }}>
+                <Txt variant="mono" color={c.verified} selectable>
+                  Submitted. Signature {shortenAddress(sendResult, 8, 8)}
+                </Txt>
+                <Pressable
+                  onPress={() => void Linking.openURL(explorerTxUrl(sendResult, SOLANA_CLUSTER)).catch(() => {})}
+                  hitSlop={6}
+                  accessibilityRole="link"
+                  style={{ flexDirection: "row", alignItems: "center", gap: 4 }}
+                >
+                  <Ionicons name="open-outline" size={13} color={c.brand} />
+                  <Txt variant="caption" color={c.brand}>View on Solana Explorer (devnet)</Txt>
+                </Pressable>
+              </View>
             ) : null}
             {sendError ? (
               <Txt variant="caption" color={c.tampered}>
@@ -305,6 +363,36 @@ export default function WalletScreen() {
             {swapError ? (
               <Txt variant="caption" color={c.tampered}>
                 {swapError}
+              </Txt>
+            ) : null}
+          </Card>
+        </View>
+        <View>
+          <SectionLabel>SKR (mainnet)</SectionLabel>
+          <Card style={{ gap: space[2] }}>
+            <Row
+              label="SKR price"
+              value={skr?.loading ? "…" : formatSkrPrice(skr?.priceInUsdc ?? 0)}
+            />
+            <Row
+              label="Your SKR"
+              value={
+                !address
+                  ? "connect a wallet"
+                  : skr?.loading
+                    ? "…"
+                    : `${skr?.balanceUi ?? "0"} SKR`
+              }
+              valueColor={skr?.isHolder ? c.verified : undefined}
+            />
+            <Button title="Refresh SKR" variant="ghost" onPress={() => void refreshSkr?.(address ?? null)} />
+            <Txt variant="caption" faint>
+              SKR price and balance are read live from Solana mainnet. Nothing is signed and no
+              SKR is moved. Skill purchases settle in devnet USDC for this hackathon build.
+            </Txt>
+            {skr?.error ? (
+              <Txt variant="caption" color={c.tampered}>
+                {skr.error}
               </Txt>
             ) : null}
           </Card>

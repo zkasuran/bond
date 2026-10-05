@@ -6,6 +6,9 @@ import type { BondNode, Identity } from "../../model/node";
 import type { Storage } from "../types";
 import { MemoryStorage } from "../memory";
 import { WebStorage } from "../web";
+import { makeNode } from "../../model/factory";
+import { generateKeypair, type RawKeypair } from "../../identity/keys";
+import { signNode, verifyNode } from "../../identity/sign";
 
 const author: Identity = { did: "did:key:zA", displayName: "A", kind: "human" };
 
@@ -20,6 +23,28 @@ function node(id: string, roomId: string, lamport: number): BondNode {
     type: "text",
     payload: { body: id },
   };
+}
+
+/** A real signed node with a chosen id, so verifyNode reports "verified". */
+function signedNode(
+  kp: RawKeypair,
+  id: string,
+  roomId: string,
+  lamport: number,
+  body = id,
+): BondNode {
+  const signer: Identity = { did: kp.did, displayName: "Signer", kind: "human" };
+  const n = makeNode({
+    roomId,
+    parentId: null,
+    author: signer,
+    type: "text",
+    payload: { body },
+    lamport,
+  });
+  n.id = id;
+  n.sig = signNode(n, kp.secretKey);
+  return n;
 }
 
 /** A minimal Map-backed stand-in for the browser localStorage. */
@@ -100,5 +125,148 @@ describe.each(cases)("Storage contract: $name", ({ setup }) => {
     expect(await store.getItem("k")).toEqual({ a: 1 });
     await store.removeItem("k");
     expect(await store.getItem("k")).toBeNull();
+  });
+
+  it("stores a signed node and reads it back as verified", async () => {
+    const kp = generateKeypair();
+    await store.append(signedNode(kp, "s1", "r1", 1));
+    const [back] = await store.nodesForRoom("r1");
+    expect(back.id).toBe("s1");
+    expect(verifyNode(back)).toBe("verified");
+  });
+
+  it("keeps an unsigned node but never presents it as verified", async () => {
+    await store.append(node("u1", "r1", 1));
+    const [back] = await store.nodesForRoom("r1");
+    expect(back.id).toBe("u1");
+    expect(verifyNode(back)).toBe("unsigned");
+  });
+
+  it("drops a tampered relayed node and never returns it", async () => {
+    const kp = generateKeypair();
+    const good = signedNode(kp, "ok", "r1", 1);
+    const tampered = signedNode(kp, "bad", "r1", 2);
+    // A relay rewrites the payload after the author signed it.
+    tampered.payload = { body: "rewritten by the relay" };
+    expect(verifyNode(tampered)).toBe("tampered");
+    await store.append(good);
+    await store.append(tampered);
+    const ids = (await store.nodesForRoom("r1")).map((n) => n.id);
+    expect(ids).toEqual(["ok"]);
+  });
+
+  it("drops a tampered node ingested through appendMany", async () => {
+    const kp = generateKeypair();
+    const good = signedNode(kp, "ok", "r1", 1);
+    const tampered = signedNode(kp, "bad", "r1", 2);
+    tampered.payload = { body: "rewritten" };
+    await store.appendMany([good, tampered]);
+    const ids = (await store.nodesForRoom("r1")).map((n) => n.id);
+    expect(ids).toEqual(["ok"]);
+  });
+
+  it("rejects a forged duplicate id that would shadow a verified node", async () => {
+    const real = generateKeypair();
+    const attacker = generateKeypair();
+    const authentic = signedNode(real, "dup", "r1", 1, "the real message");
+    await store.append(authentic);
+    // The attacker reuses the id with different content, signed by a different key.
+    const forged = signedNode(attacker, "dup", "r1", 1, "the forged message");
+    await store.append(forged);
+    const nodes = await store.nodesForRoom("r1");
+    expect(nodes.length).toBe(1);
+    expect((nodes[0].payload as { body: string }).body).toBe("the real message");
+    expect(nodes[0].sig?.signer).toBe(real.did);
+  });
+
+  it("an authentic verified node reclaims an id a shadow grabbed first", async () => {
+    const real = generateKeypair();
+    // An unsigned placeholder grabs the id before the authentic node arrives.
+    const shadow = node("dup", "r1", 1);
+    shadow.payload = { body: "shadow" };
+    const authentic = signedNode(real, "dup", "r1", 1, "the real message");
+    await store.append(shadow);
+    await store.append(authentic);
+    const nodes = await store.nodesForRoom("r1");
+    expect(nodes.length).toBe(1);
+    expect(nodes[0].sig?.signer).toBe(real.did);
+    expect(verifyNode(nodes[0])).toBe("verified");
+  });
+
+  it("ignores a byte-identical re-send of a verified node", async () => {
+    const kp = generateKeypair();
+    const n = signedNode(kp, "same", "r1", 1);
+    await store.append(n);
+    await store.append({ ...n });
+    expect((await store.nodesForRoom("r1")).length).toBe(1);
+  });
+});
+
+describe("WebStorage survives a hostile localStorage", () => {
+  function withRaw(seed: Record<string, string>) {
+    const m = new Map<string, string>(Object.entries(seed));
+    (globalThis as { localStorage?: unknown }).localStorage = {
+      getItem: (k: string): string | null => (m.has(k) ? (m.get(k) as string) : null),
+      setItem: (k: string, v: string): void => {
+        m.set(k, v);
+      },
+      removeItem: (k: string): void => {
+        m.delete(k);
+      },
+    };
+    return new WebStorage();
+  }
+
+  afterEach(() => {
+    delete (globalThis as { localStorage?: unknown }).localStorage;
+  });
+
+  it("returns [] for a malformed node array instead of throwing", async () => {
+    const store = withRaw({ "bond:nodes:r1": "{ not json ]" });
+    await expect(store.nodesForRoom("r1")).resolves.toEqual([]);
+  });
+
+  it("returns [] when the node value is a non-array JSON value", async () => {
+    const store = withRaw({ "bond:nodes:r1": '{"id":"a"}' });
+    await expect(store.nodesForRoom("r1")).resolves.toEqual([]);
+  });
+
+  it("returns null for a corrupted kv value instead of throwing", async () => {
+    const store = withRaw({ "bond:kv:cfg": "<<<garbage>>>" });
+    await expect(store.getItem("cfg")).resolves.toBeNull();
+  });
+
+  it("tolerates a corrupted room index and kv index", async () => {
+    const store = withRaw({ "bond:rooms": "nope", "bond:kvkeys": "nope" });
+    await expect(store.roomIds()).resolves.toEqual([]);
+    // clear() reads both indices and must not throw on garbage.
+    await expect(store.clear()).resolves.toBeUndefined();
+  });
+
+  it("caps an oversized node array so a hostile value cannot be read whole", async () => {
+    const huge = Array.from({ length: 100_050 }, (_, i) => ({
+      id: `n${i}`,
+      roomId: "r1",
+      parentId: null,
+      lamport: 1,
+      createdAt: new Date(0).toISOString(),
+      author,
+      type: "text",
+      payload: { body: "x" },
+    }));
+    const store = withRaw({ "bond:nodes:r1": JSON.stringify(huge) });
+    const back = await store.nodesForRoom("r1");
+    expect(back.length).toBeLessThanOrEqual(100_000);
+  });
+
+  it("drops a node tampered at rest when it is read back", async () => {
+    const kp = generateKeypair();
+    const good = signedNode(kp, "ok", "r1", 1);
+    const tampered = signedNode(kp, "bad", "r1", 2);
+    // Rewrite the stored bytes after signing, the way a hostile localStorage edit would.
+    tampered.payload = { body: "edited at rest" };
+    const store = withRaw({ "bond:nodes:r1": JSON.stringify([good, tampered]) });
+    const ids = (await store.nodesForRoom("r1")).map((n) => n.id);
+    expect(ids).toEqual(["ok"]);
   });
 });

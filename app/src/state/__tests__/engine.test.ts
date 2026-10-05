@@ -39,4 +39,55 @@ describe("state engine", () => {
     expect(node.sig?.signer).toBe(kp.did);
     expect(verifyNode(node)).toBe("verified");
   });
+
+  it("populates every now-signed field before signing, so a rich node verifies", () => {
+    const kp = generateKeypair();
+    const author: Identity = { did: kp.did, displayName: "Me", kind: "human" };
+    const node = createSignedNode(
+      {
+        roomId: "r",
+        parentId: "p",
+        author,
+        type: "text",
+        payload: { body: "hi" },
+        lamport: 4,
+        topicId: "t-1",
+        causalParent: "c-1",
+        forkKind: "subagent",
+        collapsedByDefault: true,
+        refs: [
+          { kind: "depends_on", target: "x" },
+          { kind: "handoff", target: "y" },
+        ],
+      },
+      kp.secretKey,
+    );
+    // The structural and semantic fields are all present on the node and inside the signature,
+    // so a storage read-back verifies rather than reading as tampered.
+    expect(node.topicId).toBe("t-1");
+    expect(node.causalParent).toBe("c-1");
+    expect(node.forkKind).toBe("subagent");
+    expect(node.collapsedByDefault).toBe(true);
+    expect(node.refs).toHaveLength(2);
+    expect(verifyNode(node)).toBe("verified");
+  });
+
+  it("detects a tampered edge after signing", () => {
+    const kp = generateKeypair();
+    const author: Identity = { did: kp.did, displayName: "Me", kind: "human" };
+    const node = createSignedNode(
+      {
+        roomId: "r",
+        parentId: null,
+        author,
+        type: "text",
+        payload: { body: "hi" },
+        lamport: 1,
+        refs: [{ kind: "depends_on", target: "x" }],
+      },
+      kp.secretKey,
+    );
+    const tampered = { ...node, refs: [{ kind: "depends_on" as const, target: "z" }] };
+    expect(verifyNode(tampered)).toBe("tampered");
+  });
 });

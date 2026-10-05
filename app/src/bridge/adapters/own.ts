@@ -12,6 +12,26 @@ import { getStreamingFetch, joinUrl } from "../net";
 import { parseSSE, streamBytes } from "../sse";
 import { GenericOpenAIAdapter } from "./generic";
 
+const EVENT_KINDS = new Set([
+  "turn_start",
+  "text",
+  "tool_call",
+  "tool_result",
+  "turn_end",
+  "error",
+  "done",
+]);
+
+// Validate a parsed server event at the trust boundary before it enters Bond's core. The
+// gateway is ours but the bytes on the wire are untrusted, so a null, a non-object or an
+// unknown `kind` is dropped rather than yielded, which would otherwise crash a consumer that
+// switches on `ev.kind`.
+function isAdapterEvent(value: unknown): value is AdapterEvent {
+  if (!value || typeof value !== "object") return false;
+  const kind = (value as { kind?: unknown }).kind;
+  return typeof kind === "string" && EVENT_KINDS.has(kind);
+}
+
 export class BondOwnGatewayAdapter extends GenericOpenAIAdapter {
   readonly id = "bond";
   readonly displayName = "Bond gateway";
@@ -65,12 +85,13 @@ export class BondOwnGatewayAdapter extends GenericOpenAIAdapter {
 
     for await (const ev of parseSSE(streamBytes(res.body))) {
       if (!ev.data) continue;
-      let parsed: AdapterEvent;
+      let parsed: unknown;
       try {
-        parsed = JSON.parse(ev.data) as AdapterEvent;
+        parsed = JSON.parse(ev.data);
       } catch {
         continue;
       }
+      if (!isAdapterEvent(parsed)) continue; // drop anything that is not a known event
       yield parsed;
       if (parsed.kind === "done") return;
     }

@@ -221,12 +221,12 @@ emit several turn boundaries inside one tool loop and Bond must not close a thre
 The four adapters:
 
 1. Bond own gateway. Targets Bond's own backend (section 9), which exposes the OpenAI
-   `/v1/chat/completions` surface over the OpenAI-compatible house gateway. Capabilities:
+   `/v1/chat/completions` surface over a configured OpenAI-compatible endpoint. Capabilities:
    `{ streaming: true, tools: "mcp", sessions: true, threading: true, multiAgent: true,
    identity: "token", transports: ["openai-http","mcp"] }`. This is the default agent for a
-   new user, so the aha moment works with zero setup. House rule: the gateway and the exact
-   model are never named in tracked code, the store listing, the video or the app. The
-   in-code default base URL is neutral and the real values live only in the lane `.env`.
+   new user, so the aha moment works with zero setup. The in-code default base URL is neutral
+   and the real endpoint, key and model live only in the server `.env`, never in the app
+   bundle or a tracked file.
 
 2. Generic OpenAI / WebSocket / MCP adapter. Any runtime exposing an OpenAI-compatible base
    URL and optionally an MCP server. `connect` calls `GET /v1/models`, `sendTurn` POSTs
@@ -469,8 +469,8 @@ things:
 
 1. Serves the exported static web build (`dist/`) so the whole product is one origin and one
    live URL.
-2. Exposes `POST /v1/chat/completions` (OpenAI-compatible, streaming) by proxying the
-   OpenAI-compatible house gateway. This is the surface the Bond own adapter targets, so that
+2. Exposes `POST /v1/chat/completions` (OpenAI-compatible, streaming) by proxying a configured
+   OpenAI-compatible endpoint. This is the surface the Bond own adapter targets, so that
    adapter is identical in shape to the generic one.
 3. Hosts the `/sync` WebSocket and enforces the room permission matrix from section 6.
 4. `GET /health`.
@@ -479,9 +479,8 @@ Auth posture, stated because no network service ships silently unauthenticated: 
 gets a bearer token at pairing, sent on the WebSocket upgrade and on `/v1` calls and the
 server rejects a missing or bad token. Message authorship is additionally bound by the
 did:key signature (section 5), so the bearer token authorizes transport while the signature
-proves who wrote a node. The house gateway credentials live only in the server's `.env` sourced
-from `.gateway.env`, never in the app bundle and never in tracked files and the gateway and
-model are never named outward.
+proves who wrote a node. The upstream credentials live only in the server's `.env`, never in
+the app bundle and never in a tracked file.
 
 Backend change to the scaffold: `app.json` currently sets `web.output: "static"`. The static
 web export is fine for the front end and is served by the Node service. If Expo Router `+api.ts`

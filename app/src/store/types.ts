@@ -5,10 +5,13 @@
 import type { BondNode } from "../model/node";
 
 export interface Storage {
-  /** Append one node. Duplicates by id are ignored, so sync is a conflict-free union. */
+  /** Append one node. A byte-identical duplicate is ignored so the log stays a
+   *  conflict-free union. A node whose signature does not verify is dropped. A forged
+   *  node reusing an id with different content cannot shadow the one already stored. */
   append(node: BondNode): Promise<void>;
   appendMany(nodes: BondNode[]): Promise<void>;
-  /** All nodes in a room, ordered by the causal total order. */
+  /** All nodes in a room, ordered by the causal total order. Tampered nodes are not
+   *  returned, so a verified badge is never shown over altered bytes. */
   nodesForRoom(roomId: string): Promise<BondNode[]>;
   /** Highest Lamport value seen for a room, 0 if none. Used to resume sync. */
   maxLamport(roomId: string): Promise<number>;

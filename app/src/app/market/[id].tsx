@@ -4,7 +4,7 @@
 // connected Seeker wallet. Once bought, the transaction signature is shown as the proof of
 // purchase. Built on Bond's tokens and ui components.
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Pressable, ScrollView, View } from "react-native";
+import { Linking, Pressable, ScrollView, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { PublicKey } from "@solana/web3.js";
@@ -14,7 +14,10 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Pill } from "@/components/ui/Badge";
 import { useTokens } from "@/theme";
-import { getConnection } from "@/solana/config";
+import { getConnection, SOLANA_CLUSTER } from "@/solana/config";
+import { applySkrHolderDiscount, creatorSkrDiscountBps } from "@/solana/skr";
+import { explorerTxUrl } from "@/solana/explorer";
+import { useBond } from "@/state/store";
 import { useWallet } from "@/solana/store";
 import { WalletConnectButton, shortenAddress } from "@/solana/WalletConnectButton";
 import { useSkills } from "@/skills/registry";
@@ -61,6 +64,8 @@ export default function MarketDetailScreen() {
   const available = useWallet((s) => s.available);
   const address = useWallet((s) => s.connectedAddress);
   const authToken = useWallet((s) => s.authToken);
+  const skr = useBond((s) => s.skr);
+  const refreshSkr = useBond((s) => s.refreshSkr);
 
   const [buying, setBuying] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -69,13 +74,39 @@ export default function MarketDetailScreen() {
     void load();
   }, [load]);
 
+  useEffect(() => {
+    // SKR is read live from mainnet, read-only. Optional-called so a store without it (tests)
+    // never crashes the screen.
+    const t = setTimeout(() => void refreshSkr?.(address ?? null), 0);
+    return () => clearTimeout(t);
+  }, [address, refreshSkr]);
+
   const skill = id ? getSkill(id) : undefined;
   const entitlement = skill ? entitlements[skill.id] : undefined;
   const installed = !!entitlement;
-  const quote = useMemo(() => (skill ? quoteSkillPurchase(skill) : null), [skill]);
+
+  // SKR holder perk. A holder gets a bounded, creator-set discount on the devnet-USDC price;
+  // a non-holder gets none. The discount is applied by charging a discounted price, so the
+  // purchase still settles in devnet USDC and no SKR is ever moved.
+  const isHolder = skr?.isHolder ?? false;
+  const skrPriceInUsdc = skr?.priceInUsdc ?? 0;
+  const discount = useMemo(
+    () =>
+      skill ? applySkrHolderDiscount(skill.price.amount, isHolder, creatorSkrDiscountBps(skill.id)) : null,
+    [skill, isHolder],
+  );
+  const purchaseSkill = useMemo(
+    () =>
+      skill && discount ? { ...skill, price: { ...skill.price, amount: discount.discountedUi } } : skill,
+    [skill, discount],
+  );
+  const quote = useMemo(
+    () => (purchaseSkill ? quoteSkillPurchase(purchaseSkill) : null),
+    [purchaseSkill],
+  );
 
   const onBuy = useCallback(async () => {
-    if (!skill) return;
+    if (!purchaseSkill) return;
     setError(null);
     if (!address || !authToken) {
       setError("Connect a wallet to buy this skill.");
@@ -84,7 +115,7 @@ export default function MarketDetailScreen() {
     setBuying(true);
     try {
       const connection = getConnection();
-      const result = await executeSkillPurchase(connection, skill, {
+      const result = await executeSkillPurchase(connection, purchaseSkill, {
         buyer: new PublicKey(address),
         authToken,
       });
@@ -94,7 +125,7 @@ export default function MarketDetailScreen() {
     } finally {
       setBuying(false);
     }
-  }, [skill, address, authToken, install]);
+  }, [purchaseSkill, address, authToken, install]);
 
   if (!skill) {
     return (
@@ -109,6 +140,10 @@ export default function MarketDetailScreen() {
       </Screen>
     );
   }
+
+  const chargedUi = quote?.totalUi ?? skill.price.amount;
+  const skrEquivalent = skrPriceInUsdc > 0 ? Number(chargedUi) / skrPriceInUsdc : null;
+  const skrEquivalentLabel = skrEquivalent != null ? `≈ ${skrEquivalent.toFixed(2)} SKR` : "price unavailable";
 
   return (
     <Screen edges={["top"]}>
@@ -133,6 +168,7 @@ export default function MarketDetailScreen() {
           <Txt variant="display">{skill.name}</Txt>
           <View style={{ flexDirection: "row", alignItems: "center", gap: space[2] }}>
             <Pill label={skill.category} />
+            {isHolder ? <Pill label="SKR holder" tone="brand" /> : null}
             <Txt variant="caption" faint numberOfLines={1} style={{ flex: 1 }}>
               by {skill.author.displayName}
             </Txt>
@@ -184,6 +220,17 @@ export default function MarketDetailScreen() {
           <SectionLabel>Price</SectionLabel>
           <Card style={{ gap: space[2] }}>
             <Row label="Price" value={formatPrice(skill.price)} valueColor={c.brand} />
+            {discount && discount.bps > 0 ? (
+              <>
+                <Row
+                  label={`SKR holder discount (${discount.bps / 100}%)`}
+                  value={`-${discount.savingUi} USDC`}
+                  valueColor={c.verified}
+                />
+                <Row label="You pay" value={`${discount.discountedUi} USDC`} valueColor={c.brand} />
+              </>
+            ) : null}
+            <Row label="SKR equivalent" value={skrEquivalentLabel} />
             {quote ? (
               <>
                 <Row label={`Creator (${100 - quote.platformFeeBps / 100}%)`} value={`${quote.authorUi} USDC`} />
@@ -196,6 +243,11 @@ export default function MarketDetailScreen() {
             <Txt variant="caption" faint>
               Paid in one atomic transaction on Solana devnet. The creator gets their cut in the same
               transaction the platform gets its fee, together or not at all.
+            </Txt>
+            <Txt variant="caption" faint>
+              SKR holdings and the SKR equivalent are read live from Solana mainnet. No SKR is
+              moved. The holder discount lowers the devnet USDC price, which still settles in
+              devnet USDC.
             </Txt>
           </Card>
         </View>
@@ -212,9 +264,24 @@ export default function MarketDetailScreen() {
                   </Txt>
                 </View>
                 {entitlement?.signature ? (
-                  <Txt variant="mono" muted selectable>
-                    Proof of purchase: {shortenAddress(entitlement.signature, 8, 8)}
-                  </Txt>
+                  <View style={{ gap: space[1] }}>
+                    <Txt variant="mono" muted selectable>
+                      Proof of purchase: {shortenAddress(entitlement.signature, 8, 8)}
+                    </Txt>
+                    <Pressable
+                      onPress={() =>
+                        void Linking.openURL(
+                          explorerTxUrl(entitlement.signature as string, SOLANA_CLUSTER),
+                        ).catch(() => {})
+                      }
+                      hitSlop={6}
+                      accessibilityRole="link"
+                      style={{ flexDirection: "row", alignItems: "center", gap: 4 }}
+                    >
+                      <Ionicons name="open-outline" size={13} color={c.brand} />
+                      <Txt variant="caption" color={c.brand}>View on Solana Explorer (devnet)</Txt>
+                    </Pressable>
+                  </View>
                 ) : null}
               </>
             ) : (
@@ -222,7 +289,7 @@ export default function MarketDetailScreen() {
                 <WalletConnectButton />
                 {available ? (
                   <Button
-                    title={`Buy for ${formatPrice(skill.price)}`}
+                    title={`Buy for ${formatPrice((purchaseSkill ?? skill).price)}`}
                     variant="primary"
                     loading={buying}
                     disabled={!address}

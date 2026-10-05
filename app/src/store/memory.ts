@@ -1,7 +1,10 @@
 // In-memory Storage. Used by unit tests and as a safe fallback before a platform
-// adapter is ready. Dedupes nodes by id so it behaves like the grow-only log.
+// adapter is ready. Dedupes nodes by id so it behaves like the grow-only log. Every
+// write and read runs through the trust gate in guard.ts so a tampered node is never
+// stored or returned as trusted.
 import type { BondNode } from "../model/node";
 import { compareNodes } from "../model/thread";
+import { decideIngest, presentableOnRead } from "./guard";
 import type { Storage } from "./types";
 
 export class MemoryStorage implements Storage {
@@ -9,16 +12,20 @@ export class MemoryStorage implements Storage {
   private kv = new Map<string, unknown>();
 
   async append(node: BondNode): Promise<void> {
-    if (!this.nodes.has(node.id)) this.nodes.set(node.id, node);
+    if (decideIngest(this.nodes.get(node.id), node) === "store") {
+      this.nodes.set(node.id, node);
+    }
   }
 
   async appendMany(nodes: BondNode[]): Promise<void> {
-    for (const n of nodes) if (!this.nodes.has(n.id)) this.nodes.set(n.id, n);
+    for (const n of nodes) {
+      if (decideIngest(this.nodes.get(n.id), n) === "store") this.nodes.set(n.id, n);
+    }
   }
 
   async nodesForRoom(roomId: string): Promise<BondNode[]> {
     return [...this.nodes.values()]
-      .filter((n) => n.roomId === roomId)
+      .filter((n) => n.roomId === roomId && presentableOnRead(n))
       .sort(compareNodes);
   }
 

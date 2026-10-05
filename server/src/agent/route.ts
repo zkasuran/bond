@@ -6,6 +6,7 @@ import type { FastifyInstance } from "fastify";
 import type { ModelMessage } from "ai";
 import { runAgentTurn } from "./loop.js";
 import { sseFor, errText } from "./events.js";
+import { MAX_AGENT_STEPS } from "../limits.js";
 
 interface RawMessage {
   role?: string;
@@ -42,9 +43,12 @@ export async function agentRoutes(app: FastifyInstance): Promise<void> {
 
     const provider = typeof body.provider === "string" ? body.provider : undefined;
     const model = typeof body.model === "string" ? body.model : undefined;
-    const system = typeof body.system === "string" ? body.system : undefined;
     const runId = typeof body.runId === "string" ? body.runId : undefined;
-    const maxSteps = typeof body.maxSteps === "number" ? body.maxSteps : undefined;
+    // The step count is clamped to the hard ceiling. A client that asks for more
+    // (or a non-number) gets MAX_AGENT_STEPS, never an unbounded loop. The system
+    // prompt is fixed on the server and is not read from the body.
+    const requested = typeof body.maxSteps === "number" ? Math.floor(body.maxSteps) : MAX_AGENT_STEPS;
+    const maxSteps = Math.max(1, Math.min(requested, MAX_AGENT_STEPS));
 
     // Abort the model call and tool work only when the client hangs up before
     // the turn is done. The finished flag stops the normal end-of-stream close
@@ -70,7 +74,6 @@ export async function agentRoutes(app: FastifyInstance): Promise<void> {
     try {
       for await (const event of runAgentTurn({
         messages,
-        system,
         provider,
         model,
         maxSteps,

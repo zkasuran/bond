@@ -19,6 +19,7 @@ import { makeNode } from "../model/factory";
 import { nextLamport } from "../model/thread";
 import { branchToLeaf, createSignedNode, maxLamport } from "./engine";
 import { agentMentions, threadToChatMessages } from "../rooms/routing";
+import type { SyncClient } from "../sync/client";
 
 const BOND_AGENT_DID = "did:bond:assistant";
 const SYSTEM_PROMPT =
@@ -36,6 +37,18 @@ function defaultBondConfig(): GatewayConfig {
     apiKey: process.env.EXPO_PUBLIC_BOND_TOKEN,
     model: process.env.EXPO_PUBLIC_BOND_MODEL,
   };
+}
+
+// Live /sync sockets, keyed by room. Kept outside the zustand state because a socket is not
+// serializable render state: it is wiring. Sync is additive and local-first, so a room with
+// no entry here still works entirely from the local log. See src/sync/client.ts.
+const syncClients = new Map<string, SyncClient>();
+
+// Relay a locally created node to the room's peers, when a socket is open. A no-op when sync
+// is off or the room has no client, so every call site stays a one-liner that is safe with
+// sync disabled.
+function broadcastNode(roomId: string, node: BondNode): void {
+  syncClients.get(roomId)?.broadcast(node);
 }
 
 export interface Room {
@@ -61,6 +74,18 @@ interface StoredBridge {
   displayName: string;
   config: GatewayConfig;
 }
+
+// A live, read-only view of SKR on Solana mainnet: the connected wallet's SKR balance and
+// the price of one SKR in USDC. SKR never moves and nothing is signed against it; this only
+// reads mainnet, the same class as the Jupiter quote the Wallet screen shows. The market uses
+// isHolder to gate a bounded, creator-set discount on the devnet-USDC skill price.
+export interface SkrTouchpointState {
+  balanceUi: string;
+  priceInUsdc: number;
+  isHolder: boolean;
+  loading: boolean;
+  error: string | null;
+}
 export interface BondState {
   ready: boolean;
   identity: Identity | null;
@@ -75,6 +100,8 @@ export interface BondState {
   streaming: Record<string, boolean>;
   monthlyRuns: number;
   onboarded: boolean;
+  /** Live, read-only SKR mainnet view. Null before the first read. */
+  skr: SkrTouchpointState | null;
 
   init: () => Promise<void>;
   completeOnboarding: () => Promise<void>;
@@ -99,6 +126,15 @@ export interface BondState {
     uiAmount: string,
     memo?: string,
   ) => Promise<BondNode>;
+  /** Read the connected wallet's SKR balance and a live SKR price from mainnet. Read-only:
+   *  no SKR moves and nothing is signed. Pass null to refresh the price with no balance. */
+  refreshSkr: (ownerAddress: string | null) => Promise<void>;
+  /** Open the live /sync socket for a room so humans and agents on other devices become peers
+   *  in the same room. Additive and local-first: if sync is unavailable or the socket fails,
+   *  the room still works entirely from the local log. Safe to call more than once per room. */
+  openRoomSync: (roomId: string) => Promise<void>;
+  /** Close a room's /sync socket. Called when the room screen unmounts. */
+  closeRoomSync: (roomId: string) => void;
 }
 
 function selfMembership(id: Identity): Membership {
@@ -134,6 +170,7 @@ export const useBond = create<BondState>((set, get) => ({
   streaming: {},
   monthlyRuns: 0,
   onboarded: false,
+  skr: null,
 
   init: async () => {
     if (get().ready) return;
@@ -220,6 +257,7 @@ export const useBond = create<BondState>((set, get) => ({
     );
     await storage.append(node);
     set((s) => ({ nodes: { ...s.nodes, [roomId]: [...(s.nodes[roomId] ?? []), node] } }));
+    broadcastNode(roomId, node);
     const agents = agentMentions(node, get().members[roomId] ?? []);
     await Promise.all(agents.map((a) => get().runAgentTurn(roomId, node.id, a)));
     return node;
@@ -329,6 +367,7 @@ export const useBond = create<BondState>((set, get) => ({
       const toolNode = makeNode<K>({ roomId, parentId: reply.id, author, type, payload, lamport: lam });
       await storage.append(toolNode);
       set((s) => ({ nodes: { ...s.nodes, [roomId]: [...(s.nodes[roomId] ?? []), toolNode] } }));
+      broadcastNode(roomId, toolNode);
     };
 
     let text = "";
@@ -336,12 +375,31 @@ export const useBond = create<BondState>((set, get) => ({
       text = "This agent's bridge is not connected. Open Agents to connect one.";
       updateBody(text);
     } else {
+      // Per-chunk inactivity timeout. A legitimate turn can run long, so there is no hard
+      // total cap: instead the stream is aborted only when it goes silent for too long. The
+      // signal is threaded into the adapter, which passes it to fetch, so an abort tears the
+      // underlying request down. AbortController + setTimeout is used, not AbortSignal.timeout,
+      // which is not guaranteed on React Native / Hermes.
+      const controller = new AbortController();
+      const INACTIVITY_MS = 60_000;
+      let inactivityTimer: ReturnType<typeof setTimeout> | null = null;
+      let timedOut = false;
+      const armInactivity = () => {
+        if (inactivityTimer) clearTimeout(inactivityTimer);
+        inactivityTimer = setTimeout(() => {
+          timedOut = true;
+          controller.abort();
+        }, INACTIVITY_MS);
+      };
       try {
+        armInactivity();
         for await (const ev of bridge.adapter.sendTurn({
           threadId: roomId,
           sessionKey: roomId,
           messages,
+          signal: controller.signal,
         })) {
+          armInactivity(); // every event resets the inactivity window
           if (ev.kind === "text") {
             text += ev.delta;
             updateBody(text);
@@ -363,12 +421,23 @@ export const useBond = create<BondState>((set, get) => ({
           }
         }
       } catch (e) {
-        text += (text ? "\n\n" : "") + `[error] ${String((e as Error)?.message ?? e)}`;
+        // A hung or aborted stream surfaces as an error in the reply. The finally below
+        // stops the streaming spinner, so a dead stream never spins forever.
+        const reason = timedOut
+          ? "the agent stream stalled and was stopped"
+          : String((e as Error)?.message ?? e);
+        text += (text ? "\n\n" : "") + `[error] ${reason}`;
         updateBody(text);
+      } finally {
+        if (inactivityTimer) clearTimeout(inactivityTimer);
       }
     }
     const finalReply: BondNode = { ...reply, payload: { body: text } };
     await storage.append(finalReply);
+    // Relay the finished reply once, with its complete body. Broadcasting the empty streaming
+    // placeholder or each delta would hand a peer an unsigned node whose content then changes
+    // under the same id, which the peer's gate rejects as a shadow. One final send avoids that.
+    broadcastNode(roomId, finalReply);
     await storage.setItem(KEY_RUNS, get().monthlyRuns);
     set((s) => ({ streaming: { ...s.streaming, [reply.id]: false } }));
   },
@@ -381,9 +450,34 @@ export const useBond = create<BondState>((set, get) => ({
     const { identity, secretKey, storage } = get();
     if (!identity || !secretKey || !storage) throw new Error("Bond is not ready");
 
+    const { USDC_DEVNET_MINT, USDC_DECIMALS, SOLANA_CLUSTER, getConnection } = await import(
+      "../solana/config"
+    );
+    const { toBaseUnits, fromBaseUnits, buildUsdcTransfer } = await import("../solana/usdc");
+
+    // Parse with the exact decimal parser the transfer uses, so a malformed amount is
+    // rejected here and the spend gate sees the real value rather than NaN slipping past the
+    // >= threshold check as "below threshold".
+    let amountBase: bigint;
+    try {
+      amountBase = toBaseUnits(uiAmount, USDC_DECIMALS);
+    } catch {
+      throw new Error(`Invalid payment amount: ${uiAmount}`);
+    }
+    if (amountBase <= 0n) throw new Error("Payment amount must be greater than zero");
+    const amountUsdc = Number(fromBaseUnits(amountBase, USDC_DECIMALS));
+
     const { requireAuth } = await import("../protection/gate");
-    const gate = await requireAuth("spend", { amountUsdc: Number(uiAmount) });
-    if (!gate.ok) throw new Error("Payment was not authorized");
+    const gate = await requireAuth("spend", { amountUsdc });
+    if (!gate.ok) {
+      throw new Error(
+        gate.outcome === "no_pin"
+          ? "Set a PIN in Protection to approve payments"
+          : gate.outcome === "locked_out"
+            ? "Too many attempts. Try again shortly."
+            : "Payment was not authorized",
+      );
+    }
 
     const { useWallet } = await import("../solana/store");
     const w = useWallet.getState();
@@ -391,20 +485,24 @@ export const useBond = create<BondState>((set, get) => ({
       throw new Error("Connect a wallet before sending USDC");
     }
 
-    const { getConnection, USDC_DEVNET_MINT, USDC_DECIMALS, SOLANA_CLUSTER } = await import(
-      "../solana/config"
-    );
-    const { buildUsdcTransfer } = await import("../solana/usdc");
     const { signAndSendTransaction } = await import("../solana/wallet");
+    const { confirmSignature } = await import("../solana/confirm");
     const { PublicKey } = await import("@solana/web3.js");
 
+    const connection = getConnection();
     const built = await buildUsdcTransfer(
-      getConnection(),
+      connection,
       new PublicKey(w.connectedAddress),
       new PublicKey(toAddress),
       uiAmount,
     );
+    // A returned signature means the transfer was submitted, not that it landed. Wait for
+    // on-chain confirmation before the receipt is ever recorded as "confirmed".
     const signature = await signAndSendTransaction(built.transaction, { authToken: w.authToken });
+    await confirmSignature(connection, signature, {
+      blockhash: built.transaction.recentBlockhash as string,
+      lastValidBlockHeight: built.lastValidBlockHeight,
+    });
 
     const roomNodes = get().nodes[roomId] ?? [];
     const lamport = nextLamport(maxLamport(roomNodes));
@@ -432,6 +530,85 @@ export const useBond = create<BondState>((set, get) => ({
     );
     await storage.append(node);
     set((s) => ({ nodes: { ...s.nodes, [roomId]: [...(s.nodes[roomId] ?? []), node] } }));
+    broadcastNode(roomId, node);
     return node;
+  },
+
+  // A read-only mainnet read: the connected wallet's SKR balance and the price of one SKR in
+  // USDC. SKR is Seeker's mainnet SPL token and nothing here moves it or signs anything, the
+  // same class as the Jupiter quote the Wallet screen shows. The heavy Solana module loads
+  // lazily so this store stays cheap to import under jest and web.
+  refreshSkr: async (ownerAddress) => {
+    set((s) => ({
+      skr: {
+        balanceUi: s.skr?.balanceUi ?? "0",
+        priceInUsdc: s.skr?.priceInUsdc ?? 0,
+        isHolder: s.skr?.isHolder ?? false,
+        loading: true,
+        error: null,
+      },
+    }));
+    try {
+      const { readSkrTouchpoint } = await import("../solana/skr");
+      const t = await readSkrTouchpoint(ownerAddress);
+      set({
+        skr: {
+          balanceUi: t.skrBalanceUi,
+          priceInUsdc: t.skrPriceInUsdc,
+          isHolder: t.isHolder,
+          loading: false,
+          error: null,
+        },
+      });
+    } catch (e) {
+      set((s) => ({
+        skr: {
+          balanceUi: s.skr?.balanceUi ?? "0",
+          priceInUsdc: 0,
+          isHolder: s.skr?.isHolder ?? false,
+          loading: false,
+          error: String((e as Error)?.message ?? e),
+        },
+      }));
+    }
+  },
+
+  openRoomSync: async (roomId) => {
+    if (!roomId) return;
+    // Lazy-load the sync module so jest then the web export never pay for it unless a room is
+    // actually opened. The client is created only where a WebSocket exists, so the app stays
+    // local-first with sync off (jest has no WebSocket, so this returns early there).
+    const { isSyncAvailable, createSyncClient } = await import("../sync/client");
+    if (!isSyncAvailable()) return;
+    if (syncClients.has(roomId)) return;
+    const cfg = defaultBondConfig();
+    const client = createSyncClient({
+      gatewayBaseUrl: cfg.baseUrl,
+      token: cfg.apiKey,
+      roomId,
+      sinceLamport: async () => {
+        const storage = get().storage;
+        return storage ? storage.maxLamport(roomId) : 0;
+      },
+      onRemoteNode: async (node) => {
+        const storage = get().storage;
+        if (!storage) return;
+        // Ingest through the Storage port so the verify gate runs: a tampered node is dropped,
+        // an unsigned node is kept but never shown as verified. Then re-read the room so the
+        // view reflects exactly what the gate accepted, re-verified, never a server assertion.
+        await storage.append(node);
+        const fresh = await storage.nodesForRoom(roomId);
+        set((s) => ({ nodes: { ...s.nodes, [roomId]: fresh } }));
+      },
+    });
+    syncClients.set(roomId, client);
+    client.start();
+  },
+
+  closeRoomSync: (roomId) => {
+    const client = syncClients.get(roomId);
+    if (!client) return;
+    client.stop();
+    syncClients.delete(roomId);
   },
 }));

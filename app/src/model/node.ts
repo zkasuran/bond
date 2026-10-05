@@ -84,15 +84,30 @@ export interface BondNode<T = unknown> {
 }
 
 /** The fields covered by a signature. Kept in one place so signer and verifier agree.
+ *  identity/sign.ts derives the signed subset from this list, so the two cannot drift.
  *  Order is fixed here but RFC 8785 canonicalization sorts keys, so this is the
- *  membership list, not the byte order. */
+ *  membership list, not the byte order.
+ *
+ *  Structural and semantic fields (refs, causalParent, forkKind, topicId,
+ *  collapsedByDefault) are signed too, so a relay cannot rewrite an edge or collapse a
+ *  subtree while the node still shows a verified badge. "authorDid" maps to author.did
+ *  and "refs" is normalized to a sorted {kind,target} set before hashing (see sign.ts),
+ *  so the signature commits to the set of edges rather than their relay order. */
 export const SIGNED_FIELDS = [
   "id",
   "roomId",
+  "topicId",
   "parentId",
+  "causalParent",
+  "refs",
+  "forkKind",
   "type",
   "payload",
   "authorDid",
   "lamport",
   "createdAt",
+  "collapsedByDefault",
 ] as const;
+
+/** A single field name from the signed set. */
+export type SignedField = (typeof SIGNED_FIELDS)[number];

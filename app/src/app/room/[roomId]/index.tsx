@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   KeyboardAvoidingView,
   Platform,
@@ -11,12 +11,15 @@ import { Ionicons } from "@expo/vector-icons";
 import type { BondNode } from "@/model/node";
 import { buildForest, flattenForRender } from "@/model/thread";
 import { useBond } from "@/state/store";
+import { useWallet } from "@/solana/store";
 import { useTokens } from "@/theme";
 import { Screen } from "@/components/ui/Screen";
 import { Txt } from "@/components/ui/Text";
 import { Avatar } from "@/components/ui/Avatar";
 import { MessageNode } from "@/components/thread/MessageNode";
 import { Composer } from "@/components/thread/Composer";
+import { PaySheet } from "@/components/thread/PaySheet";
+import { lastPaymentCounterparty } from "@/components/thread/receipt";
 
 const EMPTY: never[] = [];
 
@@ -30,19 +33,41 @@ export default function RoomScreen() {
   const nodes = useBond((s) => s.nodes[rid]) ?? EMPTY;
   const members = useBond((s) => s.members[rid]) ?? EMPTY;
   const streaming = useBond((s) => s.streaming);
+  const walletAddress = useWallet((s) => s.connectedAddress);
 
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [replyTo, setReplyTo] = useState<BondNode | null>(null);
+  const [payOpen, setPayOpen] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
+
+  // Connect this room's live /sync socket while the screen is open so humans and agents on
+  // other devices appear as peers here, then close it on unmount. The store guards platform
+  // specifics (no WebSocket means no socket), so this is additive and safe with sync off.
+  useEffect(() => {
+    if (!rid) return;
+    const bond = useBond.getState();
+    void bond.openRoomSync(rid);
+    return () => bond.closeRoomSync(rid);
+  }, [rid]);
 
   const forest = useMemo(() => buildForest(nodes), [nodes]);
   const rows = useMemo(() => flattenForRender(forest, collapsed), [forest, collapsed]);
   const agents = members.filter((m) => m.kind === "agent");
+  const defaultRecipient = useMemo(
+    () => lastPaymentCounterparty(nodes, walletAddress),
+    [nodes, walletAddress],
+  );
 
   const send = (body: string, mentions: string[]) => {
     const parentId = replyTo?.id ?? null;
     setReplyTo(null);
     void useBond.getState().postText(rid, parentId, body, mentions);
+  };
+
+  const sendPayment = async (toAddress: string, uiAmount: string, memo?: string) => {
+    const parentId = replyTo?.id ?? null;
+    await useBond.getState().sendPayment(rid, parentId, toAddress, uiAmount, memo);
+    setReplyTo(null);
   };
 
   const toggleCollapse = (id: string) =>
@@ -127,8 +152,18 @@ export default function RoomScreen() {
           replyingTo={replyTo}
           onCancelReply={() => setReplyTo(null)}
           onSend={send}
+          onRequestPay={() => setPayOpen(true)}
         />
       </KeyboardAvoidingView>
+
+      <PaySheet
+        key={payOpen ? "pay-open" : "pay-closed"}
+        visible={payOpen}
+        defaultRecipient={defaultRecipient}
+        selfAddress={walletAddress}
+        onSubmit={sendPayment}
+        onClose={() => setPayOpen(false)}
+      />
     </Screen>
   );
 }

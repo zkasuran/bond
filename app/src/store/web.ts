@@ -1,17 +1,39 @@
 // Web Storage adapter, backed by the browser localStorage. The node log is kept as a
-// per-room JSON array under "bond:nodes:<roomId>", deduped by id on write so it matches
-// the grow-only log the other adapters give. Room ids are tracked in a small index so
-// roomIds does not have to scan every key. The key-value area lives under "bond:kv:".
+// per-room JSON array under "bond:nodes:<roomId>", run through the trust gate in guard.ts
+// on write so it matches the grow-only log the other adapters give. Room ids are tracked
+// in a small index so roomIds does not have to scan every key. The key-value area lives
+// under "bond:kv:". localStorage is untrusted input: every read parses defensively and
+// caps its length, so a corrupted or hostile key degrades to empty instead of throwing.
 // If localStorage is missing (SSR, a non-browser test) every read is empty and every
 // write is a no-op, so the app degrades instead of throwing. See DESIGN.md sec 9.
 import type { BondNode } from "../model/node";
 import { compareNodes } from "../model/thread";
+import { decideIngest, presentableOnRead } from "./guard";
 import type { Storage } from "./types";
 
 const NODES_PREFIX = "bond:nodes:";
 const ROOMS_KEY = "bond:rooms";
 const KV_PREFIX = "bond:kv:";
 const KV_INDEX_KEY = "bond:kvkeys";
+
+// Ceilings on anything parsed out of localStorage. A hostile or corrupted key cannot make
+// the app allocate without bound; past the cap the list is truncated rather than trusted.
+const MAX_NODES_PER_ROOM = 100_000;
+const MAX_ROOMS = 10_000;
+const MAX_KV_KEYS = 10_000;
+
+/** Parse a JSON array from untrusted storage. Returns [] on anything that is not a
+ *  well-formed array. Truncates to `cap` so a huge value cannot exhaust memory. */
+function parseArray<T>(raw: string | null, cap: number): T[] {
+  if (!raw) return [];
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return (parsed.length > cap ? parsed.slice(0, cap) : parsed) as T[];
+  } catch {
+    return [];
+  }
+}
 
 /** The small slice of the localStorage API this adapter uses. */
 interface WebStore {
@@ -27,9 +49,7 @@ export class WebStorage implements Storage {
   }
 
   private readNodes(store: WebStore, roomId: string): BondNode[] {
-    const raw = store.getItem(NODES_PREFIX + roomId);
-    if (!raw) return [];
-    return JSON.parse(raw) as BondNode[];
+    return parseArray<BondNode>(store.getItem(NODES_PREFIX + roomId), MAX_NODES_PER_ROOM);
   }
 
   private writeNodes(store: WebStore, roomId: string, nodes: BondNode[]): void {
@@ -37,9 +57,7 @@ export class WebStorage implements Storage {
   }
 
   private readRooms(store: WebStore): string[] {
-    const raw = store.getItem(ROOMS_KEY);
-    if (!raw) return [];
-    return JSON.parse(raw) as string[];
+    return parseArray<string>(store.getItem(ROOMS_KEY), MAX_ROOMS);
   }
 
   private trackRoom(store: WebStore, roomId: string): void {
@@ -54,8 +72,11 @@ export class WebStorage implements Storage {
     const store = this.store();
     if (!store) return;
     const nodes = this.readNodes(store, node.roomId);
-    if (!nodes.some((n) => n.id === node.id)) {
-      nodes.push(node);
+    const idx = nodes.findIndex((n) => n.id === node.id);
+    const outcome = decideIngest(idx === -1 ? undefined : nodes[idx], node);
+    if (outcome === "store") {
+      if (idx === -1) nodes.push(node);
+      else nodes[idx] = node;
       this.writeNodes(store, node.roomId, nodes);
     }
     this.trackRoom(store, node.roomId);
@@ -73,11 +94,17 @@ export class WebStorage implements Storage {
     }
     for (const [roomId, incoming] of byRoom) {
       const existing = this.readNodes(store, roomId);
-      const seen = new Set(existing.map((n) => n.id));
+      const indexById = new Map<string, number>();
+      existing.forEach((n, i) => indexById.set(n.id, i));
       for (const n of incoming) {
-        if (!seen.has(n.id)) {
+        const at = indexById.get(n.id);
+        const outcome = decideIngest(at === undefined ? undefined : existing[at], n);
+        if (outcome !== "store") continue;
+        if (at === undefined) {
+          indexById.set(n.id, existing.length);
           existing.push(n);
-          seen.add(n.id);
+        } else {
+          existing[at] = n;
         }
       }
       this.writeNodes(store, roomId, existing);
@@ -88,7 +115,7 @@ export class WebStorage implements Storage {
   async nodesForRoom(roomId: string): Promise<BondNode[]> {
     const store = this.store();
     if (!store) return [];
-    return this.readNodes(store, roomId).sort(compareNodes);
+    return this.readNodes(store, roomId).filter(presentableOnRead).sort(compareNodes);
   }
 
   async maxLamport(roomId: string): Promise<number> {
@@ -108,9 +135,7 @@ export class WebStorage implements Storage {
   }
 
   private readKvKeys(store: WebStore): string[] {
-    const raw = store.getItem(KV_INDEX_KEY);
-    if (!raw) return [];
-    return JSON.parse(raw) as string[];
+    return parseArray<string>(store.getItem(KV_INDEX_KEY), MAX_KV_KEYS);
   }
 
   private trackKvKey(store: WebStore, key: string): void {
@@ -134,7 +159,12 @@ export class WebStorage implements Storage {
     if (!store) return null;
     const raw = store.getItem(KV_PREFIX + key);
     if (raw === null) return null;
-    return JSON.parse(raw) as T;
+    try {
+      return JSON.parse(raw) as T;
+    } catch {
+      // A corrupted or hostile value reads as absent rather than throwing.
+      return null;
+    }
   }
 
   async setItem<T = unknown>(key: string, value: T): Promise<void> {

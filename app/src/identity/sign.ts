@@ -5,24 +5,45 @@
 import { jcs } from "./jcs";
 import { sha256 } from "@noble/hashes/sha2.js";
 import { base64urlnopad } from "@scure/base";
-import type { BondNode, Signature } from "../model/node";
+import type { BondNode, NodeRef, Signature, SignedField } from "../model/node";
+import { SIGNED_FIELDS } from "../model/node";
 import { didToPublicKey, signBytes, verifyBytes } from "./keys";
 
 const utf8 = new TextEncoder();
 
+/** Normalize refs to a sorted set of the two fields a signature commits to. Sorting by
+ *  (kind, target) makes the signed bytes independent of the order a relay sends edges in,
+ *  so reordering is a no-op but adding, dropping or rewriting an edge is detected. Extra
+ *  fields a hostile relay smuggles onto a ref are dropped before hashing. */
+function canonicalRefs(refs: NodeRef[] | undefined): { kind: string; target: string }[] | undefined {
+  if (!refs) return undefined;
+  return refs
+    .map((r) => ({ kind: r.kind, target: r.target }))
+    .sort((a, b) =>
+      a.kind < b.kind ? -1 : a.kind > b.kind ? 1 : a.target < b.target ? -1 : a.target > b.target ? 1 : 0,
+    );
+}
+
+/** The value a signed field contributes. Most map straight through; authorDid is pulled
+ *  from author.did and refs is canonicalized. */
+function signedValue(node: BondNode, field: SignedField): unknown {
+  if (field === "authorDid") return node.author?.did;
+  if (field === "refs") return canonicalRefs(node.refs);
+  return (node as unknown as Record<string, unknown>)[field];
+}
+
+/** The exact object that gets canonicalized and hashed. Built from SIGNED_FIELDS so the
+ *  signer and the verifier use one list. Exposed so a test can assert the signed key set.
+ *  jcs drops undefined-valued keys, so an absent optional field never changes the bytes. */
+export function canonicalSubset(node: BondNode): Record<string, unknown> {
+  const subset: Record<string, unknown> = {};
+  for (const field of SIGNED_FIELDS) subset[field] = signedValue(node, field);
+  return subset;
+}
+
 /** The digest signed for a node. The signed subset is fixed and versioned by `canon`. */
 export function canonicalNodeDigest(node: BondNode): Uint8Array {
-  const subset = {
-    id: node.id,
-    roomId: node.roomId,
-    parentId: node.parentId,
-    type: node.type,
-    payload: node.payload,
-    authorDid: node.author.did,
-    lamport: node.lamport,
-    createdAt: node.createdAt,
-  };
-  return sha256(utf8.encode(jcs(subset)));
+  return sha256(utf8.encode(jcs(canonicalSubset(node))));
 }
 
 /** Produce a Signature for a node. The node's author.did must be the signer. */
@@ -42,12 +63,14 @@ export type VerifyResult = "verified" | "unsigned" | "tampered";
 /**
  * Offline verification. "unsigned" is the honest default for a node Bond did not sign.
  * "tampered" means a signature is present but does not check out, including the case
- * where the signer did does not match the claimed author.
+ * where the signer did does not match the claimed author. Hostile or malformed input
+ * never throws: anything that is not a clean, verifiable signature returns a status.
  */
 export function verifyNode(node: BondNode): VerifyResult {
+  if (!node || typeof node !== "object") return "unsigned";
   if (!node.sig) return "unsigned";
   try {
-    if (node.sig.signer !== node.author.did) return "tampered";
+    if (node.sig.signer !== node.author?.did) return "tampered";
     const pub = didToPublicKey(node.sig.signer);
     const digest = canonicalNodeDigest(node);
     const sig = base64urlnopad.decode(node.sig.sig);

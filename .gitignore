@@ -23,3 +23,15 @@ CONTENT-*.html
 DEMO-*.mp4
 /upload-*/
 /submit/
+
+# private strategy docs, kept on disk, never shipped to the public repo
+docs/SHIPATON-BRIEF.md
+docs/SUBMIT-PACKET.md
+
+# local Claude tooling, kept on disk, not shipped
+app/.claude/
+app/CLAUDE.md
+app/AGENTS.md
+
+# private research notes from the earlier pivot
+docs/research/

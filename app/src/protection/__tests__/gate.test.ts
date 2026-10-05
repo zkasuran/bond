@@ -4,6 +4,7 @@ import {
   clearAuthCache,
   getLastAuthAt,
   isWithinGrace,
+  pinLockoutMs,
   requireAuth,
   setPin,
   setPinPrompter,
@@ -100,6 +101,14 @@ describe("spendNeedsAuth", () => {
   it("guards a spend at or above the threshold", () => {
     expect(spendNeedsAuth(policyWith({ spendThresholdUsdc: 10 }), 10)).toBe(true);
   });
+
+  it("fails closed on a non-finite or negative amount", () => {
+    const p = policyWith({ spendThresholdUsdc: 10 });
+    expect(spendNeedsAuth(p, Number.NaN)).toBe(true);
+    expect(spendNeedsAuth(p, Number.POSITIVE_INFINITY)).toBe(true);
+    expect(spendNeedsAuth(p, Number.NEGATIVE_INFINITY)).toBe(true);
+    expect(spendNeedsAuth(p, -5)).toBe(true);
+  });
 });
 
 describe("requireAuth", () => {
@@ -160,12 +169,25 @@ describe("requireAuth", () => {
     expect(r.outcome).toBe("failed");
   });
 
-  it("degrades to ok when biometrics are unavailable and no PIN is set", async () => {
+  it("fails closed when biometrics are unavailable and no PIN is set", async () => {
     hasHw.mockResolvedValue(false);
     const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
     const r = await requireAuth("openApp", { policy: policyWith({ methods: { openApp: "biometric" } }) });
-    expect(r.ok).toBe(true);
-    expect(r.outcome).toBe("degraded");
+    expect(r.ok).toBe(false);
+    expect(r.outcome).toBe("no_pin");
+    expect(auth).not.toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
+  it("fails closed on a spend when there is no hardware and no PIN", async () => {
+    hasHw.mockResolvedValue(false);
+    const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
+    const r = await requireAuth("spend", {
+      amountUsdc: 100,
+      policy: policyWith({ methods: { spend: "biometric" }, spendThresholdUsdc: 1 }),
+    });
+    expect(r.ok).toBe(false);
+    expect(r.outcome).toBe("no_pin");
     expect(auth).not.toHaveBeenCalled();
     warn.mockRestore();
   });
@@ -209,5 +231,69 @@ describe("requireAuth", () => {
     expect(r.ok).toBe(false);
     expect(r.outcome).toBe("no_pin");
     warn.mockRestore();
+  });
+
+  it("requires auth for a spend whose amount is NaN instead of waving it through", async () => {
+    const p = policyWith({ methods: { spend: "biometric" }, spendThresholdUsdc: 10 });
+    const r = await requireAuth("spend", { amountUsdc: Number.NaN, policy: p });
+    expect(auth).toHaveBeenCalledTimes(1);
+    expect(r.outcome).toBe("granted");
+  });
+
+  it("fails closed when a PIN is set but no prompt is mounted to collect it", async () => {
+    const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
+    await setPin("4321");
+    setPinPrompter(null);
+    const r = await requireAuth("spend", {
+      amountUsdc: 5,
+      policy: policyWith({ methods: { spend: "pin" }, spendThresholdUsdc: 0 }),
+    });
+    expect(r.ok).toBe(false);
+    expect(r.outcome).toBe("no_pin");
+    warn.mockRestore();
+  });
+});
+
+describe("pinLockoutMs", () => {
+  it("is zero below the threshold then backs off exponentially, capped", () => {
+    expect(pinLockoutMs(1)).toBe(0);
+    expect(pinLockoutMs(4)).toBe(0);
+    expect(pinLockoutMs(5)).toBe(30_000);
+    expect(pinLockoutMs(6)).toBe(60_000);
+    expect(pinLockoutMs(7)).toBe(120_000);
+    expect(pinLockoutMs(100)).toBe(15 * 60_000);
+  });
+});
+
+describe("PIN attempt limiter", () => {
+  it("locks out after repeated wrong PINs and refuses even a correct one while locked", async () => {
+    const p = policyWith({ methods: { spend: "pin" }, spendThresholdUsdc: 0 });
+    await setPin("1357");
+    setPinPrompter(async () => "0000"); // always wrong
+    let last;
+    for (let i = 0; i < 5; i++) {
+      last = await requireAuth("spend", { amountUsdc: 5, policy: p, force: true });
+    }
+    expect(last!.ok).toBe(false);
+    expect(last!.outcome).toBe("locked_out");
+
+    setPinPrompter(async () => "1357"); // correct, but locked out
+    const during = await requireAuth("spend", { amountUsdc: 5, policy: p, force: true });
+    expect(during.ok).toBe(false);
+    expect(during.outcome).toBe("locked_out");
+  });
+
+  it("clears the counter on a correct PIN before any lockout", async () => {
+    const p = policyWith({ methods: { spend: "pin" }, spendThresholdUsdc: 0 });
+    await setPin("2468");
+    setPinPrompter(async () => "0000");
+    await requireAuth("spend", { amountUsdc: 5, policy: p, force: true }); // one wrong
+    setPinPrompter(async () => "2468");
+    const good = await requireAuth("spend", { amountUsdc: 5, policy: p, force: true });
+    expect(good.outcome).toBe("granted");
+    // The reset means the next wrong attempt starts the count over, not mid-way to a lockout.
+    setPinPrompter(async () => "0000");
+    const afterReset = await requireAuth("spend", { amountUsdc: 5, policy: p, force: true });
+    expect(afterReset.outcome).toBe("failed");
   });
 });

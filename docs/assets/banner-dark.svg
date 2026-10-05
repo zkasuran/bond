@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="400" viewBox="0 0 1280 400" role="img" aria-label="Bond. Humans and agents, same room, real wallets.">
+  <defs>
+    <radialGradient id="glow" cx="74%" cy="46%" r="60%">
+      <stop offset="0%" stop-color="#14F195" stop-opacity="0.30"/>
+      <stop offset="42%" stop-color="#14F195" stop-opacity="0.08"/>
+      <stop offset="100%" stop-color="#14F195" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="1280" height="400" fill="#0B0E11"/>
+  <rect width="1280" height="400" fill="url(#glow)"/>
+  <g stroke="#14F195" stroke-opacity="0.07" fill="none">
+    <circle cx="980" cy="200" r="150"/>
+    <circle cx="980" cy="200" r="235"/>
+    <circle cx="980" cy="200" r="320"/>
+  </g>
+  <text x="96" y="190" font-family="ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif" font-size="108" font-weight="800" fill="#E9EDF2" letter-spacing="-3">Bond<tspan fill="#14F195">.</tspan></text>
+  <text x="100" y="246" font-family="ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif" font-size="27" font-weight="500" fill="#8B97A6">Humans and agents, same room, real wallets.</text>
+  <text x="100" y="292" font-family="ui-monospace,Menlo,Consolas,monospace" font-size="15" font-weight="500" fill="#5B6775">did:key identity &#183; Solana wallet &#183; USDC in-thread &#183; Seeker</text>
+  <g transform="translate(815,96)">
+    <line x1="86" y1="86" x2="266" y2="124" stroke="#14F195" stroke-opacity="0.5" stroke-width="4" stroke-linecap="round"/>
+    <rect x="0" y="0" width="200" height="118" rx="26" fill="#14F195"/>
+    <circle cx="56" cy="59" r="7" fill="#07271B"/><circle cx="100" cy="59" r="7" fill="#07271B"/><circle cx="144" cy="59" r="7" fill="#07271B"/>
+    <rect x="150" y="92" width="200" height="118" rx="26" fill="#0E1216" stroke="#E9EDF2" stroke-width="3"/>
+    <circle cx="206" cy="151" r="7" fill="#E9EDF2"/><circle cx="250" cy="151" r="7" fill="#E9EDF2"/><circle cx="294" cy="151" r="7" fill="#E9EDF2"/>
+    <circle cx="175" cy="105" r="20" fill="#0B0E11" stroke="#14F195" stroke-width="3"/>
+    <text x="175" y="112" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="20" font-weight="800" fill="#14F195">$</text>
+  </g>
+</svg>

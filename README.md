@@ -1,101 +1,225 @@
-# Bond
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/banner-dark.svg">
+    <source media="(prefers-color-scheme: light)" srcset="docs/assets/banner-light.svg">
+    <img alt="Bond" src="docs/assets/banner-dark.svg" width="100%">
+  </picture>
+</p>
 
-Bond is the messaging app for teams of humans and AI agents, where an agent is a
-first-class member of the room with a verifiable identity, not a bot bolted onto a
-human chat app. Built with Expo (Android-first, plus a web build) for RevenueCat
-Shipaton 2026.
+<p align="center"><b>Humans and AI agents as paid peers on Seeker.</b></p>
 
-The wedge is structural. Telegram, WhatsApp, Slack and Discord all model a conversation
-as a timeline of human text with, at most, a shallow one-level thread. That breaks the
-moment participants are agents, because an agent conversation is a branching computation:
-one turn fans out into parallel tool calls, sub-agents spawn and rejoin, tasks run for
-minutes and the payload is machine-readable state, not sentences. Bond treats that shape
-as the primary object.
+<p align="center">
+  <a href="#try-it-in-60-seconds">Try it</a> &middot;
+  <a href="#how-it-works">How it works</a> &middot;
+  <a href="#what-is-real-and-what-is-simulated">Real vs simulated</a> &middot;
+  <a href="#built-to-be-attacked">Security</a> &middot;
+  <a href="#architecture">Architecture</a>
+</p>
 
-## The four things incumbents cannot add without rebuilding their data model
+<p align="center">
+  <img alt="app tests" src="https://img.shields.io/badge/app%20tests-169%20passing-14F195">
+  <img alt="server tests" src="https://img.shields.io/badge/server%20tests-20%20passing-14F195">
+  <img alt="web routes" src="https://img.shields.io/badge/web%20export-16%20routes-14F195">
+  <img alt="licence" src="https://img.shields.io/badge/licence-SAND--1.0-3178C6">
+  <img alt="stack" src="https://img.shields.io/badge/Expo-SDK%2057-000000">
+  <img alt="chain" src="https://img.shields.io/badge/Solana-devnet-9945FF">
+</p>
 
-1. **Proper threading.** The room is a tree with typed cross-edges (a DAG). Any node can
-   be a parent, so a thread forks at any depth and collapses cleanly. Ordering is a
-   Lamport clock, nodes are immutable, so sync is a conflict-free grow-only log.
-2. **Agent-native messages.** Text, tool calls, tool results, streaming token deltas,
-   receipts, cards, handoffs and run status are distinct typed nodes, pinned to MCP, A2A
-   and SSE shapes, not text with markup.
-3. **A universal agent bridge.** One adapter interface, four adapters: Bond's own gateway,
-   a generic OpenAI/WebSocket/MCP adapter, Hermes and OpenClaw. A new runtime that speaks
-   OpenAI-HTTP or MCP works with no Bond release.
-4. **Verifiable identity.** Every user holds an Ed25519 keypair as a `did:key`, generated
-   on device and held in secure storage. Messages are signed over RFC 8785 canonical bytes
-   and verified offline, with verified, unsigned and tampered badges.
+## Bond
 
-## Layout
+Bond is a Seeker group chat where people and AI agents are the same kind of member. Every member carries an Ed25519 `did:key` generated on the device, and because Solana keys are Ed25519 too, that key is also a real Solana wallet. So anyone in a thread, human or agent, can pay anyone else in USDC, and the agents are a real tool-calling runtime that reads balances, sends USDC and quotes swaps on command. The skills those agents run come from an in-chat marketplace where any builder publishes a skill and gets paid on-chain. **One thread is both the social surface and the economy.**
 
-- `app/` the Expo app (React Native, TypeScript, Expo Router). Android-first plus web.
-- `server/` the own-gateway backend (Fastify + ws): an OpenAI-compatible `/v1` surface,
-  a `/sync` WebSocket for the node log, static hosting of the web build, one live URL.
-- `docs/` the design document, the six research briefs and the submit packet.
+Why now: Seeker put a self-custody wallet in the phone and the Solana Mobile Stack exposes it to apps. The missing piece is a place where that wallet is the identity you chat and transact under, with agents standing beside you as peers rather than bots bolted onto a human chat app. Bond is that place, built mobile-native for Seeker.
 
-### Key modules in `app/src`
+Built for the CLOCK IN Solana Mobile hackathon. Android-first, with a web build for anyone who cannot sideload an APK.
 
-- `model/` the node graph: `node.ts`, `messages.ts` (typed payloads), `thread.ts` (tree,
-  ordering, collapse), `factory.ts`.
-- `identity/` `keys.ts` (Ed25519 + did:key), `jcs.ts` (RFC 8785), `sign.ts`, `storage.ts`.
-- `bridge/` `adapter.ts` (the one interface), `sse.ts`, `net.ts` and `adapters/` (generic,
-  own, hermes, openclaw) plus `registry.ts`.
-- `store/` the append-only storage port with sqlite (native), web and memory adapters.
-- `rooms/` roles and the permission matrix, mention routing and handoff.
-- `state/` the zustand app engine tying it together.
-- `components/ui` the design system, `components/thread` the message and composer.
+## Try it in 60 seconds
 
-## Run it
+Open the live web build at **https://bond.zkasuran.dev** (no install), or sideload the Android APK from the latest GitHub release, then:
 
-App (web is the fastest way to see it, Android needs a dev build via EAS):
+| # | Do this | You see |
+|---|---|---|
+| 1 | Open the app | Your device `did:key` identity, which is also your Solana address |
+| 2 | Open a room and connect a Seeker wallet | Mobile Wallet Adapter binds the wallet to your `did:key` with one signed challenge |
+| 3 | Type a message | A signed node in the thread with a verified badge |
+| 4 | Mention the agent and ask for a balance | The agent streams a `tool_call`, runs it on devnet, streams the `tool_result`, then answers in the thread |
+| 5 | Tap pay, enter an amount | Biometric or PIN prompt (if you set one), then a USDC transfer that lands as a signed receipt card |
+| 6 | Open the marketplace and buy a skill | One atomic USDC transfer splits the price to the creator and the platform, with the signature kept as proof |
 
-```bash
-cd app
-npm install
-npm run web        # or: npx expo run:android on a machine with the Android SDK
+The agent runtime is live on MiniMax (OpenAI-compatible API), so a mention gets a real tool-calling turn, not a canned reply.
+
+## How it works
+
+```mermaid
+sequenceDiagram
+    participant H as Human (did:key + wallet)
+    participant R as Room (signed node DAG)
+    participant S as Bond server (/v1/agent/turn)
+    participant A as Agent (own keypair)
+    participant C as Solana devnet
+    H->>R: signed message, @mention agent
+    R->>S: thread as chat messages (SSE)
+    S->>A: tool-calling loop (MiniMax)
+    A->>C: read balance / send USDC (capped)
+    C-->>A: result / signature
+    A-->>R: tool_call + tool_result + text nodes
+    H->>C: pay in-thread via Mobile Wallet Adapter
+    C-->>R: settled transfer -> signed payment receipt
 ```
 
-Backend:
+1. Every member is an Ed25519 `did:key` minted on the device, and the same key is the member's Solana address, so identity and wallet are one thing.
+2. A Seeker wallet is bound to the `did:key` with a one-time signed challenge over Mobile Wallet Adapter. The fast device key keeps signing chat; the wallet, custodied by Seed Vault, is the payer and the shown identity.
+3. A mention routes to a server loop that runs a tool-calling agent carrying Solana tools. Its tool calls and results stream back into the thread as their own nodes, so the room shows exactly what the agent did.
+4. Humans pay USDC signed through Mobile Wallet Adapter; the agent pays on its own server keypair under a hard spend cap. Either way the transfer is a `transferChecked` and the recipient token account is opened idempotently.
+5. Every node is signed and verified on read. A tampered or forged node never renders as authentic.
+
+## What you can do
+
+| Use case | How it works |
+|---|---|
+| Pay a teammate in a thread | Tap pay, enter an amount, USDC moves through Mobile Wallet Adapter and lands as a receipt |
+| Ask an agent for on-chain facts | Mention it, it runs balance and swap-quote tools and answers in the room |
+| Let an agent pay for you | The agent sends USDC on its own keypair under a hard, code-enforced spend cap |
+| Buy a skill for your agent | One atomic USDC transfer splits the price to the creator and the platform |
+| Sell a skill you built | Publish a signed skill manifest, get paid on-chain each time it sells |
+| Protect value | Set a PIN or biometric per trigger: open app, run a skill, spend over a threshold |
+
+## Trust model
+
+| What | Who holds the key | How it is trusted |
+|---|---|---|
+| Chat message authorship | The device `did:key` | Ed25519 signature re-verified on every read, tampered nodes dropped |
+| On-chain identity and human payment | The Seeker wallet, custodied by Seed Vault | Mobile Wallet Adapter signs, Bond only ever sees signed bytes |
+| Agent payments | A server-held agent keypair | A hard per-transfer and per-process USDC cap enforced in code, not by a prompt |
+| Skill ownership | The buyer's wallet | The on-chain USDC transfer signature is the proof, re-checkable on chain |
+| Protection factor | `expo-local-authentication` | An app-layer gate that fails closed when no factor is available |
+
+## What is real and what is simulated
+
+Everything runs on devnet with no real funds. Anything that touches mainnet is a read only.
+
+| Capability | State |
+|---|---|
+| `did:key` identity, signing, verification | Real, on device, verified on read |
+| Human USDC payment | Real on devnet, signed through the connected wallet over Mobile Wallet Adapter |
+| Agent USDC payment | Real on devnet from the server keypair, hard-capped. Needs a funded devnet keypair, otherwise an ephemeral unfunded one |
+| Balance reads | Real, on devnet |
+| Skill purchase, atomic USDC split | Real on devnet, the transaction signature is kept as proof of purchase |
+| Agent runtime and tools | Real tool-calling on the MiniMax plan (OpenAI-compatible), streamed into the thread |
+| Jupiter swap quote | Real live mainnet quote, read only, no funds move |
+| Jupiter swap execution | Gated behind an explicit confirm and real funds, operator only |
+| SKR price and holder balance | Real reads off Solana mainnet, nothing signed, no SKR moved |
+| SKR transfers, swaps, staking | Out of scope, mainnet and real funds, operator only |
+| dApp Store publish | Pending, done post-win to claim, needs a release keystore and mainnet SOL |
+
+## Architecture
+
+```mermaid
+flowchart LR
+  subgraph Device[Seeker device]
+    App[Expo app<br/>RN 0.86, expo-router]
+    MWA[Mobile Wallet Adapter<br/>Seed Vault]
+    App --- MWA
+  end
+  subgraph Server[Bond server, Fastify]
+    V1[/v1/agent/turn SSE/]
+    Sync[/sync WebSocket/]
+    GW[OpenAI-compatible proxy]
+  end
+  App -->|signed nodes, agent turns| V1
+  App <-->|node log, re-verified| Sync
+  V1 --> GW --> MiniMax[(MiniMax plan)]
+  V1 -->|balance, transferChecked| Devnet[(Solana devnet)]
+  App -->|USDC via MWA| Devnet
+  App -->|live quote, SKR read| Mainnet[(Solana mainnet, read only)]
+```
+
+The app is Expo SDK 57 and React Native 0.86 with a conflict-free message DAG and a local-first append-only log. The server is a Fastify service hosting the agent loop on the Vercel AI SDK, the `/sync` WebSocket and the OpenAI-compatible proxy. The wallet, USDC, swap and Mobile Wallet Adapter modules are guarded to Android with a dynamic import, so the web build and the test suite never load the native package.
+
+## Run it locally
+
+The server (the agent runtime and the sync hub):
 
 ```bash
 cd server
-npm install
-cp .env.example .env   # fill in the upstream OpenAI-compatible endpoint and a BOND_BEARER
-npm run dev
+npm ci
+cp .env.example .env     # set BOND_BEARER and your upstream OpenAI-compatible key
+npm run build && npm start
 ```
 
-The app talks to the backend through the `bond` adapter. Point it at your server with
-`EXPO_PUBLIC_BOND_GATEWAY` and `EXPO_PUBLIC_BOND_TOKEN` in `app/.env`. The backend proxies
-an OpenAI-compatible endpoint whose credentials live only in `server/.env`, never in the
-app bundle or in tracked files.
-
-## Verification
+The app (web is the fastest way to see it, Android needs a dev build for the wallet):
 
 ```bash
 cd app
-npx tsc --noEmit     # types
-npx jest             # 34 unit tests: signing + falsification, threading, bridge, storage
-npx expo lint        # 0 errors
-npx expo export -p web   # bundles all 13 routes
-npx playwright test  # 2 end-to-end flows: create a room, sign a message, verify the badge
+npm ci
+npx expo start --web     # or build the APK, see below
 ```
 
-## Build for Android
+Point the app at your server with `EXPO_PUBLIC_BOND_GATEWAY` and `EXPO_PUBLIC_BOND_TOKEN` in `app/.env`. These are inlined at build time, so an APK is rebuilt after the server URL is known. Upstream credentials live only in `server/.env`, never in the app bundle or a tracked file.
 
-`eas.json` has development, preview and production profiles. `eas build --platform android
---profile production` produces the AAB in the cloud (no local Android SDK needed). See
-`docs/SUBMIT-PACKET.md` for the full Google Play and RevenueCat setup and the closed-test
-runway.
+## Agent API
 
-A signed release APK has already been built and lives at `Bond-1.0.0.apk` (115 MB,
-universal across all four ABIs, JS bundled with Hermes, package `com.zkasuran.bond`, target
-SDK 36). It is signed with the debug keystore so it sideloads on any device or emulator for
-testing. A Play upload needs an AAB signed with a release keystore, which is what the EAS
-production profile produces.
+```bash
+curl -N https://your-host/v1/agent/turn \
+  -H "Authorization: Bearer $BOND_BEARER" \
+  -H "Content-Type: application/json" \
+  -d '{"messages":[{"role":"user","content":"What is my USDC balance?"}]}'
+```
 
-## AI disclosure
+It streams Server-Sent Events: `turn_start`, `text` deltas, `tool_call`, `tool_result`, `turn_end`, `done`. The system prompt is fixed on the server and the tool-calling step count is capped, so a caller cannot redefine the agent or loop it forever.
 
-AI assistance (Claude) was used to build Bond. The design, review and verification are the
-author's. Verified locally before submission: the TypeScript typecheck, the unit tests
-including the signature falsification test, the lint pass and the web export.
+## Build the Android APK
+
+```bash
+cd app
+eas build --platform android --profile production-apk
+```
+
+The `production-apk` profile emits a signed APK (the dApp Store wants an APK, not an AAB). A config plugin injects the `solana-wallet` manifest query that Mobile Wallet Adapter needs for wallet discovery on Android 11 and up.
+
+## Built to be attacked
+
+One command is the release gate, and CI runs the same script, so a judge and a reviewer get the same verdict:
+
+```bash
+./verify.sh      # prints ALL GREEN only when every check passes
+```
+
+It runs the app type-check and tests, the app lint, the web export (asserting the route count), the server type-check and tests, and a supply-chain audit that fails on any high or critical finding, with the handful of upstream-unfixable Solana advisories allowlisted and named in `SECURITY.md`.
+
+What the hardening covers, with the file that holds each defence listed in [`SECURITY.md`](SECURITY.md):
+
+- Every chat node is signed and re-verified on ingest and on read, so a forged or tampered node is dropped rather than shown. The signed field set covers the payload and the structural edges, not just the body.
+- Agent payments carry a hard per-transfer and per-process USDC cap enforced in code, and the agent system prompt is fixed on the server so no message can raise or bypass the cap.
+- The sync server has message-size, room and node ceilings, a per-socket rate limiter, an origin allowlist and a top-level crash guard, so a hostile client cannot exhaust memory or take the process down.
+- Secrets never ship in a tracked file, the bearer compare is constant time, and the hosted web build sends a strict Content-Security-Policy with the other standard headers.
+- Adversarial and property tests cover the signing gate, the dedupe path, the spend gate fail-closed behaviour and the malformed-stream paths.
+
+## Repository layout
+
+- `app/` the Expo app. `src/identity` (did:key, signing), `src/model` (the node DAG), `src/store` (append-only storage with the verification gate), `src/state` (the app engine), `src/solana` (wallet, USDC, swap, SKR), `src/protection` (the factor gate), `src/bridge` (the agent adapter), `src/components` and `src/app` (the screens).
+- `server/` the Fastify service: `agent/` (the tool-calling loop and the Solana tools), `sync.ts` (the node WebSocket), `gateway.ts` (the OpenAI-compatible proxy), `limits.ts` (every ceiling in one place).
+- `docs/` the design document and the architecture assets.
+- `verify.sh`, `SECURITY.md`, `LICENSE`, `NOTICE` at the root.
+
+## Roadmap
+
+- [x] did:key identity that is also a Solana wallet, signed and verified nodes
+- [x] Human and agent USDC payments on devnet, in-thread receipts
+- [x] Tool-calling agent runtime with Solana tools, multi-provider
+- [x] Skills marketplace with on-chain creator payouts
+- [x] Configurable per-trigger protection
+- [x] Read-only SKR touchpoint for the Solana Mobile Stack
+- [x] Hardening gate, threat model, licensing
+- [ ] dApp Store publish (post-win, needs a release keystore and mainnet SOL)
+- [ ] Jupiter swap execution and SKR writes (mainnet, real funds, operator-gated)
+
+## Licence
+
+Source-available, no derivatives: `LicenseRef-zkasuran-SAND-1.0`, see [`LICENSE`](LICENSE). Third-party components keep their own terms, listed in [`NOTICE`](NOTICE).
+
+AI assistance (Claude) was used to build Bond. The design, review and verification are the author's. Verified before submission: the app and server type-checks and test suites, the web export, the lint pass and a live agent turn that streamed a real devnet balance tool call.
+
+
+
+

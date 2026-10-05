@@ -43,7 +43,7 @@ async function loadTransact() {
 }
 
 type AuthorizationResultLike = {
-  accounts: ReadonlyArray<{ address: string; label?: string }>;
+  accounts: readonly { address: string; label?: string }[];
   auth_token: string;
   wallet_uri_base?: string;
 };

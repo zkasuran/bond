@@ -1,11 +1,12 @@
 // Native Storage adapter, backed by expo-sqlite. The node log lives in one table
-// keyed by id so INSERT OR IGNORE gives the grow-only, dedupe-by-id behavior the
-// sync layer relies on. The small key-value area is a second table. Ordering is done
-// in JS with compareNodes so the total order stays defined in one place (the model),
-// not split across SQL. See DESIGN.md sec 9.
+// keyed by id. Writes and reads run through the trust gate in guard.ts: an incoming node
+// is verified and deduped on content before it is written. A tampered node is never
+// returned. Ordering is done in JS with compareNodes so the total order stays defined in
+// one place (the model), not split across SQL. See DESIGN.md sec 9.
 import * as SQLite from "expo-sqlite";
 import type { BondNode } from "../model/node";
 import { compareNodes } from "../model/thread";
+import { decideIngest, presentableOnRead } from "./guard";
 import type { Storage } from "./types";
 
 type NodeRow = { json: string };
@@ -42,10 +43,27 @@ export class SqliteStorage implements Storage {
     return this.dbPromise;
   }
 
+  /** Read one stored node by id. Returns undefined when absent. Used to resolve a
+   *  dedupe conflict. */
+  private async nodeById(
+    db: SQLite.SQLiteDatabase,
+    id: string,
+  ): Promise<BondNode | undefined> {
+    const row = await db.getFirstAsync<NodeRow>("SELECT json FROM nodes WHERE id = ?", [id]);
+    if (!row) return undefined;
+    try {
+      return JSON.parse(row.json) as BondNode;
+    } catch {
+      return undefined;
+    }
+  }
+
   async append(node: BondNode): Promise<void> {
     const db = await this.db();
+    const existing = await this.nodeById(db, node.id);
+    if (decideIngest(existing, node) !== "store") return;
     await db.runAsync(
-      "INSERT OR IGNORE INTO nodes (id, roomId, lamport, json) VALUES (?, ?, ?, ?)",
+      "INSERT OR REPLACE INTO nodes (id, roomId, lamport, json) VALUES (?, ?, ?, ?)",
       [node.id, node.roomId, node.lamport, JSON.stringify(node)],
     );
   }
@@ -54,8 +72,10 @@ export class SqliteStorage implements Storage {
     if (nodes.length === 0) return;
     const db = await this.db();
     for (const n of nodes) {
+      const existing = await this.nodeById(db, n.id);
+      if (decideIngest(existing, n) !== "store") continue;
       await db.runAsync(
-        "INSERT OR IGNORE INTO nodes (id, roomId, lamport, json) VALUES (?, ?, ?, ?)",
+        "INSERT OR REPLACE INTO nodes (id, roomId, lamport, json) VALUES (?, ?, ?, ?)",
         [n.id, n.roomId, n.lamport, JSON.stringify(n)],
       );
     }
@@ -67,7 +87,10 @@ export class SqliteStorage implements Storage {
       "SELECT json FROM nodes WHERE roomId = ?",
       [roomId],
     );
-    return rows.map((r) => JSON.parse(r.json) as BondNode).sort(compareNodes);
+    return rows
+      .map((r) => JSON.parse(r.json) as BondNode)
+      .filter(presentableOnRead)
+      .sort(compareNodes);
   }
 
   async maxLamport(roomId: string): Promise<number> {

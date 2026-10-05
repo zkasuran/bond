@@ -37,6 +37,9 @@ function formatDate(iso: string): string {
   return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
 }
 
+// Stable empty list so memo dependencies do not change on every render.
+const NO_MEMBERS: never[] = [];
+
 export default function RoomSettingsScreen() {
   const { c, space, radius } = useTokens();
   const router = useRouter();
@@ -45,7 +48,7 @@ export default function RoomSettingsScreen() {
   const roomId = Array.isArray(raw) ? (raw[0] ?? "") : (raw ?? "");
 
   const room = useBond((s) => s.rooms.find((r) => r.id === roomId));
-  const members = useBond((s) => s.members)[roomId] ?? [];
+  const members = useBond((s) => s.members[roomId]) ?? NO_MEMBERS;
   const bridges = useBond((s) => s.bridges);
 
   const [pickerOpen, setPickerOpen] = useState(false);

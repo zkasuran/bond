@@ -4,7 +4,7 @@ The own-gateway backend for Bond. One Node + TypeScript service that does three
 things on one origin:
 
 - An OpenAI-compatible proxy at `/v1/chat/completions` and `/v1/models`. It
-  forwards to the configured upstream, streams SSE straight back, and defaults
+  forwards to the configured upstream, streams SSE straight back and defaults
   the model when a request omits it.
 - A sync WebSocket at `/sync` for the threading engine. Clients join a room,
   replay stored nodes since their last Lamport clock, then live-broadcast new
@@ -32,10 +32,24 @@ instead.
 
 ## Credentials
 
-The real upstream host, key and model for this workspace live in the repo-root
-`.gateway.env` and are appended to `.env`. They are never committed. Keep
-`.env.example` neutral.
+Copy `.env.example` to `.env` and fill it in. Append your own upstream
+OpenAI-compatible endpoint credentials (base URL, API key and model) to `.env`.
+`.env` is never committed. Keep `.env.example` neutral.
 
-```bash
-cat ../../../.gateway.env >> .env
-```
+Set a real `BOND_BEARER` before starting. The server refuses to boot while it is
+still the `change-me` placeholder. An empty value denies every client.
+
+## Security
+
+- `/v1` and `/sync` require the Bearer token, compared in constant time.
+- The sync upgrade enforces an Origin allowlist. A same-origin request and a
+  non-browser client are always allowed. Name any extra cross-origin front end in
+  `ALLOWED_ORIGINS`.
+- Ceilings on rooms, nodes, frame size, request rate, upstream time, upstream
+  bytes and agent spend live in one place, `src/limits.ts`.
+- The hosted web build is served with a strict Content-Security-Policy:
+  `script-src 'self'` plus the exact `'sha256-...'` of each inline script the
+  web export emitted. The server reads those hashes from `app/dist` at startup
+  (`src/csp.ts`), so they always match the build and the policy never needs
+  `'unsafe-inline'`.
+

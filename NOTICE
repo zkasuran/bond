@@ -1,0 +1,60 @@
+# NOTICE
+
+Bond is licensed under the Source-Available No-Derivatives Licence 1.0
+(`LicenseRef-zkasuran-SAND-1.0`), see `LICENSE`.
+
+This file lists the third-party components Bond depends on. Each keeps the licence
+its own authors granted it. Bond's licence does not change their terms, and these
+components are not part of "the software" as `LICENSE` defines it. Licences shown
+are as declared by each package. Transitive dependencies carry their own licences
+through these direct ones.
+
+## Apache License 2.0
+
+The following components are under the Apache License, Version 2.0. Their copyright,
+patent and attribution notices are preserved by including this file.
+
+- `@solana/spl-token` (Solana Labs) — SPL Token client. App and server.
+- `@solana-mobile/mobile-wallet-adapter-protocol` (Solana Mobile) — Mobile Wallet Adapter. App.
+- `@solana-mobile/mobile-wallet-adapter-protocol-web3js` (Solana Mobile) — MWA web3.js bindings. App.
+- `@ai-sdk/anthropic` (Vercel) — Anthropic provider for the AI SDK. Server.
+- `@ai-sdk/openai` (Vercel) — OpenAI-compatible provider for the AI SDK. Server.
+- `ai` (Vercel) — the AI SDK tool-calling runtime. Server.
+- `typescript` (Microsoft) — type-checker and compiler. Build tooling, app and server.
+- `@playwright/test` (Microsoft) — end-to-end test runner. Build tooling, app. This
+  component ships its own `NOTICE`; its text is reproduced here as Apache-2.0 section
+  4(d) requires: "Playwright. Copyright (c) Microsoft Corporation."
+
+## MIT License
+
+The following components are under the MIT License. Their copyright and permission
+notices are preserved by including this file.
+
+- `@solana/web3.js` (Solana Labs) — Solana JSON-RPC client. App and server.
+- `expo`, `expo-router` and the `expo-*` and `@expo/*` packages (650 Industries) — the
+  Expo SDK 57 runtime, router and build tooling. App.
+- `react`, `react-dom` (Meta) — the React runtime. App.
+- `react-native`, `react-native-web` and the `react-native-*` packages — the React
+  Native 0.86 runtime and web renderer. App.
+- `@noble/ed25519`, `@noble/hashes` (Paul Miller) — Ed25519 signing and hashing for the
+  did:key identity. App.
+- `@scure/base` (Paul Miller) — base58 and base64 codecs for did:key and Solana. App.
+- `buffer` (Feross Aboukhadijeh) — Buffer polyfill. App.
+- `ulidx` — ULID generation for node ids. App.
+- `zustand` (Poimandres) — state store. App.
+- `@fastify/static` (the Fastify team) — static file serving. Server.
+- `@modelcontextprotocol/sdk` (Anthropic) — MCP client for skill import. Server.
+- `ws` (Einar Otto Stangvik and contributors) — WebSocket server for sync. Server.
+- `zod` (Colin McDonnell) — schema validation. Server.
+
+## BSD 2-Clause License
+
+- `dotenv` (Scott Motte) — environment file loader. Server. Its copyright and the
+  two-clause conditions are preserved by including this file.
+
+## Notes
+
+Licences above are as declared by each package in its own `package.json` and
+`LICENSE`. Where a component ships its own `NOTICE` (for example `@playwright/test`),
+that text is reproduced above. If a dependency is removed from Bond, its entry here is
+removed in the same change so this file never names a component Bond no longer ships.

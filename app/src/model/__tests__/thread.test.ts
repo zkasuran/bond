@@ -70,6 +70,23 @@ describe("forest building", () => {
     expect(collectSubtree("root", forest).map((n) => n.id)).toEqual(["root", "a", "a1", "b"]);
     expect(collectSubtree("a", forest).map((n) => n.id)).toEqual(["a", "a1"]);
   });
+
+  it("collectSubtree does not hang on an adversarial parentId cycle", () => {
+    // Two nodes name each other as parent. buildForest wires each as the other's child,
+    // so a naive walk would loop forever. The visited guard must terminate it.
+    const nodes = [node("x", "y", 1), node("y", "x", 2)];
+    const forest = buildForest(nodes);
+    const out = collectSubtree("x", forest).map((n) => n.id);
+    expect(out).toContain("x");
+    expect(out).toContain("y");
+    expect(out.length).toBe(2);
+  });
+
+  it("collectSubtree does not hang on a self-parent cycle", () => {
+    const nodes = [node("s", "s", 1)];
+    const forest = buildForest(nodes);
+    expect(collectSubtree("s", forest).map((n) => n.id)).toEqual(["s"]);
+  });
 });
 
 describe("flattenForRender", () => {

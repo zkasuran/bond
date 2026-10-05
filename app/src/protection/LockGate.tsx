@@ -15,7 +15,9 @@ import {
   getLastAuthAt,
   isWithinGrace,
   requireAuth,
+  setPin,
   setPinPrompter,
+  type AuthOutcome,
   type PinPromptRequest,
 } from "./gate";
 import {
@@ -73,6 +75,9 @@ export function LockGate({ children }: { children: ReactNode }) {
   const [unlocked, setUnlocked] = useState(false);
   const [busy, setBusy] = useState(false);
   const [attemptError, setAttemptError] = useState<string | null>(null);
+  const [needsPinSetup, setNeedsPinSetup] = useState(false);
+  const [enroll, setEnroll] = useState<null | { step: "choose" | "confirm"; first: string }>(null);
+  const [enrollError, setEnrollError] = useState<string | null>(null);
   const [pinReq, setPinReq] = useState<PinReq | null>(null);
   const [pinError, setPinError] = useState<string | null>(null);
   const busyRef = useRef(false);
@@ -91,6 +96,57 @@ export function LockGate({ children }: { children: ReactNode }) {
     return () => setPinPrompter(null);
   }, []);
 
+  // Map a fail-closed unlock outcome to the lock-screen message. no_pin means there is no
+  // biometric hardware and no PIN, so the only way forward is to set a PIN right here.
+  const mapUnlockFailure = useCallback((outcome: AuthOutcome, note?: string) => {
+    if (outcome === "no_pin") {
+      setNeedsPinSetup(true);
+      setAttemptError("Set a PIN to unlock Bond. This device has no biometric fallback.");
+    } else if (outcome === "locked_out") {
+      setAttemptError(note ? `Locked out. ${note}.` : "Too many attempts. Try again shortly.");
+    } else {
+      setAttemptError(
+        outcome === "cancelled" ? "Authentication cancelled." : "Could not verify. Try again.",
+      );
+    }
+  }, []);
+
+  const onEnrollSubmit = useCallback(
+    async (pin: string) => {
+      if (!enroll) return;
+      if (enroll.step === "choose") {
+        setEnrollError(null);
+        setEnroll({ step: "confirm", first: pin });
+        return;
+      }
+      if (pin !== enroll.first) {
+        setEnrollError("PINs did not match. Try again.");
+        setEnroll({ step: "choose", first: "" });
+        return;
+      }
+      try {
+        await setPin(pin);
+      } catch (e) {
+        setEnrollError(String((e as Error)?.message ?? e));
+        setEnroll({ step: "choose", first: "" });
+        return;
+      }
+      // Setting a PIN proves control of the device, so it unlocks this session. The PIN is
+      // now the biometric fallback on every later open.
+      setEnroll(null);
+      setEnrollError(null);
+      setNeedsPinSetup(false);
+      setAttemptError(null);
+      setUnlocked(true);
+    },
+    [enroll],
+  );
+
+  const onEnrollCancel = useCallback(() => {
+    setEnroll(null);
+    setEnrollError(null);
+  }, []);
+
   const unlock = useCallback(async () => {
     if (busyRef.current) return;
     busyRef.current = true;
@@ -100,16 +156,15 @@ export function LockGate({ children }: { children: ReactNode }) {
       const r = await requireAuth("openApp");
       if (r.ok) {
         setUnlocked(true);
+        setNeedsPinSetup(false);
       } else {
-        setAttemptError(
-          r.outcome === "cancelled" ? "Authentication cancelled." : "Could not verify. Try again.",
-        );
+        mapUnlockFailure(r.outcome, r.note);
       }
     } finally {
       busyRef.current = false;
       setBusy(false);
     }
-  }, []);
+  }, [mapUnlockFailure]);
 
   // The lock is derived, not stored, so the effect below never sets state synchronously: it
   // only kicks off the async prompt when the app is ready, openApp is guarded and we are not
@@ -159,6 +214,22 @@ export function LockGate({ children }: { children: ReactNode }) {
     />
   );
 
+  const enrollSheet = (
+    <PinSheet
+      visible={enroll !== null}
+      title={enroll?.step === "confirm" ? "Confirm your PIN" : "Choose a PIN"}
+      subtitle={
+        enroll?.step === "confirm"
+          ? "Enter it again to confirm."
+          : "At least 4 digits. Unlocks Bond when biometrics are unavailable."
+      }
+      error={enrollError}
+      submitLabel={enroll?.step === "confirm" ? "Save PIN" : "Next"}
+      onSubmit={(pin) => void onEnrollSubmit(pin)}
+      onCancel={onEnrollCancel}
+    />
+  );
+
   if (showLock) {
     return (
       <>
@@ -190,17 +261,30 @@ export function LockGate({ children }: { children: ReactNode }) {
               ) : null}
             </View>
             {ready ? (
-              <Button
-                title="Unlock"
-                variant="primary"
-                loading={busy}
-                onPress={() => void unlock()}
-                left={<Ionicons name="finger-print" size={16} color="#FFFFFF" />}
-              />
+              needsPinSetup ? (
+                <Button
+                  title="Set a PIN"
+                  variant="primary"
+                  onPress={() => {
+                    setEnrollError(null);
+                    setEnroll({ step: "choose", first: "" });
+                  }}
+                  left={<Ionicons name="keypad" size={16} color="#FFFFFF" />}
+                />
+              ) : (
+                <Button
+                  title="Unlock"
+                  variant="primary"
+                  loading={busy}
+                  onPress={() => void unlock()}
+                  left={<Ionicons name="finger-print" size={16} color="#FFFFFF" />}
+                />
+              )
             ) : null}
           </View>
         </Screen>
         {pinSheet}
+        {enrollSheet}
       </>
     );
   }
@@ -209,6 +293,7 @@ export function LockGate({ children }: { children: ReactNode }) {
     <>
       {children}
       {pinSheet}
+      {enrollSheet}
     </>
   );
 }

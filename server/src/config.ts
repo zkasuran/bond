@@ -1,3 +1,4 @@
+import { createHash, timingSafeEqual } from "node:crypto";
 import dotenv from "dotenv";
 
 // The lane .env must win over any stale value already in the process
@@ -58,6 +59,37 @@ export const config = {
   // Optional MCP skill server. When set, its tools are imported over
   // StreamableHTTP and exposed to the agent under the mcp_ namespace.
   mcpSkillUrl: process.env.MCP_SKILL_URL ?? "",
+
+  // Browser Origins allowed to open a sync WebSocket, comma-separated in
+  // ALLOWED_ORIGINS. A same-origin request (the bundled web build) and a
+  // non-browser client that sends no Origin header are always allowed, so this
+  // list only names extra cross-origin front ends.
+  allowedOrigins: (process.env.ALLOWED_ORIGINS ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0),
 };
 
 export type Config = typeof config;
+
+// Constant-time bearer compare. Both sides are hashed to a fixed 32-byte digest
+// first, so the comparison never leaks the token length through timing and
+// timingSafeEqual always receives equal-length buffers. An empty configured
+// token denies every client, which keeps the empty default a deny-all.
+export function bearerMatches(presented: string | null, expected: string): boolean {
+  if (!expected || presented == null) return false;
+  const a = createHash("sha256").update(presented).digest();
+  const b = createHash("sha256").update(expected).digest();
+  return timingSafeEqual(a, b);
+}
+
+// Fail fast at startup on a configuration that must not reach a running server.
+// Called from index.ts main() rather than at import, so a test that imports
+// config does not trip it.
+export function assertStartupConfig(): void {
+  if (config.bondBearer === "change-me") {
+    throw new Error(
+      "BOND_BEARER is still the change-me placeholder. Set a real token in .env before starting the server.",
+    );
+  }
+}

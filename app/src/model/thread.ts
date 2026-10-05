@@ -51,14 +51,19 @@ export function buildForest(nodes: BondNode[]): Forest {
   return { byId, childrenOf, roots };
 }
 
-/** All nodes in the subtree rooted at rootId, root first, pre-order. */
+/** All nodes in the subtree rooted at rootId, root first, pre-order. A visited set guards
+ *  against an adversarial parentId cycle (the same guard pathToRoot has), so a crafted
+ *  log cannot hang the render by looping two nodes as each other's parent. */
 export function collectSubtree(rootId: string, forest: Forest): BondNode[] {
   const out: BondNode[] = [];
   const root = forest.byId.get(rootId);
   if (!root) return out;
+  const visited = new Set<string>();
   const stack: BondNode[] = [root];
   while (stack.length) {
     const n = stack.pop() as BondNode;
+    if (visited.has(n.id)) continue;
+    visited.add(n.id);
     out.push(n);
     const kids = forest.childrenOf.get(n.id);
     if (kids) for (let i = kids.length - 1; i >= 0; i--) stack.push(kids[i]);

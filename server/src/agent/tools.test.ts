@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { Connection, Keypair, PublicKey } from "@solana/web3.js";
 import { loadWallet, solanaTools } from "./tools.js";
+import { MAX_AGENT_TRANSFER_USDC } from "../limits.js";
 
 const DEVNET_USDC = "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU";
 
@@ -64,4 +65,27 @@ test("solana_transfer_usdc returns a structured error rather than throwing on a 
   };
   assert.equal(out.ok, false);
   assert.ok(typeof out.error === "string" && out.error.length > 0);
+});
+
+test("solana_transfer_usdc rejects an amount over the per-transfer cap before building a transfer", async () => {
+  const recipient = Keypair.generate().publicKey.toBase58();
+  const tools = solanaTools(new Connection("https://api.devnet.solana.com"), Keypair.generate(), new PublicKey(DEVNET_USDC));
+  const over = MAX_AGENT_TRANSFER_USDC + 1;
+  const out = (await tool(tools, "solana_transfer_usdc").execute({ to: recipient, amount: over })) as {
+    ok: boolean;
+    error?: string;
+  };
+  assert.equal(out.ok, false);
+  assert.ok(out.error?.includes("per-transfer cap"), "the error names the cap it hit");
+});
+
+test("solana_transfer_usdc rejects a non-positive amount", async () => {
+  const recipient = Keypair.generate().publicKey.toBase58();
+  const tools = solanaTools(new Connection("https://api.devnet.solana.com"), Keypair.generate(), new PublicKey(DEVNET_USDC));
+  const out = (await tool(tools, "solana_transfer_usdc").execute({ to: recipient, amount: 0 })) as {
+    ok: boolean;
+    error?: string;
+  };
+  assert.equal(out.ok, false);
+  assert.ok(out.error?.includes("positive"));
 });

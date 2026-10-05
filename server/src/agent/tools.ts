@@ -3,15 +3,10 @@
 //   solana_*   real Solana actions built on @solana/web3.js and @solana/spl-token,
 //              signing with a server-held keypair on devnet, plus a Jupiter quote.
 //   mcp_*      tools imported from an external MCP skill server, when one is set.
-//   agentkit_* whatever solana-agent-kit v2 exposes through createVercelAITools.
 //
-// Why the solana_* tools are built directly rather than taken from
-// createVercelAITools: solana-agent-kit v2 pins the Vercel AI SDK at v4 and its
-// core ships zero actions until a plugin is added, so createVercelAITools returns
-// an empty set here and its tool shape (parameters) is not the shape this loop's
-// AI SDK reads (inputSchema). We still call it and re-wrap anything it returns, so
-// installing an agent-kit plugin later lights up automatically, but the four named
-// payment and market tools are first-class here so they always work.
+// The solana_* payment and market tools are hand-built on web3.js rather than
+// taken from a kit: the four named tools are first-class here so they always
+// work, with their spend caps enforced in code below.
 import { tool, jsonSchema, type ToolSet } from "ai";
 import { z } from "zod";
 import {
@@ -30,10 +25,16 @@ import {
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { config } from "../config.js";
+import { MAX_AGENT_TRANSFER_USDC, MAX_AGENT_TRANSFER_TOTAL_USDC } from "../limits.js";
 import { errText } from "./events.js";
 
 const USDC_DECIMALS = 6;
 const B58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+
+// Cumulative USDC moved by the transfer tool over the life of this process.
+// Enforced in code against MAX_AGENT_TRANSFER_TOTAL_USDC so an agent cannot be
+// talked into draining the wallet across many turns.
+let transferredThisProcess = 0;
 
 // Minimal base58 decode so the keypair loader takes a Phantom-style secret with
 // no extra dependency.
@@ -77,8 +78,6 @@ export interface BuiltTools {
     ephemeralWallet: boolean;
     solanaToolCount: number;
     mcpToolCount: number;
-    agentkitToolCount: number;
-    agentKitEnabled: boolean;
     mcpConnected: boolean;
   };
 }
@@ -129,6 +128,23 @@ export function solanaTools(connection: Connection, wallet: Keypair, usdcMint: P
         amount: z.number().positive().describe("amount of USDC to send, in whole USDC"),
       }),
       execute: async ({ to, amount }) => {
+        // Hard spend caps, enforced in code before the transfer is built. A
+        // prompt instruction can never raise or bypass these.
+        if (!Number.isFinite(amount) || amount <= 0) {
+          return { ok: false, error: "amount must be a positive number of USDC" };
+        }
+        if (amount > MAX_AGENT_TRANSFER_USDC) {
+          return {
+            ok: false,
+            error: `transfer of ${amount} USDC exceeds the per-transfer cap of ${MAX_AGENT_TRANSFER_USDC} USDC`,
+          };
+        }
+        if (transferredThisProcess + amount > MAX_AGENT_TRANSFER_TOTAL_USDC) {
+          return {
+            ok: false,
+            error: `transfer would exceed the per-process spend ceiling of ${MAX_AGENT_TRANSFER_TOTAL_USDC} USDC`,
+          };
+        }
         try {
           const dest = new PublicKey(to);
           const raw = BigInt(Math.round(amount * 10 ** USDC_DECIMALS));
@@ -156,6 +172,8 @@ export function solanaTools(connection: Connection, wallet: Keypair, usdcMint: P
           tx.feePayer = wallet.publicKey;
           tx.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
           const signature = await connection.sendTransaction(tx, [wallet]);
+          // Count only a transfer that actually went out against the ceiling.
+          transferredThisProcess += amount;
           return {
             ok: true,
             signature,
@@ -259,52 +277,6 @@ async function mcpTools(url: string): Promise<{ tools: ToolSet; close: () => Pro
   return { tools, close: () => client.close() };
 }
 
-// Re-wrap whatever solana-agent-kit v2 exposes through createVercelAITools into
-// this AI SDK's tool shape. Empty until an agent-kit plugin is installed. Loaded
-// dynamically and only on Node 22+, because SolanaAgentKit requires it, so an
-// older runtime keeps the first-class solana_* tools instead of crashing.
-async function agentKitTools(wallet: Keypair): Promise<ToolSet> {
-  const out: ToolSet = {};
-  try {
-    const kit = (await import("solana-agent-kit")) as unknown as {
-      SolanaAgentKit: new (w: unknown, rpc: string, cfg: object) => { actions: unknown[] };
-      KeypairWallet: new (kp: Keypair, rpc: string) => unknown;
-      createVercelAITools: (
-        agent: unknown,
-        actions: unknown[],
-      ) => Record<
-        string,
-        {
-          description?: string;
-          parameters?: unknown;
-          execute?: (args: unknown) => Promise<unknown>;
-          id?: string;
-        }
-      >;
-    };
-    const kitWallet = new kit.KeypairWallet(wallet, config.solanaRpcUrl);
-    const agent = new kit.SolanaAgentKit(kitWallet, config.solanaRpcUrl, {});
-    const raw = kit.createVercelAITools(agent, agent.actions ?? []);
-    for (const [key, t] of Object.entries(raw)) {
-      if (!t || typeof t.execute !== "function" || !t.parameters) continue;
-      const name = t.id ?? `action_${key}`;
-      out[`agentkit_${name}`] = tool({
-        description: t.description ?? name,
-        inputSchema: t.parameters as never,
-        execute: t.execute,
-      });
-    }
-  } catch {
-    // Agent-kit is optional. If it is not installed or fails to load, the
-    // first-class solana_* tools still carry the loop.
-  }
-  return out;
-}
-
-function nodeMajor(): number {
-  return Number(process.versions.node.split(".")[0]);
-}
-
 // Assemble every tool the loop can call. One call per turn keeps the MCP
 // connection fresh and scoped to the request.
 export async function buildTools(): Promise<BuiltTools> {
@@ -313,9 +285,6 @@ export async function buildTools(): Promise<BuiltTools> {
   const usdcMint = new PublicKey(config.usdcMint);
 
   const solana = solanaTools(connection, keypair, usdcMint);
-
-  const agentKitEnabled = nodeMajor() >= 22;
-  const agentkit = agentKitEnabled ? await agentKitTools(keypair) : {};
 
   let mcp: ToolSet = {};
   let mcpClose: () => Promise<void> = async () => {};
@@ -332,7 +301,7 @@ export async function buildTools(): Promise<BuiltTools> {
     }
   }
 
-  const tools: ToolSet = { ...solana, ...agentkit, ...mcp };
+  const tools: ToolSet = { ...solana, ...mcp };
 
   return {
     tools,
@@ -344,8 +313,6 @@ export async function buildTools(): Promise<BuiltTools> {
       ephemeralWallet: ephemeral,
       solanaToolCount: Object.keys(solana).length,
       mcpToolCount: Object.keys(mcp).length,
-      agentkitToolCount: Object.keys(agentkit).length,
-      agentKitEnabled,
       mcpConnected,
     },
   };

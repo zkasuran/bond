@@ -11,11 +11,14 @@ export function Composer({
   replyingTo,
   onCancelReply,
   onSend,
+  onRequestPay,
 }: {
   agents: Membership[];
   replyingTo: BondNode | null;
   onCancelReply: () => void;
   onSend: (body: string, mentions: string[]) => void;
+  /** Open the in-thread USDC pay sheet. Omitted on surfaces that cannot pay. */
+  onRequestPay?: () => void;
 }) {
   const { c, space, radius } = useTokens();
   const [text, setText] = useState("");
@@ -85,6 +88,26 @@ export function Composer({
       ) : null}
 
       <View style={{ flexDirection: "row", alignItems: "flex-end", gap: space[2] }}>
+        {onRequestPay ? (
+          <Pressable
+            testID="composer-pay"
+            onPress={onRequestPay}
+            accessibilityRole="button"
+            accessibilityLabel="Send USDC"
+            style={{
+              width: 42,
+              height: 42,
+              borderRadius: 21,
+              backgroundColor: c.surfaceAlt,
+              borderWidth: 1,
+              borderColor: c.border,
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <Ionicons name="cash-outline" size={20} color={c.brand} />
+          </Pressable>
+        ) : null}
         <TextInput
           value={text}
           onChangeText={setText}

@@ -13,6 +13,60 @@ import { fromBaseUnits } from "./usdc";
 
 export const DEFAULT_SLIPPAGE_BPS = 50;
 
+// Ceilings on the two untrusted network calls. A hard timeout stops a hung Jupiter request
+// from blocking the UI forever. A declared response-size cap rejects an absurd body before
+// it is read into memory. Named here so the limits live in one place (Hardened to ship,
+// point 5). AbortController + setTimeout is used, not AbortSignal.timeout, which is not
+// guaranteed on React Native / Hermes.
+export const JUPITER_TIMEOUT_MS = 15_000;
+export const MAX_RESPONSE_BYTES = 1_000_000;
+
+function assertResponseSize(res: Response, label: string): void {
+  const header = (res as { headers?: { get?: (name: string) => string | null } })?.headers?.get?.(
+    "content-length",
+  );
+  if (header != null) {
+    const len = Number(header);
+    if (Number.isFinite(len) && len > MAX_RESPONSE_BYTES) {
+      throw new Error(`${label} response too large (${len} bytes)`);
+    }
+  }
+}
+
+/** fetch with a hard timeout and a declared response-size cap. Combines a caller signal with
+ *  an internal timeout controller so either can abort the request. */
+async function fetchWithLimits(
+  url: string,
+  init: { method?: string; headers?: Record<string, string>; body?: string },
+  opts: { timeoutMs: number; signal?: AbortSignal; label: string },
+): Promise<Response> {
+  const controller = new AbortController();
+  let timedOut = false;
+  const onAbort = () => controller.abort();
+  const external = opts.signal;
+  if (external) {
+    if (external.aborted) controller.abort();
+    else external.addEventListener("abort", onAbort);
+  }
+  const timer = setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, opts.timeoutMs);
+  try {
+    const res = await fetch(url, { ...init, signal: controller.signal });
+    assertResponseSize(res, opts.label);
+    return res;
+  } catch (e) {
+    if (timedOut) {
+      throw new Error(`${opts.label} timed out after ${Math.round(opts.timeoutMs / 1000)}s`);
+    }
+    throw e;
+  } finally {
+    clearTimeout(timer);
+    if (external) external.removeEventListener("abort", onAbort);
+  }
+}
+
 export interface JupiterRoutePlanStep {
   swapInfo: {
     ammKey: string;
@@ -65,10 +119,11 @@ export async function getQuote(params: QuoteParams): Promise<JupiterQuote> {
     amount: params.amount.toString(),
     slippageBps: String(params.slippageBps ?? DEFAULT_SLIPPAGE_BPS),
   });
-  const res = await fetch(`${JUPITER_LITE_API}/quote?${query}`, {
-    headers: { Accept: "application/json" },
-    signal: params.signal,
-  });
+  const res = await fetchWithLimits(
+    `${JUPITER_LITE_API}/quote?${query}`,
+    { headers: { Accept: "application/json" } },
+    { timeoutMs: JUPITER_TIMEOUT_MS, signal: params.signal, label: "Jupiter quote" },
+  );
   if (!res.ok) {
     const detail = await res.text().catch(() => "");
     throw new Error(`Jupiter quote failed (${res.status}): ${detail.slice(0, 200)}`);
@@ -90,17 +145,20 @@ export async function getSwapTransaction(
   userPublicKey: string,
   options: { wrapAndUnwrapSol?: boolean; signal?: AbortSignal } = {},
 ): Promise<SwapTransactionResult> {
-  const res = await fetch(`${JUPITER_LITE_API}/swap`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Accept: "application/json" },
-    body: JSON.stringify({
-      quoteResponse: quote,
-      userPublicKey,
-      wrapAndUnwrapSol: options.wrapAndUnwrapSol ?? true,
-      dynamicComputeUnitLimit: true,
-    }),
-    signal: options.signal,
-  });
+  const res = await fetchWithLimits(
+    `${JUPITER_LITE_API}/swap`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({
+        quoteResponse: quote,
+        userPublicKey,
+        wrapAndUnwrapSol: options.wrapAndUnwrapSol ?? true,
+        dynamicComputeUnitLimit: true,
+      }),
+    },
+    { timeoutMs: JUPITER_TIMEOUT_MS, signal: options.signal, label: "Jupiter swap build" },
+  );
   if (!res.ok) {
     const detail = await res.text().catch(() => "");
     throw new Error(`Jupiter swap build failed (${res.status}): ${detail.slice(0, 200)}`);
