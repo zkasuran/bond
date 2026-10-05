@@ -300,7 +300,7 @@ export default function WalletScreen() {
               loading={sending}
               disabled={!address}
               onPress={() => void onSend()}
-              left={<Ionicons name="arrow-up-circle" size={16} color="#FFFFFF" />}
+              left={<Ionicons name="arrow-up-circle" size={16} color={c.onBrand} />}
             />
             <Txt variant="caption" faint>
               Devnet USDC, no real funds. A recipient token account is created for free when it

@@ -294,7 +294,7 @@ export default function MarketDetailScreen() {
                     loading={buying}
                     disabled={!address}
                     onPress={() => void onBuy()}
-                    left={<Ionicons name="cart" size={16} color="#FFFFFF" />}
+                    left={<Ionicons name="cart" size={16} color={c.onBrand} />}
                   />
                 ) : (
                   <Txt variant="caption" faint>

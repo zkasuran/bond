@@ -1,16 +1,6 @@
-import { View } from "react-native";
-import { useTokens } from "@/theme";
+import { PulseDot } from "@/components/motion/Ambient";
 
-export function PresenceDot({ color, size = 8 }: { color?: string; size?: number }) {
-  const { c } = useTokens();
-  return (
-    <View
-      style={{
-        width: size,
-        height: size,
-        borderRadius: size / 2,
-        backgroundColor: color ?? c.online,
-      }}
-    />
-  );
+/** A presence dot. Live presences breathe, so an online agent reads as awake. */
+export function PresenceDot({ color, size = 8, live = false }: { color?: string; size?: number; live?: boolean }) {
+  return <PulseDot color={color} size={size} live={live} />;
 }

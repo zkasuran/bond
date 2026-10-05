@@ -187,7 +187,7 @@ export default function ConnectBridgeScreen() {
                       <Ionicons
                         name={ICON[info.kind]}
                         size={20}
-                        color={isSel ? "#FFFFFF" : c.textMuted}
+                        color={isSel ? c.onBrand : c.textMuted}
                       />
                     </View>
                     <View style={{ flex: 1, gap: 2 }}>
@@ -283,7 +283,7 @@ export default function ConnectBridgeScreen() {
             onPress={connect}
             loading={connecting}
             disabled={!canConnect}
-            left={<Ionicons name="link" size={18} color="#FFFFFF" />}
+            left={<Ionicons name="link" size={18} color={c.onBrand} />}
           />
         </View>
       </KeyboardAvoidingView>

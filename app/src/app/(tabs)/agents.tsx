@@ -12,6 +12,7 @@ import { Card } from "@/components/ui/Card";
 import { Avatar } from "@/components/ui/Avatar";
 import { Pill } from "@/components/ui/Badge";
 import { PresenceDot } from "@/components/ui/PresenceDot";
+import { AmbientGlow, Reveal } from "@/components/motion/Ambient";
 import { ADAPTER_LIST } from "@/bridge/registry";
 import { useBond, type Bridge } from "@/state/store";
 
@@ -71,7 +72,7 @@ function BridgeCard({ bridge }: { bridge: Bridge }) {
             borderRadius: radius.pill,
           }}
         >
-          <PresenceDot color={status.color} size={7} />
+          <PresenceDot color={status.color} size={7} live={bridge.status !== "error"} />
           <Txt variant="caption" color={status.color}>
             {status.label}
           </Txt>
@@ -124,21 +125,23 @@ export default function AgentsScreen() {
 
   return (
     <Screen padded>
+      <AmbientGlow intensity={0.4} />
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ gap: space[5], paddingBottom: space[8] }}
       >
-        <View style={{ gap: space[2] }}>
+        <Reveal index={0} style={{ gap: space[2] }}>
+          <Txt variant="label" color={c.agent}>Universal bridge</Txt>
           <Txt variant="display">Agents</Txt>
           <Txt variant="body" muted>
             Bond bridges to Hermes, OpenClaw, your own gateway or any OpenAI-compatible runtime.
           </Txt>
-        </View>
+        </Reveal>
 
         <Button
           title="Connect a bridge"
           onPress={() => router.push("/bridge/connect")}
-          left={<Ionicons name="add" size={18} color="#FFFFFF" />}
+          left={<Ionicons name="add" size={18} color={c.onBrand} />}
         />
 
         <View style={{ gap: space[3] }}>
@@ -164,7 +167,11 @@ export default function AgentsScreen() {
               </Txt>
             </Card>
           ) : (
-            bridges.map((b) => <BridgeCard key={b.id} bridge={b} />)
+            bridges.map((b, i) => (
+              <Reveal key={b.id} index={i + 1}>
+                <BridgeCard bridge={b} />
+              </Reveal>
+            ))
           )}
         </View>
       </ScrollView>

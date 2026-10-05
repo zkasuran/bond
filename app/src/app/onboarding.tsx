@@ -1,21 +1,41 @@
 // Bond onboarding. A four step, single-file flow using local step state, no extra routes.
-// It sells the promise, learns a little about you, then makes the core idea concrete by
-// showing your real device identity and the signature it puts on every message. Light and
-// dark are both first class. See DESIGN.md sec 6 and 7.
-import { useState } from "react";
-import { Animated, Platform, Pressable, View } from "react-native";
+// It opens on the mark bonding into place, learns a little about you, then makes the core
+// idea concrete by showing your real device key as both a did:key and a Solana address.
+// Steps glide in the direction you travel; everything honours reduced motion.
+import { useEffect, useState, type ComponentProps } from "react";
+import { Platform, Pressable, View } from "react-native";
 import * as Haptics from "expo-haptics";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import Animated, {
+  Easing,
+  FadeInLeft,
+  FadeInRight,
+  FadeOutLeft,
+  FadeOutRight,
+  ReduceMotion,
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withRepeat,
+  withSpring,
+  withTiming,
+} from "react-native-reanimated";
 import { Screen } from "@/components/ui/Screen";
 import { Txt } from "@/components/ui/Text";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { VerifiedBadge } from "@/components/ui/Badge";
+import { BondMark } from "@/components/motion/BondMark";
+import { AmbientGlow } from "@/components/motion/Ambient";
+import { PressableScale } from "@/components/motion/PressableScale";
+import { didToSolanaAddress } from "@/identity/keys";
 import { useBond } from "@/state/store";
 import { useTokens } from "@/theme";
+import { enter, spring } from "@/theme/motion";
 
 const STEP_COUNT = 4;
+type IconName = ComponentProps<typeof Ionicons>["name"];
 
 /** Shorten a long identifier so both ends stay readable, keeping the value concrete. */
 function truncateMiddle(value: string, head = 16, tail = 6): string {
@@ -23,98 +43,41 @@ function truncateMiddle(value: string, head = 16, tail = 6): string {
   return `${value.slice(0, head)}…${value.slice(-tail)}`;
 }
 
+function safeAddress(did: string): string {
+  try {
+    return did ? didToSolanaAddress(did) : "";
+  } catch {
+    return "";
+  }
+}
+
 function tap() {
   if (Platform.OS !== "web") void Haptics.selectionAsync().catch(() => {});
 }
 
-/** The step indicator. The current step reads as a wide pill, done steps stay filled. */
-function ProgressDots({ step }: { step: number }) {
+/** One step pill. The active one stretches on a spring; done ones stay lit. */
+function ProgressPill({ state }: { state: "done" | "active" | "todo" }) {
   const { c, radius } = useTokens();
+  const w = useSharedValue(state === "active" ? 26 : 7);
+  useEffect(() => {
+    w.set(withSpring(state === "active" ? 26 : 7, spring.gentle));
+  }, [state, w]);
+  const style = useAnimatedStyle(() => ({ width: w.get() }));
   return (
-    <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-      {Array.from({ length: STEP_COUNT }).map((_, i) => {
-        const active = i === step;
-        const done = i < step;
-        return (
-          <View
-            key={i}
-            style={{
-              width: active ? 22 : 7,
-              height: 7,
-              borderRadius: radius.pill,
-              backgroundColor: active || done ? c.brand : c.borderStrong,
-              opacity: done ? 0.5 : 1,
-            }}
-          />
-        );
-      })}
-    </View>
-  );
-}
-/** The core Bond symbol: a human circle bonded to an agent rounded square, the same two
- *  shapes the Avatar uses, so the mark and the app speak one language. */
-function BondMark({ size = 64 }: { size?: number }) {
-  const { c } = useTokens();
-  const overlap = Math.round(size * 0.28);
-  return (
-    <View style={{ flexDirection: "row", alignItems: "center" }}>
-      <View
-        style={{
-          width: size,
-          height: size,
-          borderRadius: size / 2,
-          backgroundColor: c.human,
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
-        <Ionicons name="person" size={size * 0.44} color="#FFFFFF" />
-      </View>
-      <View
-        style={{
-          width: size,
-          height: size,
-          borderRadius: size * 0.3,
-          marginLeft: -overlap,
-          backgroundColor: c.agent,
-          borderWidth: 3,
-          borderColor: c.bg,
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
-        <Ionicons name="hardware-chip" size={size * 0.44} color="#FFFFFF" />
-      </View>
-    </View>
+    <Animated.View
+      style={[
+        {
+          height: 7,
+          borderRadius: radius.pill,
+          backgroundColor: state === "todo" ? c.borderStrong : c.brand,
+          opacity: state === "done" ? 0.45 : 1,
+        },
+        style,
+      ]}
+    />
   );
 }
 
-/** A soft tile behind a single glyph, used for the signing and commit moments. */
-function GlyphTile({
-  icon,
-  tint,
-  soft,
-}: {
-  icon: keyof typeof Ionicons.glyphMap;
-  tint: string;
-  soft: string;
-}) {
-  const { radius } = useTokens();
-  return (
-    <View
-      style={{
-        width: 76,
-        height: 76,
-        borderRadius: radius.xl,
-        backgroundColor: soft,
-        alignItems: "center",
-        justifyContent: "center",
-      }}
-    >
-      <Ionicons name={icon} size={38} color={tint} />
-    </View>
-  );
-}
 /** A single-select personalization chip. Choosing is optional and lives in local state. */
 function Chip({
   label,
@@ -123,18 +86,20 @@ function Chip({
   onPress,
 }: {
   label: string;
-  icon: keyof typeof Ionicons.glyphMap;
+  icon: IconName;
   selected: boolean;
   onPress: () => void;
 }) {
   const { c, radius, space } = useTokens();
   return (
-    <Pressable
+    <PressableScale
       onPress={() => {
         tap();
         onPress();
       }}
-      style={({ pressed }) => ({
+      accessibilityRole="button"
+      accessibilityState={{ selected }}
+      style={{
         flexDirection: "row",
         alignItems: "center",
         gap: space[2],
@@ -144,18 +109,53 @@ function Chip({
         borderWidth: 1.5,
         borderColor: selected ? c.brand : c.border,
         backgroundColor: selected ? c.brandSoft : c.surface,
-        opacity: pressed ? 0.9 : 1,
-      })}
+      }}
     >
-      <Ionicons
-        name={selected ? "checkmark-circle" : icon}
-        size={18}
-        color={selected ? c.brand : c.textMuted}
-      />
+      <Ionicons name={selected ? "checkmark-circle" : icon} size={18} color={selected ? c.brand : c.textMuted} />
       <Txt variant="callout" color={selected ? c.brand : c.text}>
         {label}
       </Txt>
-    </Pressable>
+    </PressableScale>
+  );
+}
+
+/** The glowing thread between your did:key and your Solana address: a packet rides it. */
+function KeyLink() {
+  const { c } = useTokens();
+  const reduced = useReducedMotion();
+  const t = useSharedValue(0);
+  useEffect(() => {
+    if (reduced) return;
+    t.set(withRepeat(withTiming(1, { duration: 1400, easing: Easing.inOut(Easing.cubic) }), -1));
+  }, [reduced, t]);
+  const dot = useAnimatedStyle(() => ({ transform: [{ translateY: t.get() * 30 }], opacity: 1 - Math.abs(t.get() - 0.5) }));
+  return (
+    <View style={{ height: 36, width: 22, alignItems: "center", marginLeft: 6 }}>
+      <View style={{ width: 2, height: "100%", borderRadius: 1, backgroundColor: c.brand + "44" }} />
+      <Animated.View
+        style={[
+          { position: "absolute", top: 0, width: 8, height: 8, borderRadius: 4, backgroundColor: c.brand, boxShadow: `0px 0px 10px ${c.brand}` },
+          dot,
+        ]}
+      />
+    </View>
+  );
+}
+
+function FeatureRow({ icon, tint, soft, title, body, index }: { icon: IconName; tint: string; soft: string; title: string; body: string; index: number }) {
+  const { radius, space } = useTokens();
+  return (
+    <Animated.View entering={enter.row(index + 2)} style={{ flexDirection: "row", gap: space[3], alignItems: "flex-start" }}>
+      <View style={{ width: 42, height: 42, borderRadius: radius.md, backgroundColor: soft, alignItems: "center", justifyContent: "center" }}>
+        <Ionicons name={icon} size={20} color={tint} />
+      </View>
+      <View style={{ flex: 1, gap: 2 }}>
+        <Txt variant="heading">{title}</Txt>
+        <Txt variant="caption" muted style={{ lineHeight: 18 }}>
+          {body}
+        </Txt>
+      </View>
+    </Animated.View>
   );
 }
 
@@ -168,42 +168,15 @@ export default function Onboarding() {
   const identity = useBond((s) => s.identity);
 
   const [step, setStep] = useState(0);
+  const [dir, setDir] = useState<1 | -1>(1);
   const [who, setWho] = useState<Who | null>(null);
   const [connect, setConnect] = useState<Connect | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const [opacity] = useState(() => new Animated.Value(1));
-  const [translateX] = useState(() => new Animated.Value(0));
-
-  const animateTo = (nextStep: number) => {
-    const dir = nextStep > step ? 1 : -1;
-    Animated.parallel([
-      Animated.timing(opacity, { toValue: 0, duration: 130, useNativeDriver: true }),
-      Animated.timing(translateX, { toValue: -dir * 26, duration: 130, useNativeDriver: true }),
-    ]).start(() => {
-      setStep(nextStep);
-      translateX.setValue(dir * 26);
-      Animated.parallel([
-        Animated.timing(opacity, { toValue: 1, duration: 200, useNativeDriver: true }),
-        Animated.spring(translateX, {
-          toValue: 0,
-          friction: 9,
-          tension: 80,
-          useNativeDriver: true,
-        }),
-      ]).start();
-    });
-  };
-
-  const back = () => {
-    if (step === 0) return;
+  const go = (next: number) => {
     tap();
-    animateTo(step - 1);
-  };
-
-  const next = () => {
-    tap();
-    animateTo(step + 1);
+    setDir(next > step ? 1 : -1);
+    setStep(next);
   };
 
   const finish = async () => {
@@ -216,28 +189,37 @@ export default function Onboarding() {
     }
   };
   const did = identity?.did ?? "";
+  const address = safeAddress(did);
   const isLast = step === STEP_COUNT - 1;
+
+  const entering = (dir > 0 ? FadeInRight : FadeInLeft).springify().damping(20).stiffness(170).reduceMotion(ReduceMotion.System);
+  const exiting = (dir > 0 ? FadeOutLeft : FadeOutRight).duration(160).reduceMotion(ReduceMotion.System);
 
   const renderStep = () => {
     switch (step) {
       case 0:
         return (
-          <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: space[6] }}>
-            <BondMark size={72} />
-            <View style={{ gap: space[3], alignItems: "center" }}>
-              <Txt
-                variant="caption"
-                color={c.brand}
-                style={{ letterSpacing: 1, textTransform: "uppercase" }}
-              >
-                Welcome to Bond
-              </Txt>
-              <Txt variant="display" style={{ textAlign: "center" }}>
-                Bond
-              </Txt>
-              <Txt variant="body" muted style={{ textAlign: "center", maxWidth: 300 }}>
-                Bond is the messaging app for humans and agents, together.
-              </Txt>
+          <View style={{ flex: 1, justifyContent: "center", gap: space[7] }}>
+            <View style={{ alignItems: "flex-start", justifyContent: "center", height: 150, paddingLeft: space[3] }}>
+              <BondMark size={72} animate rings breathe delay={150} />
+            </View>
+            <View style={{ gap: space[3] }}>
+              <Animated.View entering={enter.hero(3)}>
+                <Txt variant="label" color={c.brand}>
+                  Built for Solana Seeker
+                </Txt>
+              </Animated.View>
+              <Animated.View entering={enter.hero(4)}>
+                <Txt variant="hero">
+                  Humans and agents, as <Txt variant="hero" color={c.brand}>paid peers.</Txt>
+                </Txt>
+              </Animated.View>
+              <Animated.View entering={enter.hero(5)}>
+                <Txt variant="body" muted style={{ maxWidth: 340 }}>
+                  One room where every member, human or AI, holds a key that is also a Solana
+                  wallet. Talk, delegate and pay in USDC, right in the thread.
+                </Txt>
+              </Animated.View>
             </View>
           </View>
         );
@@ -245,7 +227,10 @@ export default function Onboarding() {
         return (
           <View style={{ flex: 1, justifyContent: "center", gap: space[6] }}>
             <View style={{ gap: space[2] }}>
-              <Txt variant="title">A little about you</Txt>
+              <Txt variant="label" color={c.brand}>
+                Step 2 of 4
+              </Txt>
+              <Txt variant="display">A little about you</Txt>
               <Txt variant="body" muted>
                 This tunes your first room. Change any of it later or skip ahead.
               </Txt>
@@ -255,18 +240,8 @@ export default function Onboarding() {
                 Who is in your rooms?
               </Txt>
               <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space[2] }}>
-                <Chip
-                  label="Just me"
-                  icon="person-outline"
-                  selected={who === "solo"}
-                  onPress={() => setWho(who === "solo" ? null : "solo")}
-                />
-                <Chip
-                  label="A team"
-                  icon="people-outline"
-                  selected={who === "team"}
-                  onPress={() => setWho(who === "team" ? null : "team")}
-                />
+                <Chip label="Just me" icon="person-outline" selected={who === "solo"} onPress={() => setWho(who === "solo" ? null : "solo")} />
+                <Chip label="A team" icon="people-outline" selected={who === "team"} onPress={() => setWho(who === "team" ? null : "team")} />
               </View>
             </View>
             <View style={{ gap: space[3] }}>
@@ -292,100 +267,115 @@ export default function Onboarding() {
         );
       case 2:
         return (
-          <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: space[5] }}>
-            <GlyphTile icon="shield-checkmark" tint={c.brand} soft={c.brandSoft} />
-            <View style={{ gap: space[3], alignItems: "center" }}>
-              <Txt variant="title" style={{ textAlign: "center" }}>
-                Every message is signed
+          <View style={{ flex: 1, justifyContent: "center", gap: space[6] }}>
+            <View style={{ gap: space[2] }}>
+              <Txt variant="label" color={c.brand}>
+                Step 3 of 4
               </Txt>
-              <Txt variant="body" muted style={{ textAlign: "center", maxWidth: 320 }}>
-                Bond signs each message with a key that lives only on this device. Anyone in
-                the room can check it is really you and that nothing was changed.
+              <Txt variant="display">Your key is your wallet</Txt>
+              <Txt variant="body" muted>
+                Bond made an Ed25519 key on this device. It signs every message you send, and
+                because Solana keys are Ed25519 too, it is also your Solana address.
               </Txt>
             </View>
-            <Card style={{ width: "100%", gap: space[3] }}>
-              <View
-                style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                }}
-              >
-                <Txt
-                  variant="caption"
-                  faint
-                  style={{ letterSpacing: 0.5, textTransform: "uppercase" }}
-                >
-                  Your device identity
+            <Animated.View entering={enter.row(1)}>
+              <Card glow="brand" style={{ gap: space[1], paddingVertical: space[5] }}>
+                <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                  <Txt variant="label" faint>
+                    Device identity
+                  </Txt>
+                  <VerifiedBadge state="verified" />
+                </View>
+                <Txt variant="mono" style={{ marginTop: space[2] }}>
+                  {did ? truncateMiddle(did, 18, 6) : "Generating your identity…"}
                 </Txt>
-                <VerifiedBadge state="verified" />
-              </View>
-              <Txt variant="mono">{did ? truncateMiddle(did) : "Generating your identity…"}</Txt>
-            </Card>
+                <KeyLink />
+                <Txt variant="label" faint>
+                  Same key, as a Solana address
+                </Txt>
+                <Txt variant="mono" color={c.brand} style={{ marginTop: space[2] }}>
+                  {address ? truncateMiddle(address, 10, 8) : "…"}
+                </Txt>
+              </Card>
+            </Animated.View>
+            <Txt variant="caption" faint style={{ lineHeight: 18 }}>
+              Connect a Seeker wallet later and Seed Vault becomes the payer, bound to this key with
+              one signed challenge.
+            </Txt>
           </View>
         );
       default:
         return (
-          <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: space[6] }}>
-            <BondMark size={72} />
-            <View style={{ gap: space[3], alignItems: "center" }}>
-              <Txt variant="display" style={{ textAlign: "center", maxWidth: 320 }}>
-                Start building your verified space
+          <View style={{ flex: 1, justifyContent: "center", gap: space[6] }}>
+            <View style={{ gap: space[2] }}>
+              <Txt variant="label" color={c.brand}>
+                Ready
               </Txt>
-              <Txt variant="body" muted style={{ textAlign: "center", maxWidth: 300 }}>
-                Open a room, bring in people, add your agents. Every voice verified.
-              </Txt>
+              <Txt variant="display">Start building your verified space</Txt>
+            </View>
+            <View style={{ gap: space[5] }}>
+              <FeatureRow
+                index={0}
+                icon="shield-checkmark"
+                tint={c.verified}
+                soft={c.verifiedSoft}
+                title="Every message signed"
+                body="Verified on read, so a tampered or forged message never renders as authentic."
+              />
+              <FeatureRow
+                index={1}
+                icon="sparkles"
+                tint={c.agent}
+                soft={c.agentSoft}
+                title="Agents as members"
+                body="Mention @Bond and its tool calls and results stream into the thread."
+              />
+              <FeatureRow
+                index={2}
+                icon="cash"
+                tint={c.brand}
+                soft={c.brandSoft}
+                title="Pay anyone in USDC"
+                body="Signed through Mobile Wallet Adapter, settled on Solana devnet. No real funds."
+              />
             </View>
           </View>
         );
     }
   };
+
   return (
     <Screen edges={["top", "bottom"]}>
-      <View
-        style={{
-          flex: 1,
-          paddingHorizontal: space[5],
-          paddingTop: space[2],
-          paddingBottom: space[4],
-        }}
-      >
-        <View
-          style={{
-            height: 40,
-            justifyContent: "center",
-            alignItems: "center",
-            marginBottom: space[4],
-          }}
-        >
-          <ProgressDots step={step} />
+      <AmbientGlow intensity={step === 0 ? 1 : 0.55} />
+      <View style={{ flex: 1, paddingHorizontal: space[5], paddingTop: space[2], paddingBottom: space[4] }}>
+        <View style={{ height: 40, justifyContent: "center", alignItems: "center", marginBottom: space[4] }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+            {Array.from({ length: STEP_COUNT }).map((_, i) => (
+              <ProgressPill key={i} state={i === step ? "active" : i < step ? "done" : "todo"} />
+            ))}
+          </View>
           {step > 0 ? (
             <Pressable
-              onPress={back}
+              onPress={() => go(step - 1)}
               hitSlop={12}
-              style={{
-                position: "absolute",
-                left: 0,
-                top: 0,
-                bottom: 0,
-                justifyContent: "center",
-                paddingRight: space[3],
-              }}
+              accessibilityRole="button"
+              accessibilityLabel="Back"
+              style={{ position: "absolute", left: 0, top: 0, bottom: 0, justifyContent: "center", paddingRight: space[3] }}
             >
               <Ionicons name="chevron-back" size={24} color={c.textMuted} />
             </Pressable>
           ) : null}
         </View>
 
-        <Animated.View style={{ flex: 1, opacity, transform: [{ translateX }] }}>
+        <Animated.View key={step} entering={entering} exiting={exiting} style={{ flex: 1 }}>
           {renderStep()}
         </Animated.View>
 
         <View style={{ paddingTop: space[4] }}>
           <Button
-            title={isLast ? "Enter Bond" : "Continue"}
+            title={isLast ? "Enter Bond" : step === 0 ? "Get started" : "Continue"}
             variant="primary"
-            onPress={isLast ? finish : next}
+            onPress={isLast ? finish : () => go(step + 1)}
             loading={isLast ? busy : false}
           />
         </View>

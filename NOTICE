@@ -47,6 +47,12 @@ notices are preserved by including this file.
 - `ws` (Einar Otto Stangvik and contributors) — WebSocket server for sync. Server.
 - `zod` (Colin McDonnell) — schema validation. Server.
 
+## SIL Open Font License 1.1
+
+- Geist and Geist Mono (Vercel, in collaboration with basement.studio) — the typeface
+  of the app and the site. Bundled unmodified in `app/assets/fonts/` and
+  `site/assets/fonts/`, each folder carrying the full licence text as `OFL.txt`.
+
 ## BSD 2-Clause License
 
 - `dotenv` (Scott Motte) — environment file loader. Server. Its copyright and the

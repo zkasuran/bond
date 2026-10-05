@@ -217,7 +217,7 @@ export default function RoomSettingsScreen() {
               <Ionicons
                 name={pickerOpen ? "close" : "add"}
                 size={18}
-                color={pickerOpen ? c.text : "#FFFFFF"}
+                color={pickerOpen ? c.text : c.onBrand}
               />
             }
             onPress={() => setPickerOpen((v) => !v)}

@@ -84,7 +84,7 @@ export function WalletConnectButton({
         variant={variant}
         loading={connecting}
         onPress={() => void onConnect()}
-        left={<Ionicons name="wallet-outline" size={16} color="#FFFFFF" />}
+        left={<Ionicons name="wallet-outline" size={16} color={variant === "primary" ? c.onBrand : c.brand} />}
       />
       {error ? (
         <Txt variant="caption" color={c.tampered}>

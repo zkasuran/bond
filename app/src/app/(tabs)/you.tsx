@@ -1,21 +1,32 @@
-// The You tab: your Bond identity, your plan and your settings in one place. Identity is
-// the did:key held on this device (or a lower-assurance web session), shown with its
-// signature state so it reads as verifiable at a glance. Plan status comes from the "pro"
-// entitlement, never a product id, so pricing can change without touching this screen.
+// The You tab: your Bond identity, your wallet and your settings in one place. Identity is
+// the did:key held on this device (or a lower-assurance web session), shown as a pass with
+// its signature state and the Solana address the same key resolves to, so it reads as
+// verifiable at a glance.
 import { type ComponentProps } from "react";
 import { ScrollView, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { Screen } from "@/components/ui/Screen";
 import { Txt } from "@/components/ui/Text";
-import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Avatar } from "@/components/ui/Avatar";
 import { VerifiedBadge, Pill } from "@/components/ui/Badge";
+import { BondMark } from "@/components/motion/BondMark";
+import { AmbientGlow, Reveal } from "@/components/motion/Ambient";
+import { PressableScale } from "@/components/motion/PressableScale";
+import { didToSolanaAddress } from "@/identity/keys";
 import { useTokens } from "@/theme";
 import { useBond } from "@/state/store";
 
 type IoniconName = ComponentProps<typeof Ionicons>["name"];
+
+function addressOf(did: string): string {
+  try {
+    return didToSolanaAddress(did);
+  } catch {
+    return "";
+  }
+}
 
 export default function YouScreen() {
   const { c, space, radius } = useTokens();
@@ -26,7 +37,8 @@ export default function YouScreen() {
   if (!identity) {
     return (
       <Screen>
-        <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+        <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: space[4] }}>
+          <BondMark size={40} breathe />
           <Txt variant="body" muted>
             Setting up your identity
           </Txt>
@@ -36,34 +48,41 @@ export default function YouScreen() {
   }
 
   const secure = assurance !== "web";
-  const noteBg = secure ? c.verifiedSoft : c.surfaceAlt;
   const noteColor = secure ? c.verified : c.warning;
   const noteIcon: IoniconName = secure ? "lock-closed" : "globe-outline";
   const noteText = secure
     ? "Your signing key is held in this device's secure hardware and never leaves it."
     : "This is a web identity, so it is lower assurance. Keys live in browser storage with no secure enclave.";
+  const address = addressOf(identity.did);
 
   return (
     <Screen edges={["top"]}>
+      <AmbientGlow intensity={0.6} />
       <ScrollView
         contentContainerStyle={{ padding: space[4], paddingBottom: space[10], gap: space[6] }}
         showsVerticalScrollIndicator={false}
       >
-        <View style={{ gap: space[1] }}>
+        <Reveal index={0} style={{ gap: space[1] }}>
           <Txt variant="display">You</Txt>
           <Txt variant="body" muted>
             Your identity, wallet and settings.
           </Txt>
-        </View>
+        </Reveal>
 
-        {/* Identity */}
-        <View>
+        {/* Identity pass */}
+        <Reveal index={1}>
           <SectionLabel>Identity</SectionLabel>
-          <Card style={{ gap: space[4] }}>
+          <Card glow="brand" style={{ gap: space[4], padding: space[5], overflow: "hidden" }}>
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+              <Txt variant="label" color={c.brand}>
+                Bond identity
+              </Txt>
+              <BondMark size={16} />
+            </View>
             <View style={{ flexDirection: "row", alignItems: "center", gap: space[3] }}>
-              <Avatar did={identity.did} name={identity.displayName} kind="human" size={64} />
+              <Avatar did={identity.did} name={identity.displayName} kind="human" size={60} />
               <View style={{ flex: 1, gap: space[2] }}>
-                <Txt variant="heading" numberOfLines={1}>
+                <Txt variant="title" numberOfLines={1}>
                   {identity.displayName}
                 </Txt>
                 <View style={{ flexDirection: "row", alignItems: "center", gap: space[2] }}>
@@ -74,12 +93,12 @@ export default function YouScreen() {
             </View>
 
             <View style={{ gap: space[2] }}>
-              <Txt variant="caption" faint style={{ letterSpacing: 0.6 }}>
-                DECENTRALIZED IDENTIFIER
+              <Txt variant="label" faint>
+                Decentralized identifier
               </Txt>
               <View
                 style={{
-                  backgroundColor: c.surfaceSunken,
+                  backgroundColor: c.surfaceAlt,
                   borderWidth: 1,
                   borderColor: c.border,
                   borderRadius: radius.md,
@@ -92,73 +111,43 @@ export default function YouScreen() {
               </View>
             </View>
 
-            <View
-              style={{
-                flexDirection: "row",
-                gap: space[2],
-                alignItems: "flex-start",
-                backgroundColor: noteBg,
-                borderRadius: radius.md,
-                padding: space[3],
-              }}
-            >
-              <Ionicons name={noteIcon} size={16} color={noteColor} style={{ marginTop: 1 }} />
+            {address ? (
+              <View style={{ gap: space[2] }}>
+                <Txt variant="label" faint>
+                  Same key, as a Solana address
+                </Txt>
+                <Txt variant="mono" selectable color={c.brand}>
+                  {address}
+                </Txt>
+              </View>
+            ) : null}
+
+            <View style={{ flexDirection: "row", gap: space[2], alignItems: "flex-start" }}>
+              <Ionicons name={noteIcon} size={15} color={noteColor} style={{ marginTop: 1 }} />
               <Txt variant="caption" style={{ flex: 1, lineHeight: 18 }} color={noteColor}>
                 {noteText}
               </Txt>
             </View>
           </Card>
-        </View>
+        </Reveal>
 
         {/* Wallet and security */}
-        <View>
+        <Reveal index={2}>
           <SectionLabel>Wallet and security</SectionLabel>
-          <Card style={{ gap: space[3] }}>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: space[3] }}>
-              <View
-                style={{
-                  width: 44,
-                  height: 44,
-                  borderRadius: radius.md,
-                  backgroundColor: c.brandSoft,
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <Ionicons name="wallet-outline" size={22} color={c.brand} />
-              </View>
-              <View style={{ flex: 1, gap: 2 }}>
-                <Txt variant="heading">Solana wallet</Txt>
-                <Txt variant="caption" muted>
-                  Your identity key is also your Solana address. Connect a Seeker wallet to send USDC or swap in a room.
-                </Txt>
-              </View>
-            </View>
-            <Button
-              title="Open wallet"
-              variant="primary"
-              onPress={() => router.push("/wallet")}
-              left={<Ionicons name="wallet" size={16} color="#FFFFFF" />}
-            />
-            <Button
-              title="Protection"
-              variant="ghost"
-              onPress={() => router.push("/protection")}
-              left={<Ionicons name="shield-checkmark-outline" size={16} color={c.brand} />}
-            />
-            <Button
-              title="Browse skills"
-              variant="ghost"
-              onPress={() => router.push("/market")}
-              left={<Ionicons name="grid-outline" size={16} color={c.brand} />}
-            />
-          </Card>
-        </View>
+          <View style={{ flexDirection: "row", gap: space[3] }}>
+            <Tile icon="wallet" label="Wallet" hint="USDC and swaps" tint={c.brand} soft={c.brandSoft} onPress={() => router.push("/wallet")} />
+            <Tile icon="shield-checkmark" label="Protection" hint="PIN, biometrics" tint={c.verified} soft={c.verifiedSoft} onPress={() => router.push("/protection")} />
+            <Tile icon="grid" label="Skills" hint="The market" tint={c.agent} soft={c.agentSoft} onPress={() => router.push("/market")} />
+          </View>
+          <Txt variant="caption" faint style={{ marginTop: space[3], lineHeight: 18 }}>
+            Your identity key is also your Solana address. Connect a Seeker wallet to send USDC or swap in a room.
+          </Txt>
+        </Reveal>
 
         {/* Settings */}
-        <View>
+        <Reveal index={3}>
           <SectionLabel>Settings</SectionLabel>
-          <Card>
+          <Card style={{ paddingVertical: space[1] }}>
             <SettingRow icon="person-outline" label="Display name" value={identity.displayName} />
             <SettingRow icon="finger-print" label="Signature" value="Ed25519" />
             <SettingRow
@@ -169,29 +158,67 @@ export default function YouScreen() {
               last
             />
           </Card>
-        </View>
+        </Reveal>
 
-        <Txt variant="caption" faint style={{ textAlign: "center" }}>
-          Bond. Humans and agents in one verified room.
-        </Txt>
+        <View style={{ alignItems: "center", gap: space[3], paddingTop: space[2] }}>
+          <BondMark size={18} />
+          <Txt variant="caption" faint style={{ textAlign: "center" }}>
+            Bond. Humans and agents in one verified room.
+          </Txt>
+        </View>
       </ScrollView>
     </Screen>
+  );
+}
+
+function Tile({
+  icon,
+  label,
+  hint,
+  tint,
+  soft,
+  onPress,
+}: {
+  icon: IoniconName;
+  label: string;
+  hint: string;
+  tint: string;
+  soft: string;
+  onPress: () => void;
+}) {
+  const { c, space, radius } = useTokens();
+  return (
+    <PressableScale
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={`Open ${label}`}
+      style={{
+        flex: 1,
+        backgroundColor: c.surface,
+        borderWidth: 1,
+        borderColor: c.border,
+        borderRadius: radius.lg,
+        padding: space[3],
+        gap: space[3],
+      }}
+    >
+      <View style={{ width: 38, height: 38, borderRadius: radius.md, backgroundColor: soft, alignItems: "center", justifyContent: "center" }}>
+        <Ionicons name={icon} size={19} color={tint} />
+      </View>
+      <View style={{ gap: 1 }}>
+        <Txt variant="callout">{label}</Txt>
+        <Txt variant="caption" faint numberOfLines={1} style={{ fontSize: 12 }}>
+          {hint}
+        </Txt>
+      </View>
+    </PressableScale>
   );
 }
 
 function SectionLabel({ children }: { children: string }) {
   const { space } = useTokens();
   return (
-    <Txt
-      variant="caption"
-      faint
-      style={{
-        letterSpacing: 1,
-        textTransform: "uppercase",
-        marginBottom: space[2],
-        marginLeft: space[1],
-      }}
-    >
+    <Txt variant="label" faint style={{ marginBottom: space[2], marginLeft: space[1] }}>
       {children}
     </Txt>
   );

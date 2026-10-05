@@ -11,8 +11,10 @@ import { Ionicons } from "@expo/vector-icons";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
+import { useFonts } from "expo-font";
+
 import { useBond } from "@/state/store";
-import { useTokens } from "@/theme";
+import { families, useTokens } from "@/theme";
 import { LockGate } from "@/protection/LockGate";
 import { Txt } from "@/components/ui/Text";
 import { Button } from "@/components/ui/Button";
@@ -62,6 +64,18 @@ export default function RootLayout() {
   const onboarded = useBond((s) => s.onboarded);
   const init = useBond((s) => s.init);
   const router = useRouter();
+  // Geist, one family per weight (see theme). A font error never blocks the app: text
+  // falls back to the system face and the splash still lifts.
+  const [fontsLoaded, fontError] = useFonts({
+    [families.regular]: require("../../assets/fonts/Geist-Regular.ttf"),
+    [families.medium]: require("../../assets/fonts/Geist-Medium.ttf"),
+    [families.semibold]: require("../../assets/fonts/Geist-SemiBold.ttf"),
+    [families.bold]: require("../../assets/fonts/Geist-Bold.ttf"),
+    [families.black]: require("../../assets/fonts/Geist-Black.ttf"),
+    [families.mono]: require("../../assets/fonts/GeistMono-Regular.ttf"),
+    [families.monoMedium]: require("../../assets/fonts/GeistMono-Medium.ttf"),
+  });
+  const fontsSettled = fontsLoaded || !!fontError;
 
   useEffect(() => {
     void init();
@@ -69,8 +83,8 @@ export default function RootLayout() {
   }, [init]);
 
   useEffect(() => {
-    if (ready) void SplashScreen.hideAsync().catch(() => {});
-  }, [ready]);
+    if (ready && fontsSettled) void SplashScreen.hideAsync().catch(() => {});
+  }, [ready, fontsSettled]);
 
   useEffect(() => {
     if (ready && !onboarded) router.replace("/onboarding");
@@ -90,11 +104,13 @@ export default function RootLayout() {
             >
               <Stack.Screen name="(tabs)" />
               <Stack.Screen name="onboarding" options={{ animation: "fade" }} />
-              <Stack.Screen name="bridge/connect" options={{ presentation: "modal" }} />
-              <Stack.Screen name="wallet" options={{ presentation: "modal" }} />
-              <Stack.Screen name="protection" options={{ presentation: "modal" }} />
-              <Stack.Screen name="market/index" />
-              <Stack.Screen name="market/[id]" />
+              <Stack.Screen name="room/[roomId]/index" options={{ animation: "slide_from_right" }} />
+              <Stack.Screen name="room/[roomId]/settings" options={{ animation: "slide_from_right" }} />
+              <Stack.Screen name="bridge/connect" options={{ presentation: "modal", animation: "slide_from_bottom" }} />
+              <Stack.Screen name="wallet/index" options={{ presentation: "modal", animation: "slide_from_bottom" }} />
+              <Stack.Screen name="protection/index" options={{ presentation: "modal", animation: "slide_from_bottom" }} />
+              <Stack.Screen name="market/index" options={{ animation: "slide_from_right" }} />
+              <Stack.Screen name="market/[id]" options={{ animation: "slide_from_right" }} />
             </Stack>
           </LockGate>
         </View>

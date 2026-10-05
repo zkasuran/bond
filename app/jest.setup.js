@@ -12,3 +12,8 @@ if (typeof globalThis.TextEncoder === "undefined") {
 if (typeof globalThis.ReadableStream === "undefined") {
   globalThis.ReadableStream = require("node:stream/web").ReadableStream;
 }
+// The motion layer runs on Reanimated 4 worklets, which need the native runtime. Under
+// node both packages swap to their official mocks so rendering tests exercise the real
+// components with animations resolved to their final values.
+jest.mock("react-native-worklets", () => require("react-native-worklets/src/mock"));
+jest.mock("react-native-reanimated", () => require("react-native-reanimated/mock"));

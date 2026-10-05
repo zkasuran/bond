@@ -269,7 +269,7 @@ export function LockGate({ children }: { children: ReactNode }) {
                     setEnrollError(null);
                     setEnroll({ step: "choose", first: "" });
                   }}
-                  left={<Ionicons name="keypad" size={16} color="#FFFFFF" />}
+                  left={<Ionicons name="keypad" size={16} color={c.onBrand} />}
                 />
               ) : (
                 <Button
@@ -277,7 +277,7 @@ export function LockGate({ children }: { children: ReactNode }) {
                   variant="primary"
                   loading={busy}
                   onPress={() => void unlock()}
-                  left={<Ionicons name="finger-print" size={16} color="#FFFFFF" />}
+                  left={<Ionicons name="finger-print" size={16} color={c.onBrand} />}
                 />
               )
             ) : null}

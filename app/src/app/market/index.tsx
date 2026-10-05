@@ -10,6 +10,8 @@ import { Screen } from "@/components/ui/Screen";
 import { Txt } from "@/components/ui/Text";
 import { Card } from "@/components/ui/Card";
 import { Pill } from "@/components/ui/Badge";
+import { AmbientGlow, Reveal } from "@/components/motion/Ambient";
+import { PressableScale } from "@/components/motion/PressableScale";
 import { useTokens } from "@/theme";
 import { useSkills } from "@/skills/registry";
 import { formatPrice, type Skill } from "@/skills/manifest";
@@ -34,6 +36,7 @@ export default function MarketScreen() {
 
   return (
     <Screen edges={["top"]}>
+      <AmbientGlow intensity={0.45} />
       <ScrollView
         contentContainerStyle={{ padding: space[4], paddingBottom: space[10], gap: space[5] }}
         showsVerticalScrollIndicator={false}
@@ -51,12 +54,13 @@ export default function MarketScreen() {
           </Pressable>
         ) : null}
 
-        <View style={{ gap: space[1] }}>
+        <Reveal index={0} style={{ gap: space[1] }}>
+          <Txt variant="label" color={c.agent}>Paid on-chain, per sale</Txt>
           <Txt variant="display">Skills Market</Txt>
           <Txt variant="body" muted>
             Publish a skill, get paid in USDC. Install a skill, your agent can call it.
           </Txt>
-        </View>
+        </Reveal>
 
         <View style={{ flexDirection: "row", gap: space[2] }}>
           <FilterTab label="All" active={filter === "all"} onPress={() => setFilter("all")} />
@@ -79,13 +83,14 @@ export default function MarketScreen() {
           </Card>
         ) : (
           <View style={{ gap: space[3] }}>
-            {skills.map((skill) => (
-              <SkillCard
-                key={skill.id}
-                skill={skill}
-                installed={!!entitlements[skill.id]}
-                onPress={() => router.push(`/market/${skill.id}`)}
-              />
+            {skills.map((skill, i) => (
+              <Reveal key={skill.id} index={i + 1}>
+                <SkillCard
+                  skill={skill}
+                  installed={!!entitlements[skill.id]}
+                  onPress={() => router.push(`/market/${skill.id}`)}
+                />
+              </Reveal>
             ))}
           </View>
         )}
@@ -105,19 +110,24 @@ function FilterTab({
 }) {
   const { c, space, radius } = useTokens();
   return (
-    <Pressable
+    <PressableScale
       onPress={onPress}
+      accessibilityRole="tab"
+      accessibilityState={{ selected: active }}
+      pressedScale={0.94}
       style={{
         paddingVertical: space[2],
         paddingHorizontal: space[4],
         borderRadius: radius.pill,
+        borderWidth: 1,
+        borderColor: active ? c.brand : c.border,
         backgroundColor: active ? c.brand : c.surfaceAlt,
       }}
     >
-      <Txt variant="callout" color={active ? "#FFFFFF" : c.textMuted}>
+      <Txt variant="callout" color={active ? c.onBrand : c.textMuted}>
         {label}
       </Txt>
-    </Pressable>
+    </PressableScale>
   );
 }
 
@@ -132,8 +142,8 @@ function SkillCard({
 }) {
   const { c, space } = useTokens();
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => ({ opacity: pressed ? 0.85 : 1 })}>
-      <Card style={{ gap: space[3] }}>
+    <PressableScale onPress={onPress} accessibilityRole="button" accessibilityLabel={`${skill.name}, ${installed ? "installed" : formatPrice(skill.price)}`} pressedScale={0.975}>
+      <Card glow={installed ? "brand" : undefined} style={{ gap: space[3] }}>
         <View style={{ flexDirection: "row", alignItems: "flex-start", gap: space[3] }}>
           <View style={{ flex: 1, gap: space[1] }}>
             <Txt variant="heading" numberOfLines={1}>
@@ -163,6 +173,6 @@ function SkillCard({
           </Txt>
         </View>
       </Card>
-    </Pressable>
+    </PressableScale>
   );
 }
