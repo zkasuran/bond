@@ -44,3 +44,7 @@ export const enter = {
       .reduceMotion(ReduceMotion.System),
   fade: (delay = 0) => FadeIn.duration(duration.base).delay(delay).reduceMotion(ReduceMotion.System),
 } as const;
+
+/** Ambient loops (glow drift, breathing mark, pulse rings) play this many cycles and then
+ *  settle. An idle screen must render zero frames, or a phone burns battery on decoration. */
+export const AMBIENT_CYCLES = 3;

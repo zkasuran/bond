@@ -276,12 +276,21 @@ export default function WalletScreen() {
                 Tie this wallet to your device identity with one signature. Your did:key keeps
                 signing messages while the wallet is your on-chain identity and USDC payer.
               </Txt>
-              {binding ? (
+              {binding && binding.walletAddress === address ? (
                 <View style={{ flexDirection: "row", alignItems: "center", gap: space[2] }}>
                   <Ionicons name="shield-checkmark" size={16} color={c.verified} />
                   <Txt variant="callout" color={c.verified}>
                     Bound to {shortenAddress(binding.walletAddress)}
                   </Txt>
+                </View>
+              ) : binding ? (
+                // The stored binding belongs to a different wallet than the one connected now.
+                // Say so and offer to re-bind, rather than show a "bound" badge that is untrue.
+                <View style={{ gap: space[2] }}>
+                  <Txt variant="callout" muted>
+                    Your identity is bound to {shortenAddress(binding.walletAddress)}, not this wallet.
+                  </Txt>
+                  <Button title="Bind this wallet instead" variant="secondary" onPress={() => void onBind()} />
                 </View>
               ) : (
                 <Button title="Bind wallet to identity" variant="secondary" onPress={() => void onBind()} />

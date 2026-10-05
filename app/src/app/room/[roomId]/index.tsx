@@ -110,7 +110,7 @@ export default function RoomScreen() {
         <View style={{ flex: 1 }}>
           <Txt variant="heading" numberOfLines={1}>{room?.title ?? "Room"}</Txt>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-            {agents.length > 0 ? <PresenceDot color={agentBusy ? c.agent : c.online} size={6} live /> : null}
+            {agents.length > 0 ? <PresenceDot color={agentBusy ? c.agent : c.online} size={6} live busy={agentBusy} /> : null}
             <Txt variant="caption" faint>
               {agentBusy
                 ? "Bond is working…"

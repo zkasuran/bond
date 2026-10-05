@@ -15,7 +15,7 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import { useTokens } from "@/theme";
-import { enter } from "@/theme/motion";
+import { AMBIENT_CYCLES, enter } from "@/theme/motion";
 
 /** Three dots that rise and fall in sequence: an agent composing its turn. */
 export function TypingDots({ color, size = 6 }: { color?: string; size?: number }) {
@@ -64,22 +64,36 @@ function Dot({ index, color, size }: { index: number; color: string; size: numbe
 }
 
 /** A presence dot with a soft ring breathing out of it. */
-export function PulseDot({ color, size = 8, live = true }: { color?: string; size?: number; live?: boolean }) {
+/** `live` pulses a few times on mount and settles; `busy` keeps pulsing until it clears, for
+ *  "the agent is working right now". An idle screen therefore renders no frames. */
+export function PulseDot({
+  color,
+  size = 8,
+  live = true,
+  busy = false,
+}: {
+  color?: string;
+  size?: number;
+  live?: boolean;
+  busy?: boolean;
+}) {
   const { c } = useTokens();
   const reduced = useReducedMotion();
   const tint = color ?? c.online;
   const t = useSharedValue(0);
   useEffect(() => {
-    if (!live || reduced) return;
-    t.set(withRepeat(withTiming(1, { duration: 1800, easing: Easing.out(Easing.quad) }), -1));
-  }, [live, reduced, t]);
+    if (!(live || busy) || reduced) return;
+    t.set(withRepeat(withTiming(1, { duration: 1800, easing: Easing.out(Easing.quad) }), busy ? -1 : AMBIENT_CYCLES));
+    // Settle back to the plain dot when a busy pulse ends.
+    return () => t.set(withTiming(1, { duration: 300 }));
+  }, [live, busy, reduced, t]);
   const ring = useAnimatedStyle(() => ({
     opacity: (1 - t.get()) * 0.55,
     transform: [{ scale: 1 + t.get() * 1.8 }],
   }));
   return (
     <View style={{ width: size, height: size, alignItems: "center", justifyContent: "center" }}>
-      {live && !reduced ? (
+      {(live || busy) && !reduced ? (
         <Animated.View
           pointerEvents="none"
           style={[
@@ -115,7 +129,8 @@ export function AmbientGlow({
           withTiming(1, { duration: 7000, easing: Easing.inOut(Easing.sin) }),
           withTiming(0, { duration: 7000, easing: Easing.inOut(Easing.sin) }),
         ),
-        -1,
+        // One slow drift (14 s) is enough to feel alive; then the screen goes still.
+        1,
       ),
     );
   }, [reduced, t]);

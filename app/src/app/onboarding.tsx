@@ -32,7 +32,7 @@ import { PressableScale } from "@/components/motion/PressableScale";
 import { didToSolanaAddress } from "@/identity/keys";
 import { useBond } from "@/state/store";
 import { useTokens } from "@/theme";
-import { enter, spring } from "@/theme/motion";
+import { AMBIENT_CYCLES, enter, spring } from "@/theme/motion";
 
 const STEP_COUNT = 4;
 type IconName = ComponentProps<typeof Ionicons>["name"];
@@ -126,7 +126,7 @@ function KeyLink() {
   const t = useSharedValue(0);
   useEffect(() => {
     if (reduced) return;
-    t.set(withRepeat(withTiming(1, { duration: 1400, easing: Easing.inOut(Easing.cubic) }), -1));
+    t.set(withRepeat(withTiming(1, { duration: 1400, easing: Easing.inOut(Easing.cubic) }), AMBIENT_CYCLES * 2));
   }, [reduced, t]);
   const dot = useAnimatedStyle(() => ({ transform: [{ translateY: t.get() * 30 }], opacity: 1 - Math.abs(t.get() - 0.5) }));
   return (

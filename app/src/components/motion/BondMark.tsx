@@ -17,7 +17,7 @@ import Animated, {
   withTiming,
   type SharedValue,
 } from "react-native-reanimated";
-import { spring } from "@/theme/motion";
+import { spring, AMBIENT_CYCLES } from "@/theme/motion";
 
 export const MARK = { human: "#14F195", agent: "#9945FF", lens: "#F4FFF9" } as const;
 
@@ -63,7 +63,7 @@ export function BondMark({
             withTiming(1.035, { duration: 1600, easing: Easing.inOut(Easing.sin) }),
             withTiming(1, { duration: 1600, easing: Easing.inOut(Easing.sin) }),
           ),
-          -1,
+          AMBIENT_CYCLES,
         ),
       ),
     );
@@ -124,10 +124,12 @@ export function BondMark({
 }
 
 function Ring({ size, width, delay }: { size: number; width: number; delay: number }) {
+  const reduced = useReducedMotion();
   const t = useSharedValue(0);
   useEffect(() => {
-    t.set(withDelay(delay, withRepeat(withTiming(1, { duration: 2400, easing: Easing.out(Easing.quad) }), -1)));
-  }, [delay, t]);
+    if (reduced) return;
+    t.set(withDelay(delay, withRepeat(withTiming(1, { duration: 2400, easing: Easing.out(Easing.quad) }), AMBIENT_CYCLES)));
+  }, [delay, reduced, t]);
   return <RingView t={t} size={size} width={width} />;
 }
 

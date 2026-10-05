@@ -73,6 +73,7 @@ export default function RoomsScreen() {
   const rooms = useBond((s) => s.rooms);
   const nodes = useBond((s) => s.nodes);
   const members = useBond((s) => s.members);
+  const streaming = useBond((s) => s.streaming);
   const router = useRouter();
   const [creating, setCreating] = useState(false);
   const [title, setTitle] = useState("");
@@ -212,7 +213,11 @@ export default function RoomsScreen() {
                               borderRadius: radius.pill,
                             }}
                           >
-                            <PresenceDot color={c.agent} size={6} live />
+                            <PresenceDot
+                              color={c.agent}
+                              size={6}
+                              busy={(nodes[room.id] ?? []).some((n) => !!streaming[n.id])}
+                            />
                             <Txt variant="caption" color={c.agent} style={{ fontSize: 12, lineHeight: 16 }}>{agentCount}</Txt>
                           </View>
                         ) : null}
