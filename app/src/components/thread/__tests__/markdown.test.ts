@@ -24,3 +24,19 @@ describe("markdown-lite", () => {
     expect(parseInline("[x](javascript:alert(1)) <b>")).toEqual([{ text: "[x](javascript:alert(1)) <b>" }]);
   });
 });
+
+import { summarize } from "../receipt";
+
+describe("tool summary line", () => {
+  it("leads with the scalar fields and shortens long values", () => {
+    expect(summarize('{"ok":true,"symbol":"SOL","usdcPrice":121.62519806784131,"source":"Jupiter, mainnet"}')).toBe(
+      "symbol: SOL · usdcPrice: 121.625 · source: Jupite…nnet",
+    );
+  });
+  it("surfaces an error first", () => {
+    expect(summarize('{"ok":false,"error":"cap exceeded","amount":900}')).toBe("error: cap exceeded · amount: 900");
+  });
+  it("falls back to trimmed text when the result is not JSON", () => {
+    expect(summarize("  plain\n text ")).toBe("plain text");
+  });
+});

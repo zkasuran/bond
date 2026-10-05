@@ -1,4 +1,4 @@
-import { memo } from "react";
+import { memo, useState } from "react";
 import { Linking, Pressable, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import type { BondNode, Identity } from "@/model/node";
@@ -257,37 +257,50 @@ function PaymentReceipt({ node }: { node: BondNode }) {
  *  signed on-chain receipt (that is only the payment card above). */
 function ToolCard({ node }: { node: BondNode }) {
   const { c, space, radius } = useTokens();
+  const [open, setOpen] = useState(false);
   const call = isType(node, "tool_call") && node.payload ? toolCallView(node.payload) : null;
   const result = isType(node, "tool_result") && node.payload ? toolResultView(node.payload) : null;
   const view = call ?? result;
   if (!view) return <Txt variant="body" muted>[{node.type}]</Txt>;
   const accent = view.isError ? c.tampered : c.agent;
   const body = view.argsText ?? view.resultText ?? "";
+  // Collapsed by default: a tool step is supporting evidence for the reply, so it shows
+  // one line and expands to the full JSON on demand instead of crowding the thread.
   return (
-    <View
+    <Pressable
+      onPress={() => body && setOpen((o) => !o)}
+      accessibilityRole="button"
+      accessibilityLabel={`${call ? "Tool call" : "Tool result"} ${view.name}, ${open ? "hide" : "show"} details`}
       style={{
         backgroundColor: c.surfaceAlt,
         borderWidth: 1,
         borderColor: c.border,
         borderRadius: radius.md,
-        padding: space[3],
-        gap: space[2],
+        paddingHorizontal: space[3],
+        paddingVertical: space[2],
+        gap: space[1],
         marginTop: 2,
       }}
     >
       <View style={{ flexDirection: "row", alignItems: "center", gap: space[1] }}>
-        <Ionicons name={call ? "construct-outline" : "return-down-forward"} size={14} color={accent} />
+        <Ionicons name={call ? "construct-outline" : view.isError ? "alert-circle-outline" : "checkmark-circle-outline"} size={14} color={accent} />
         <Txt variant="caption" color={accent}>
-          {call ? "called" : view.isError ? "tool error" : "result"}
+          {call ? "called" : view.isError ? "tool error" : "returned"}
         </Txt>
-        <Txt variant="mono" color={accent} numberOfLines={1} style={{ flexShrink: 1 }}>
-          {view.name}
-        </Txt>
+        {call ? (
+          <Txt variant="mono" color={accent} numberOfLines={1} style={{ flexShrink: 1 }}>
+            {view.name}
+          </Txt>
+        ) : null}
+        <View style={{ flex: 1 }} />
+        {body ? <Ionicons name={open ? "chevron-up" : "chevron-down"} size={14} color={c.textFaint} /> : null}
       </View>
-      {body ? (
-        <Txt variant="mono" muted numberOfLines={10}>{body}</Txt>
+      {open ? (
+        <Txt variant="mono" muted>{body}</Txt>
+      ) : view.summary ? (
+        <Txt variant="mono" muted numberOfLines={1}>{view.summary}</Txt>
       ) : null}
       <Txt variant="caption" faint>{view.disclaimer}</Txt>
-    </View>
+    </Pressable>
   );
 }

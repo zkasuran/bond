@@ -17,13 +17,18 @@
 </p>
 
 <p align="center">
-  <img alt="app tests" src="https://img.shields.io/badge/app%20tests-178%20passing-14F195">
+  <img alt="app tests" src="https://img.shields.io/badge/app%20tests-181%20passing-14F195">
   <img alt="server tests" src="https://img.shields.io/badge/server%20tests-28%20passing-14F195">
   <img alt="web routes" src="https://img.shields.io/badge/web%20export-16%20routes-14F195">
   <img alt="licence" src="https://img.shields.io/badge/licence-SAND--1.0-3178C6">
   <img alt="stack" src="https://img.shields.io/badge/Expo-SDK%2057-000000">
   <img alt="chain" src="https://img.shields.io/badge/Solana-devnet-9945FF">
 </p>
+
+<p align="center">
+  <img alt="Bond on Android: an agent answering with a devnet tool call, the skills market, a purchased skill with its on-chain proof, and a signed USDC payment receipt" src="docs/assets/screens.png" width="100%">
+</p>
+<p align="center"><sub>The signed release APK on Android 15, against the live server. Real devnet transactions throughout.</sub></p>
 
 ## Bond
 
@@ -35,7 +40,7 @@ Built for the CLOCK IN Solana Mobile hackathon. Android-first, with a web build 
 
 ## Try it in 60 seconds
 
-Open the live web build at **https://bond.zkasuran.dev** (no install), or sideload the Android APK from the latest GitHub release, then:
+Open the live web build at **https://bond.zkasuran.dev** (no install), or sideload the signed Android APK from the [latest release](https://github.com/zkasuran/bond/releases/latest), then:
 
 | # | Do this | You see |
 |---|---|---|

@@ -85,6 +85,6 @@ export function distributionLabel(distribution: SkillDistribution): string {
     case "mcp":
       return "MCP server";
     case "hosted":
-      return "Bond runtime, unlocked by your payment";
+      return "Bond runtime";
   }
 }

@@ -97,6 +97,8 @@ export interface ToolView {
   isError: boolean;
   /** Shown on every tool card: these figures are the agent's claim, not a signed receipt. */
   disclaimer: string;
+  /** One plain line for the collapsed card, e.g. `symbol: SOL` or `ok · usdcPrice: 121.6`. */
+  summary: string;
 }
 
 const TOOL_DISCLAIMER = "Agent-reported. Not a signed on-chain receipt.";
@@ -109,6 +111,28 @@ function safeStringify(value: unknown): string {
   }
 }
 
+/** A one-line digest of a JSON object: up to three scalar fields, ok/error first. */
+export function summarize(text: string): string {
+  let obj: unknown;
+  try {
+    obj = JSON.parse(text);
+  } catch {
+    return text.replace(/\s+/g, " ").trim().slice(0, 90);
+  }
+  if (!obj || typeof obj !== "object" || Array.isArray(obj)) return String(obj).slice(0, 90);
+  const rec = obj as Record<string, unknown>;
+  const parts: string[] = [];
+  if (rec.ok === false) parts.push(`error: ${String(rec.error ?? "failed")}`);
+  for (const [k, v] of Object.entries(rec)) {
+    if (parts.length >= 3) break;
+    if (k === "ok" || k === "error" || k === "explorer") continue;
+    if (v === null || typeof v === "object") continue;
+    const sv = typeof v === "number" && !Number.isInteger(v) ? String(Number(v.toPrecision(6))) : String(v);
+    parts.push(`${k}: ${sv.length > 14 ? `${sv.slice(0, 6)}…${sv.slice(-4)}` : sv}`);
+  }
+  return parts.join(" · ");
+}
+
 export function toolCallView(payload: ToolCallPayload): ToolView {
   const args = payload.arguments ?? {};
   const hasArgs = args && Object.keys(args).length > 0;
@@ -117,6 +141,7 @@ export function toolCallView(payload: ToolCallPayload): ToolView {
     argsText: hasArgs ? safeStringify(args) : undefined,
     isError: false,
     disclaimer: TOOL_DISCLAIMER,
+    summary: hasArgs ? summarize(JSON.stringify(args)) : "",
   };
 }
 
@@ -148,6 +173,7 @@ export function toolResultView(payload: ToolResultPayload): ToolView {
     resultText: text || (payload.isError ? "tool error" : "tool result"),
     isError: !!payload.isError,
     disclaimer: TOOL_DISCLAIMER,
+    summary: text ? summarize(raw) : "",
   };
 }
 

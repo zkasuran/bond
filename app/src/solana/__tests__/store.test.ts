@@ -1,7 +1,6 @@
 // The wallet store caches the MWA session so a restart does not leave the UI showing a
 // connected wallet with no auth token to sign with (a bug the e2e run on the emulator hit:
 // the pay sheet showed "From <address>" but the payment failed for want of a token).
-jest.mock("react-native", () => ({ Platform: { OS: "android" } }));
 jest.mock("expo-secure-store", () => {
   const mem = new Map<string, string>();
   return {
