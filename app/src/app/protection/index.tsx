@@ -403,7 +403,7 @@ function Chips({
               borderColor: active ? c.brand : c.border,
             }}
           >
-            <Txt variant="caption" color={active ? "#FFFFFF" : c.textMuted}>
+            <Txt variant="caption" color={active ? c.onBrand : c.textMuted}>
               {format(o)}
             </Txt>
           </Pressable>

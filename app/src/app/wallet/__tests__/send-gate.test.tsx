@@ -64,7 +64,7 @@ jest.mock("@/solana/store", () => {
     bindIdentity: jest.fn(),
     loadStoredBinding: jest.fn(async () => {}),
   };
-  return { useWallet: (sel: (s: typeof state) => unknown) => sel(state) };
+  return { useWallet: (sel: (s: typeof state) => unknown) => sel(state), __state: state };
 });
 
 jest.mock("@/state/store", () => ({
@@ -137,5 +137,37 @@ describe("wallet Send routed through the spend gate", () => {
     expect(requireAuth).toHaveBeenCalledWith("spend", { amountUsdc: 2 });
     expect(buildUsdcTransfer).toHaveBeenCalledTimes(1);
     expect(signAndSendTransaction).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("identity binding row", () => {
+  const walletState = (jest.requireMock("@/solana/store") as { __state: { binding: { walletAddress: string } } }).__state;
+  const texts = (tree: TestRenderer.ReactTestRenderer) =>
+    tree.root.findAll((n) => typeof n.props.children === "string" || Array.isArray(n.props.children))
+      .map((n) => [].concat(n.props.children).filter((x) => typeof x === "string").join(""));
+
+  async function render() {
+    let tree: TestRenderer.ReactTestRenderer;
+    await TestRenderer.act(async () => {
+      tree = TestRenderer.create(<WalletScreen />);
+      mounted = tree;
+      await tick();
+    });
+    return tree!;
+  }
+
+  it("shows bound only when the binding is for the connected wallet", async () => {
+    walletState.binding = { walletAddress: "WALLETaddress1111" };
+    const all = texts(await render()).join("|");
+    expect(all).toMatch(/Bound to/);
+    expect(all).not.toMatch(/not this wallet/);
+  });
+
+  it("flags a binding for a different wallet and offers to re-bind", async () => {
+    walletState.binding = { walletAddress: "OTHERwallet999999" };
+    const tree = await render();
+    expect(texts(tree).join("|")).toMatch(/not this wallet/);
+    expect(tree.root.findAllByType(Button).some((b) => b.props.title === "Bind this wallet instead")).toBe(true);
+    walletState.binding = { walletAddress: "WALLETaddress1111" };
   });
 });

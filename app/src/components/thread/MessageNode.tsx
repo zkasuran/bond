@@ -1,14 +1,27 @@
-import { memo, useState } from "react";
+import { memo, useEffect, useState } from "react";
 import { Linking, Pressable, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import Animated, {
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withRepeat,
+  withSequence,
+  withSpring,
+  withTiming,
+  ZoomIn,
+  ReduceMotion,
+} from "react-native-reanimated";
 import type { BondNode, Identity } from "@/model/node";
 import { isType } from "@/model/messages";
 import type { RenderRow } from "@/model/thread";
 import { verifyNode } from "@/identity/sign";
 import { useTokens } from "@/theme";
+import { spring } from "@/theme/motion";
 import { Avatar } from "@/components/ui/Avatar";
 import { VerifiedBadge } from "@/components/ui/Badge";
 import { Txt } from "@/components/ui/Text";
+import { TypingDots } from "@/components/motion/Ambient";
 import { parseMarkdownLite } from "./markdown";
 import {
   paymentView,
@@ -32,6 +45,19 @@ function bodyText(node: BondNode): string {
   if (isType(node, "text")) return node.payload?.body ?? "";
   if (isType(node, "status")) return node.payload?.note ?? `[${node.payload?.lifecycle ?? "status"}]`;
   return `[${node.type}]`;
+}
+
+/** The streaming caret: a soft blink at the end of an agent's growing reply. */
+function Caret() {
+  const { c } = useTokens();
+  const reduced = useReducedMotion();
+  const o = useSharedValue(1);
+  useEffect(() => {
+    if (reduced) return;
+    o.set(withRepeat(withSequence(withTiming(0.15, { duration: 420 }), withTiming(1, { duration: 420 })), -1));
+  }, [reduced, o]);
+  const style = useAnimatedStyle(() => ({ opacity: o.get() }));
+  return <Animated.Text style={[{ color: c.brand, fontSize: 16 }, style]}> ▍</Animated.Text>;
 }
 
 export const MessageNode = memo(function MessageNode({
@@ -58,27 +84,40 @@ export const MessageNode = memo(function MessageNode({
 
   return (
     <View style={{ flexDirection: "row", paddingRight: space[4], paddingVertical: space[2] }}>
-      {/* depth rails */}
+      {/* depth rails: the thread's tree, drawn quietly */}
       <View style={{ flexDirection: "row", width: indent }}>
         {Array.from({ length: row.depth }).map((_, i) => (
           <View key={i} style={{ width: 16, alignItems: "center" }}>
-            <View style={{ width: 1.5, flex: 1, backgroundColor: c.border, borderRadius: 1 }} />
+            <View
+              style={{
+                width: 1.5,
+                flex: 1,
+                backgroundColor: i === row.depth - 1 ? (isAgent ? c.agent + "55" : c.brand + "44") : c.border,
+                borderRadius: 1,
+              }}
+            />
           </View>
         ))}
       </View>
 
-      <View style={{ paddingLeft: space[3] }}>
-        <Avatar did={author.did} name={author.displayName} kind={author.kind} size={34} />
+      <View style={{ paddingLeft: space[3], paddingTop: 2 }}>
+        <Avatar did={author.did} name={author.displayName} kind={author.kind} size={isTool ? 28 : 34} />
       </View>
 
-      <View style={{ flex: 1, paddingLeft: space[3], gap: 3 }}>
+      <View style={{ flex: 1, paddingLeft: space[3], gap: 4 }}>
         <View style={{ flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: space[2] }}>
           <Txt variant="callout" color={isAgent ? c.agent : c.text}>
             {author.displayName}
           </Txt>
-          {isAgent ? <Txt variant="caption" faint>agent</Txt> : null}
+          {isAgent ? (
+            <View style={{ backgroundColor: c.agentSoft, borderRadius: radius.sm, paddingHorizontal: 5, paddingVertical: 1 }}>
+              <Txt variant="caption" color={c.agent} style={{ fontSize: 10, lineHeight: 13, letterSpacing: 0.6, fontWeight: "600" }}>
+                AGENT
+              </Txt>
+            </View>
+          ) : null}
           <VerifiedBadge state={verify} />
-          <Txt variant="caption" faint>{timeOf(node?.createdAt)}</Txt>
+          <Txt variant="caption" faint style={{ fontSize: 12 }}>{timeOf(node?.createdAt)}</Txt>
         </View>
 
         {isPayment ? (
@@ -86,21 +125,23 @@ export const MessageNode = memo(function MessageNode({
         ) : isTool ? (
           <ToolCard node={node} />
         ) : streaming && bodyText(node).length === 0 ? (
-          <Txt variant="body" muted>thinking…</Txt>
+          <View style={{ paddingVertical: 4 }}>
+            <TypingDots />
+          </View>
         ) : (
           <View style={{ gap: 2 }}>
             {parseMarkdownLite(bodyText(node)).map((line, i, all) => (
               <View key={i} style={{ flexDirection: "row" }}>
-                {line.bullet ? <Txt variant="body" style={{ width: 16 }}>•</Txt> : null}
+                {line.bullet ? <Txt variant="body" color={isAgent ? c.agent : c.brand} style={{ width: 16 }}>•</Txt> : null}
                 <Txt variant="body" style={{ flex: 1 }}>
                   {line.spans.map((s, j) =>
                     s.code ? (
-                      <Txt key={j} variant="mono" style={{ fontSize: 14 }}>{s.text}</Txt>
+                      <Txt key={j} variant="mono" color={c.textMuted} style={{ fontSize: 14 }}>{s.text}</Txt>
                     ) : (
                       <Txt key={j} variant="body" style={s.bold ? { fontWeight: "700" } : undefined}>{s.text}</Txt>
                     ),
                   )}
-                  {streaming && i === all.length - 1 ? <Txt variant="body" color={c.brand}> ▍</Txt> : null}
+                  {streaming && i === all.length - 1 ? <Caret /> : null}
                 </Txt>
               </View>
             ))}
@@ -111,7 +152,9 @@ export const MessageNode = memo(function MessageNode({
           <Pressable
             onPress={() => onReply(node)}
             hitSlop={8}
-            style={{ flexDirection: "row", alignItems: "center", gap: 4 }}
+            accessibilityRole="button"
+            accessibilityLabel={`Reply to ${author.displayName}`}
+            style={({ pressed }) => ({ flexDirection: "row", alignItems: "center", gap: 4, opacity: pressed ? 0.6 : 1 })}
           >
             <Ionicons name="return-down-forward" size={13} color={c.textFaint} />
             <Txt variant="caption" faint>Reply</Txt>
@@ -157,7 +200,7 @@ function PartyRow({ label, value }: { label: string; value: string }) {
   return (
     <View style={{ flexDirection: "row", justifyContent: "space-between", gap: space[2] }}>
       <Txt variant="caption" faint>{label}</Txt>
-      <Txt variant="mono" muted numberOfLines={1} style={{ maxWidth: "70%" }}>
+      <Txt variant="mono" muted numberOfLines={1} style={{ maxWidth: "70%", fontSize: 12 }}>
         {value || "unknown"}
       </Txt>
     </View>
@@ -165,7 +208,8 @@ function PartyRow({ label, value }: { label: string; value: string }) {
 }
 
 /** The dedicated receipt card for a payment node. Amount hero, asset and network chips, the
- *  parties, a status pill and an explorer deep link once a signature exists. */
+ *  parties, a status pill that pops when it settles and an explorer deep link once a
+ *  signature exists. */
 function PaymentReceipt({ node }: { node: BondNode }) {
   const { c, space, radius } = useTokens();
   if (!isType(node, "payment") || !node.payload) {
@@ -173,6 +217,7 @@ function PaymentReceipt({ node }: { node: BondNode }) {
   }
   const v = paymentView(node.payload);
   const status = toneColors(v.statusTone, c);
+  const settled = v.statusTone === "verified";
   const openExplorer = () => {
     if (v.explorerUrl) void Linking.openURL(v.explorerUrl).catch(() => {});
   };
@@ -181,74 +226,87 @@ function PaymentReceipt({ node }: { node: BondNode }) {
       style={{
         backgroundColor: c.surface,
         borderWidth: 1,
-        borderColor: c.border,
+        borderColor: settled ? c.brand + "55" : c.border,
         borderRadius: radius.lg,
-        padding: space[3],
-        gap: space[2],
+        overflow: "hidden",
         marginTop: 2,
+        boxShadow: settled ? `0px 14px 34px -18px ${c.glowBrand}` : undefined,
       }}
     >
-      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: space[1] }}>
-          <Ionicons name="arrow-up-circle" size={16} color={c.brand} />
-          <Txt variant="caption" faint style={{ letterSpacing: 0.5, textTransform: "uppercase" }}>
-            Payment
-          </Txt>
+      <View style={{ height: 3, backgroundColor: settled ? c.brand : status.fg, opacity: settled ? 1 : 0.5 }} />
+      <View style={{ padding: space[3] + 2, gap: space[2] }}>
+        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: space[1] + 2 }}>
+            <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: c.brandSoft, alignItems: "center", justifyContent: "center" }}>
+              <Ionicons name="arrow-up" size={13} color={c.brand} />
+            </View>
+            <Txt variant="label" faint>
+              Payment
+            </Txt>
+          </View>
+          <StatusPill label={v.statusLabel} fg={status.fg} bg={status.bg} pop={settled} />
         </View>
-        <View
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            gap: 4,
-            backgroundColor: status.bg,
-            paddingHorizontal: space[2],
-            paddingVertical: 2,
-            borderRadius: radius.pill,
-          }}
-        >
-          <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: status.fg }} />
-          <Txt variant="caption" color={status.fg}>{v.statusLabel}</Txt>
+
+        <View style={{ flexDirection: "row", alignItems: "flex-end", gap: space[2], flexWrap: "wrap" }}>
+          <Txt variant="display" style={{ fontSize: 32, lineHeight: 36, letterSpacing: -1.2 }}>{v.amountDisplay}</Txt>
+          <Txt variant="callout" muted style={{ marginBottom: 4 }}>{v.asset}</Txt>
+          <View
+            style={{
+              backgroundColor: c.brandSoft,
+              paddingHorizontal: space[2],
+              paddingVertical: 2,
+              borderRadius: radius.pill,
+              marginBottom: 5,
+            }}
+          >
+            <Txt variant="caption" color={c.brand} style={{ fontSize: 12, lineHeight: 16 }}>{v.networkLabel}</Txt>
+          </View>
         </View>
-      </View>
 
-      <View style={{ flexDirection: "row", alignItems: "flex-end", gap: space[2], flexWrap: "wrap" }}>
-        <Txt variant="display" style={{ fontSize: 26, lineHeight: 30 }}>{v.amountDisplay}</Txt>
-        <Txt variant="callout" muted style={{ marginBottom: 3 }}>{v.asset}</Txt>
-        <View
-          style={{
-            backgroundColor: c.brandSoft,
-            paddingHorizontal: space[2],
-            paddingVertical: 2,
-            borderRadius: radius.pill,
-            marginBottom: 2,
-          }}
-        >
-          <Txt variant="caption" color={c.brand}>{v.networkLabel}</Txt>
+        <View style={{ gap: 3, paddingTop: space[1], borderTopWidth: 1, borderTopColor: c.border }}>
+          <PartyRow label="From" value={v.fromShort} />
+          <PartyRow label="To" value={v.toShort} />
+          {v.memo ? <PartyRow label="Memo" value={v.memo} /> : null}
         </View>
+
+        {v.explorerUrl ? (
+          <Pressable
+            onPress={openExplorer}
+            hitSlop={6}
+            accessibilityRole="link"
+            style={{ flexDirection: "row", alignItems: "center", gap: 4 }}
+          >
+            <Ionicons name="open-outline" size={13} color={c.brand} />
+            <Txt variant="caption" color={c.brand}>
+              View on Solana Explorer ({v.networkLabel})
+            </Txt>
+          </Pressable>
+        ) : null}
+
+        <Txt variant="caption" faint style={{ fontSize: 12 }}>{v.honesty}</Txt>
       </View>
-
-      <View style={{ gap: 2 }}>
-        <PartyRow label="From" value={v.fromShort} />
-        <PartyRow label="To" value={v.toShort} />
-        {v.memo ? <PartyRow label="Memo" value={v.memo} /> : null}
-      </View>
-
-      {v.explorerUrl ? (
-        <Pressable
-          onPress={openExplorer}
-          hitSlop={6}
-          accessibilityRole="link"
-          style={{ flexDirection: "row", alignItems: "center", gap: 4 }}
-        >
-          <Ionicons name="open-outline" size={13} color={c.brand} />
-          <Txt variant="caption" color={c.brand}>
-            View on Solana Explorer ({v.networkLabel})
-          </Txt>
-        </Pressable>
-      ) : null}
-
-      <Txt variant="caption" faint>{v.honesty}</Txt>
     </View>
+  );
+}
+
+function StatusPill({ label, fg, bg, pop }: { label: string; fg: string; bg: string; pop: boolean }) {
+  const { space, radius } = useTokens();
+  return (
+    <Animated.View
+      entering={pop ? ZoomIn.springify().damping(spring.bouncy.damping).stiffness(spring.bouncy.stiffness).reduceMotion(ReduceMotion.System) : undefined}
+      style={{
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 5,
+        backgroundColor: bg,
+        paddingHorizontal: space[2],
+        paddingVertical: 2,
+        borderRadius: radius.pill,
+      }}
+    >
+      {pop ? <Ionicons name="checkmark-circle" size={12} color={fg} /> : <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: fg }} />}
+      <Txt variant="caption" color={fg} style={{ fontSize: 12, lineHeight: 16 }}>{label}</Txt>
+    </Animated.View>
   );
 }
 
@@ -258,49 +316,67 @@ function PaymentReceipt({ node }: { node: BondNode }) {
 function ToolCard({ node }: { node: BondNode }) {
   const { c, space, radius } = useTokens();
   const [open, setOpen] = useState(false);
+  const turn = useSharedValue(0);
   const call = isType(node, "tool_call") && node.payload ? toolCallView(node.payload) : null;
   const result = isType(node, "tool_result") && node.payload ? toolResultView(node.payload) : null;
+  const chevron = useAnimatedStyle(() => ({ transform: [{ rotate: `${turn.get() * 180}deg` }] }));
   const view = call ?? result;
   if (!view) return <Txt variant="body" muted>[{node.type}]</Txt>;
-  const accent = view.isError ? c.tampered : c.agent;
+  const accent = view.isError ? c.tampered : call ? c.agent : c.verified;
   const body = view.argsText ?? view.resultText ?? "";
+  const toggle = () => {
+    if (!body) return;
+    turn.set(withSpring(open ? 0 : 1, spring.snappy));
+    setOpen((o) => !o);
+  };
   // Collapsed by default: a tool step is supporting evidence for the reply, so it shows
   // one line and expands to the full JSON on demand instead of crowding the thread.
   return (
     <Pressable
-      onPress={() => body && setOpen((o) => !o)}
+      onPress={toggle}
       accessibilityRole="button"
       accessibilityLabel={`${call ? "Tool call" : "Tool result"} ${view.name}, ${open ? "hide" : "show"} details`}
-      style={{
+      style={({ pressed }) => ({
         backgroundColor: c.surfaceAlt,
         borderWidth: 1,
         borderColor: c.border,
+        borderLeftWidth: 3,
+        borderLeftColor: accent,
         borderRadius: radius.md,
         paddingHorizontal: space[3],
-        paddingVertical: space[2],
+        paddingVertical: space[2] + 2,
         gap: space[1],
         marginTop: 2,
-      }}
+        opacity: pressed ? 0.85 : 1,
+      })}
     >
-      <View style={{ flexDirection: "row", alignItems: "center", gap: space[1] }}>
-        <Ionicons name={call ? "construct-outline" : view.isError ? "alert-circle-outline" : "checkmark-circle-outline"} size={14} color={accent} />
-        <Txt variant="caption" color={accent}>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: space[1] + 2 }}>
+        <Ionicons
+          name={call ? "flash-outline" : view.isError ? "alert-circle-outline" : "checkmark-circle-outline"}
+          size={14}
+          color={accent}
+        />
+        <Txt variant="caption" color={accent} style={{ fontWeight: "600" }}>
           {call ? "called" : view.isError ? "tool error" : "returned"}
         </Txt>
         {call ? (
-          <Txt variant="mono" color={accent} numberOfLines={1} style={{ flexShrink: 1 }}>
+          <Txt variant="mono" color={c.text} numberOfLines={1} style={{ flexShrink: 1, fontSize: 12 }}>
             {view.name}
           </Txt>
         ) : null}
         <View style={{ flex: 1 }} />
-        {body ? <Ionicons name={open ? "chevron-up" : "chevron-down"} size={14} color={c.textFaint} /> : null}
+        {body ? (
+          <Animated.View style={chevron}>
+            <Ionicons name="chevron-down" size={14} color={c.textFaint} />
+          </Animated.View>
+        ) : null}
       </View>
       {open ? (
-        <Txt variant="mono" muted>{body}</Txt>
+        <Txt variant="mono" muted style={{ fontSize: 12 }}>{body}</Txt>
       ) : view.summary ? (
-        <Txt variant="mono" muted numberOfLines={1}>{view.summary}</Txt>
+        <Txt variant="mono" muted numberOfLines={1} style={{ fontSize: 12 }}>{view.summary}</Txt>
       ) : null}
-      <Txt variant="caption" faint>{view.disclaimer}</Txt>
+      <Txt variant="caption" faint style={{ fontSize: 11, lineHeight: 14 }}>{view.disclaimer}</Txt>
     </Pressable>
   );
 }

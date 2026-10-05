@@ -4,8 +4,9 @@
 // sign. Devnet USDC, no real funds. The sheet owns only its inputs and busy/error state;
 // the actual send and gate live in state/store.sendPayment.
 import { useState } from "react";
-import { Modal, TextInput, View } from "react-native";
+import { Modal, Pressable, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import Animated, { ReduceMotion, SlideInDown } from "react-native-reanimated";
 import { Txt } from "@/components/ui/Text";
 import { Button } from "@/components/ui/Button";
 import { useTokens } from "@/theme";
@@ -27,8 +28,8 @@ function Field({
   const { c, space, radius, font } = useTokens();
   return (
     <View style={{ gap: space[2] }}>
-      <Txt variant="caption" faint style={{ letterSpacing: 0.6 }}>
-        {label.toUpperCase()}
+      <Txt variant="label" faint>
+        {label}
       </Txt>
       <TextInput
         value={value}
@@ -39,7 +40,7 @@ function Field({
         autoCapitalize="none"
         autoCorrect={false}
         style={{
-          backgroundColor: c.surfaceSunken,
+          backgroundColor: c.surfaceAlt,
           borderWidth: 1,
           borderColor: c.border,
           borderRadius: radius.md,
@@ -93,21 +94,33 @@ export function PaySheet({
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.45)", justifyContent: "flex-end" }}>
-        <View
+      <View style={{ flex: 1, backgroundColor: c.scrim, justifyContent: "flex-end" }}>
+        {/* Tapping the scrim dismisses, like any sheet. */}
+        <Pressable style={{ flex: 1 }} onPress={onClose} accessibilityLabel="Close pay sheet" />
+        <Animated.View
+          entering={SlideInDown.springify().damping(22).stiffness(200).reduceMotion(ReduceMotion.System)}
           style={{
             backgroundColor: c.surface,
             borderTopLeftRadius: radius.xl,
             borderTopRightRadius: radius.xl,
+            borderWidth: 1,
+            borderBottomWidth: 0,
+            borderColor: c.border,
             paddingHorizontal: space[5],
-            paddingTop: space[5],
+            paddingTop: space[3],
             paddingBottom: space[7],
             gap: space[4],
           }}
         >
-          <View style={{ flexDirection: "row", alignItems: "center", gap: space[2] }}>
-            <Ionicons name="cash-outline" size={22} color={c.brand} />
-            <Txt variant="heading" style={{ flex: 1 }}>Send USDC</Txt>
+          <View style={{ alignSelf: "center", width: 40, height: 5, borderRadius: 3, backgroundColor: c.borderStrong }} />
+          <View style={{ flexDirection: "row", alignItems: "center", gap: space[3] }}>
+            <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: c.brandSoft, alignItems: "center", justifyContent: "center" }}>
+              <Ionicons name="logo-usd" size={20} color={c.brand} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Txt variant="title">Send USDC</Txt>
+              <Txt variant="caption" faint>Settles on Solana devnet</Txt>
+            </View>
             <Button title="Close" variant="ghost" onPress={onClose} />
           </View>
 
@@ -129,7 +142,7 @@ export function PaySheet({
             loading={busy}
             disabled={!canSend}
             onPress={() => void submit()}
-            left={<Ionicons name="arrow-up-circle" size={16} color="#FFFFFF" />}
+            left={<Ionicons name="arrow-up-circle" size={16} color={c.onBrand} />}
           />
 
           <Txt variant="caption" faint>
@@ -138,7 +151,7 @@ export function PaySheet({
           {error ? (
             <Txt variant="caption" color={c.tampered}>{error}</Txt>
           ) : null}
-        </View>
+        </Animated.View>
       </View>
     </Modal>
   );

@@ -29,18 +29,21 @@ export function VerifiedBadge({ state }: { state: VerifyResult }) {
   }[state];
   return (
     <View
+      accessibilityLabel={`Signature ${map.label.toLowerCase()}`}
       style={{
         flexDirection: "row",
         alignItems: "center",
         gap: 4,
         backgroundColor: map.soft,
+        borderWidth: 1,
+        borderColor: state === "unsigned" ? c.border : map.color + "33",
         paddingHorizontal: space[2],
-        paddingVertical: 2,
+        paddingVertical: 1,
         borderRadius: radius.pill,
       }}
     >
       <Ionicons name={map.icon} size={11} color={map.color} />
-      <Txt variant="caption" color={map.color}>
+      <Txt variant="caption" color={map.color} style={{ fontSize: 12, lineHeight: 16 }}>
         {map.label}
       </Txt>
     </View>
@@ -61,13 +64,15 @@ export function Pill({
     <View
       style={{
         backgroundColor: bg,
+        borderWidth: 1,
+        borderColor: tone === "neutral" ? c.border : fg + "2E",
         paddingHorizontal: space[2],
-        paddingVertical: 3,
+        paddingVertical: 2,
         borderRadius: radius.pill,
         alignSelf: "flex-start",
       }}
     >
-      <Txt variant="caption" color={fg}>
+      <Txt variant="caption" color={fg} style={{ fontSize: 12, lineHeight: 16 }}>
         {label}
       </Txt>
     </View>

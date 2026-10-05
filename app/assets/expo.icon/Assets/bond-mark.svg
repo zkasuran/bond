@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="hios" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3DFFB0"/><stop offset="1" stop-color="#0FD584"/></linearGradient>
+    <linearGradient id="aios" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#B57BFF"/><stop offset="1" stop-color="#7B2FF7"/></linearGradient>
+    <linearGradient id="lios" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFFFFF"/><stop offset="1" stop-color="#DFFCEF"/></linearGradient>
+    <clipPath id="cios"><circle cx="391" cy="512" r="196"/></clipPath>
+  </defs>
+  <circle cx="391" cy="512" r="196" fill="url(#hios)"/>
+  <rect x="437" y="316" width="392" height="392" rx="118" fill="url(#aios)"/>
+  <rect x="437" y="316" width="392" height="392" rx="118" fill="url(#lios)" clip-path="url(#cios)"/></svg>

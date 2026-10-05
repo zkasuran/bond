@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-label="Bond mark: a human circle bonded to an agent square">
+  <defs>
+    <linearGradient id="h" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#3DFFB0"/>
+      <stop offset="1" stop-color="#0FD584"/>
+    </linearGradient>
+    <linearGradient id="a" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#B57BFF"/>
+      <stop offset="1" stop-color="#7B2FF7"/>
+    </linearGradient>
+    <linearGradient id="l" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#DFFCEF"/>
+    </linearGradient>
+    <clipPath id="c"><circle cx="391" cy="512" r="196"/></clipPath>
+  </defs>
+  <circle cx="391" cy="512" r="196" fill="url(#h)"/>
+  <rect x="437" y="316" width="392" height="392" rx="118" fill="url(#a)"/>
+  <rect x="437" y="316" width="392" height="392" rx="118" fill="url(#l)" clip-path="url(#c)"/>
+</svg>
