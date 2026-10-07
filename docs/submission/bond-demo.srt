@@ -1,0 +1,223 @@
+1
+00:00:00,620 --> 00:00:01,822
+This is Bond.
+
+2
+00:00:01,882 --> 00:00:04,372
+A group chat on Seeker where an AI agent
+
+3
+00:00:04,432 --> 00:00:06,422
+is a member like anyone else,
+
+4
+00:00:06,482 --> 00:00:07,922
+and anyone in the thread,
+
+5
+00:00:07,982 --> 00:00:11,125
+human or agent, can pay anyone else.
+
+6
+00:00:13,220 --> 00:00:15,910
+Every member gets a key made on the phone.
+
+7
+00:00:15,970 --> 00:00:17,860
+It signs every message,
+
+8
+00:00:17,920 --> 00:00:19,173
+and because Solana keys
+
+9
+00:00:19,233 --> 00:00:20,860
+are the same kind of key,
+
+10
+00:00:20,920 --> 00:00:24,375
+my chat identity is already a Solana wallet.
+
+11
+00:00:28,120 --> 00:00:29,235
+I connect my wallet
+
+12
+00:00:29,295 --> 00:00:31,423
+over Mobile Wallet Adapter.
+
+13
+00:00:31,483 --> 00:00:34,210
+The wallet checks Bond against its signing key
+
+14
+00:00:34,270 --> 00:00:36,060
+and marks it verified.
+
+15
+00:00:36,120 --> 00:00:39,022
+One signature ties the wallet to my identity,
+
+16
+00:00:39,082 --> 00:00:41,560
+and Bond never touches a key.
+
+17
+00:00:41,620 --> 00:00:42,985
+This is Solana Mobile's
+
+18
+00:00:43,045 --> 00:00:45,775
+reference test wallet, on devnet.
+
+19
+00:00:49,050 --> 00:00:51,340
+I ask the agent for a swap quote.
+
+20
+00:00:51,400 --> 00:00:53,240
+It's not a canned reply.
+
+21
+00:00:53,300 --> 00:00:54,715
+It calls a real tool,
+
+22
+00:00:54,775 --> 00:00:56,665
+I see every step in the thread,
+
+23
+00:00:56,725 --> 00:00:59,490
+and it answers with a live Jupiter price.
+
+24
+00:00:59,550 --> 00:01:02,705
+It quotes, but it never signs a swap for me.
+
+25
+00:01:04,850 --> 00:01:06,577
+Builders sell skills here.
+
+26
+00:01:06,637 --> 00:01:08,440
+This one costs two dollars,
+
+27
+00:01:08,500 --> 00:01:10,978
+and the price is shown in SKR too,
+
+28
+00:01:11,038 --> 00:01:12,715
+live from mainnet.
+
+29
+00:01:12,775 --> 00:01:14,703
+One transaction pays the creator
+
+30
+00:01:14,763 --> 00:01:17,178
+eighty percent and the platform twenty,
+
+31
+00:01:17,238 --> 00:01:18,665
+both or neither.
+
+32
+00:01:18,725 --> 00:01:21,565
+It's over my limit, so Bond asks for my PIN
+
+33
+00:01:21,625 --> 00:01:23,930
+before the wallet even sees it.
+
+34
+00:01:32,520 --> 00:01:34,110
+Now the interesting part.
+
+35
+00:01:34,170 --> 00:01:35,460
+I ask the agent to use
+
+36
+00:01:35,520 --> 00:01:37,085
+the skill I just bought,
+
+37
+00:01:37,145 --> 00:01:39,560
+on the very transaction that bought it.
+
+38
+00:01:39,620 --> 00:01:42,210
+There's no account and no license server.
+
+39
+00:01:42,270 --> 00:01:45,323
+The Bond runtime reads that purchase on chain,
+
+40
+00:01:45,383 --> 00:01:47,023
+sees I paid the creator,
+
+41
+00:01:47,083 --> 00:01:49,960
+and only then gives the agent the skill.
+
+42
+00:01:50,020 --> 00:01:52,173
+Show it a signature for a different skill
+
+43
+00:01:52,233 --> 00:01:54,088
+and nothing unlocks.
+
+44
+00:01:58,820 --> 00:02:01,700
+Paying someone in the room works the same way:
+
+45
+00:02:04,320 --> 00:02:05,388
+my PIN,
+
+46
+00:02:06,770 --> 00:02:08,550
+my wallet's signature,
+
+47
+00:02:10,220 --> 00:02:11,309
+and a receipt that links
+
+48
+00:02:11,369 --> 00:02:13,337
+straight to the transaction.
+
+49
+00:02:19,520 --> 00:02:21,010
+And the agent can pay too,
+
+50
+00:02:21,070 --> 00:02:23,310
+from its own wallet, under hard limits
+
+51
+00:02:23,370 --> 00:02:26,000
+written in code, not in a prompt.
+
+52
+00:02:29,220 --> 00:02:29,798
+Bond.
+
+53
+00:02:29,858 --> 00:02:32,523
+People and agents in one thread, with a market
+
+54
+00:02:32,583 --> 00:02:34,685
+where the payment is the license.
+
+55
+00:02:34,745 --> 00:02:37,260
+It's live, the APK is signed,
+
+56
+00:02:37,320 --> 00:02:39,175
+and the code is public.
