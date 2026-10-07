@@ -68,6 +68,38 @@ The agent runtime is live on MiniMax (OpenAI-compatible API), so a mention gets 
 > [!TIP]
 > Want to see the signing for yourself? The [website](https://getbond.zkasuran.dev/#verify) runs Bond's `jcs-v1` recipe in your browser with WebCrypto: sign a node with a fresh Ed25519 key, then flip one byte and watch verification fail.
 
+## For judges
+
+**Materials.** [Demo video](https://youtu.be/ye3Se6gQOLQ) (2:42, captions in [`docs/submission/bond-demo.srt`](docs/submission/bond-demo.srt)) · [Pitch deck (PDF)](docs/submission/bond-deck.pdf) · [Signed APK](https://github.com/zkasuran/bond/releases/latest) · [Live web app](https://bond.zkasuran.dev)
+
+**Who it is for.** Seeker owners who already hold USDC in a self-custody wallet and want to split costs, pay a collaborator, or hand a bounded task to an AI agent without leaving the conversation. The repeat-use loop is the thread itself: every payment, agent action and skill purchase lands as a signed node in the room. Bond has no users yet, and this README makes no adoption or retention claims. The build is verified by tests and by on-chain transactions, listed below.
+
+**Where each claim lives in the code**
+
+| Claim | Code |
+|---|---|
+| Wallet connect, identity bind, sign and send over Mobile Wallet Adapter | [`app/src/solana/wallet.ts`](app/src/solana/wallet.ts) |
+| USDC `transferChecked` payment | [`app/src/solana/usdc.ts`](app/src/solana/usdc.ts) |
+| Atomic 80/20 skill purchase | [`app/src/skills/purchase.ts`](app/src/skills/purchase.ts) |
+| Payment is the licence: the server re-reads the purchase transaction on chain (`isValidLicense`, `verifyClaims`) | [`server/src/agent/skills.ts`](server/src/agent/skills.ts) |
+| Agent tool-calling loop and tools | [`server/src/agent/loop.ts`](server/src/agent/loop.ts), [`server/src/agent/tools.ts`](server/src/agent/tools.ts) |
+| Spend caps enforced in code (100 USDC per transfer, 500 per process, 8 tool steps per turn) | [`server/src/limits.ts`](server/src/limits.ts) |
+| PIN or biometric gate, fails closed | [`app/src/protection/gate.ts`](app/src/protection/gate.ts) |
+| SKR price and holder discount (mainnet, read only) | [`app/src/solana/skr.ts`](app/src/solana/skr.ts) |
+| Digital Asset Links for the verified-app badge | [`server/src/assetlinks.ts`](server/src/assetlinks.ts) |
+
+Run `./verify.sh` for the release gate: 187 app tests, 29 server tests, lint, type-check and audit.
+
+**What is on chain.** Payments, purchases and agent transfers run on Solana **devnet** with no real funds. The only mainnet calls are reads (Jupiter quotes and SKR). The full table is under [What is real and what is simulated](#what-is-real-and-what-is-simulated). Real devnet transactions from the recorded run of 2026-10-06, viewable on Solana Explorer with `?cluster=devnet`:
+
+| What | Signature |
+|---|---|
+| Skill purchase (Tx Explainer): 2.00 USDC paid, 1.60 to creator, 0.40 platform | [`4Zb9eFr6…HdkqZuP`](https://explorer.solana.com/tx/4Zb9eFr6kagTZMysdstPnqKRQMHqcALuKQ91yQ3ZhfToNKbd63CjDhvCPCBAD9iRzQYeV8dhibHMVgX1wHdkqZuP?cluster=devnet) |
+| Human payment, PIN-gated, 1.50 USDC | [`yWEKn9us…AumEoAp4CGH`](https://explorer.solana.com/tx/yWEKn9us7pYV3o1yzLw1ofiHpWLWQX5CtoPGZvYESMyigbBvHx18sVAsnjAdWCqT7oqa8HccsV9AAumEoAp4CGH?cluster=devnet) |
+| Agent-initiated refund, 1.00 USDC | [`62UKC2ZM…coo9SFcbRA9u7EDA`](https://explorer.solana.com/tx/62UKC2ZMtuS1NkQvePuy7vfMxrdzj7bp2QqzLathHAbcX2KWV7qV9fmF9KoKkR8WJS7vxhF3coo9SFcbRA9u7EDA?cluster=devnet) |
+
+Addresses: platform fee wallet `E523zpkuVLybriL6E2djVCkUG4MHsS3TtT15DGfbiuwL`, devnet USDC mint `4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU`, SKR mint (mainnet, read only) `SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3`.
+
 ## How it works
 
 ```mermaid
