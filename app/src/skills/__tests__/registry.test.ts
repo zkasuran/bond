@@ -20,7 +20,7 @@ jest.mock("expo-secure-store", () => {
 import * as SecureStore from "expo-secure-store";
 import { didToSolanaAddress } from "../../identity/keys";
 import type { Entitlement } from "../manifest";
-import { SKILL_CATALOG, useSkills } from "../registry";
+import { SKILL_CATALOG, isValidSkill, useSkills } from "../registry";
 
 const mem = (SecureStore as unknown as { __mem: Map<string, string> }).__mem;
 
@@ -121,5 +121,36 @@ describe("useSkills store", () => {
     useSkills.setState({ entitlements: {}, loaded: false });
     await useSkills.getState().load();
     expect(Object.keys(useSkills.getState().entitlements)).toEqual(["good"]);
+  });
+
+  it("drops a forged cache row whose signature or buyer is not a real address shape (F14 LOW)", async () => {
+    // The forge from the audit: a hand-written store value with junk signature and buyer.
+    mem.set(
+      "bond.skills.entitlements",
+      JSON.stringify({
+        "wallet-summarizer": { skillId: "wallet-summarizer", signature: "x", buyer: "x", amount: "0" },
+      }),
+    );
+    await useSkills.getState().load();
+    expect(useSkills.getState().isInstalled("wallet-summarizer")).toBe(false);
+  });
+});
+
+describe("isValidSkill", () => {
+  it("accepts every shipped catalog entry", () => {
+    for (const skill of SKILL_CATALOG) expect(isValidSkill(skill)).toBe(true);
+  });
+
+  it("rejects a listing whose did does not match its payout wallet", () => {
+    const honest = SKILL_CATALOG[0]!;
+    // Keep the famous creator's did, swap the payout wallet to another address.
+    const spoofed = { ...honest, author: { ...honest.author, wallet: SKILL_CATALOG[1]!.author.wallet } };
+    expect(isValidSkill(spoofed)).toBe(false);
+  });
+
+  it("rejects a bad price or a mismatched endpoint", () => {
+    const base = SKILL_CATALOG[0]!;
+    expect(isValidSkill({ ...base, price: { asset: "USDC", amount: "free" } })).toBe(false);
+    expect(isValidSkill({ ...base, distribution: "http", endpoint: undefined })).toBe(false);
   });
 });

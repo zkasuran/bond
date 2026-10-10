@@ -11,9 +11,12 @@ import { MemoryStorage } from "../../store/memory";
 import {
   SyncClient,
   computeBackoff,
+  syncUrlFromGateway,
   BASE_BACKOFF_MS,
   MAX_BACKOFF_MS,
   MAX_INBOUND_BYTES,
+  MAX_INBOUND_NODES_PER_WINDOW,
+  INBOUND_WINDOW_MS,
 } from "../client";
 
 const ROOM = "r-sync";
@@ -237,6 +240,134 @@ describe("sync client reconnect backoff is bounded", () => {
     } finally {
       jest.useRealTimers();
     }
+  });
+
+  it("keeps backing off when a relay accepts then closes at once", () => {
+    jest.useFakeTimers();
+    try {
+      const storage = new MemoryStorage();
+      const client = makeClient(storage); // random: () => 0
+      client.start();
+      expect(FakeSocket.instances.length).toBe(1);
+
+      // First accept-then-close: open fires, then close at once, well under the stable window.
+      FakeSocket.instances[0].simOpen();
+      FakeSocket.instances[0].onclose?.({});
+      // attempt was 0, so this retry is scheduled at computeBackoff(0).
+      jest.advanceTimersByTime(computeBackoff(0));
+      expect(FakeSocket.instances.length).toBe(2);
+
+      // Second accept-then-close. If a bare open reset the backoff, the next retry would again
+      // be computeBackoff(0). It must instead be computeBackoff(1), so one base delay is not
+      // enough to create the next socket.
+      FakeSocket.instances[1].simOpen();
+      FakeSocket.instances[1].onclose?.({});
+      jest.advanceTimersByTime(computeBackoff(0));
+      expect(FakeSocket.instances.length).toBe(2); // still backing off, no retry yet
+      jest.advanceTimersByTime(computeBackoff(1) - computeBackoff(0));
+      expect(FakeSocket.instances.length).toBe(3);
+
+      client.stop();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+});
+
+describe("sync client bounds inbound size then rate", () => {
+  it("drops a multibyte frame whose byte size exceeds the cap even when its code-unit length does not", async () => {
+    const storage = new MemoryStorage();
+    const onRemoteNode = jest.fn((n: BondNode) => storage.append(n));
+    const client = makeClient(storage, onRemoteNode);
+    client.start();
+    const sock = FakeSocket.last();
+    sock.simOpen();
+
+    // "€" is one UTF-16 code unit but three UTF-8 bytes. The frame's .length stays under the
+    // cap while its real byte size runs past it, which the old code-unit check let through.
+    const big = node("big", ROOM, 1);
+    (big.payload as { body: string }).body = "€".repeat(40_000);
+    const f = frame(big);
+    expect(f.length).toBeLessThanOrEqual(MAX_INBOUND_BYTES); // under the cap by code units
+    sock.simMessage(f);
+    await flush();
+
+    expect(onRemoteNode).not.toHaveBeenCalled();
+    expect((await storage.nodesForRoom(ROOM)).length).toBe(0);
+    client.stop();
+  });
+
+  it("drops inbound node frames past the per-window ceiling then resumes after the window", async () => {
+    let clock = 1_000_000;
+    const stored: string[] = [];
+    const storage = new MemoryStorage();
+    const client = new SyncClient({
+      gatewayBaseUrl: "http://localhost:8080/v1",
+      token: "device-token",
+      roomId: ROOM,
+      sinceLamport: () => 0,
+      onRemoteNode: (n) => {
+        stored.push(n.id);
+      },
+      random: () => 0,
+      now: () => clock,
+    });
+    client.start();
+    const sock = FakeSocket.last();
+    sock.simOpen();
+
+    for (let i = 0; i < MAX_INBOUND_NODES_PER_WINDOW + 50; i++) {
+      sock.simMessage(frame(node(`n${i}`, ROOM, i + 1)));
+    }
+    expect(stored.length).toBe(MAX_INBOUND_NODES_PER_WINDOW);
+
+    // Rolling the window lets honest traffic flow again.
+    clock += INBOUND_WINDOW_MS;
+    sock.simMessage(frame(node("after", ROOM, 1)));
+    expect(stored.length).toBe(MAX_INBOUND_NODES_PER_WINDOW + 1);
+    expect(stored[stored.length - 1]).toBe("after");
+    client.stop();
+  });
+});
+
+describe("sync client re-verifies relayed nodes then derives the sync URL safely", () => {
+  it("rejects a relay-injected node attributed to a victim did", async () => {
+    const victim = generateKeypair();
+    const attacker = generateKeypair();
+    const storage = new MemoryStorage();
+    const client = makeClient(storage);
+    client.start();
+    const sock = FakeSocket.last();
+    sock.simOpen();
+
+    // The relay forges a node that claims the victim as author, signed by the attacker but
+    // still labelling the victim as the signer. The store gate must read this as tampered.
+    const forged = makeNode({
+      roomId: ROOM,
+      parentId: null,
+      author: { did: victim.did, displayName: "Victim", kind: "human" },
+      type: "text",
+      payload: { body: "I did not write this" },
+      lamport: 1,
+    });
+    forged.id = "forgery";
+    forged.sig = signNode(forged, attacker.secretKey);
+    expect(verifyNode(forged)).toBe("tampered");
+
+    sock.simMessage(frame(forged));
+    await flush();
+
+    expect((await storage.nodesForRoom(ROOM)).map((n) => n.id)).toEqual([]);
+    client.stop();
+  });
+
+  it("upgrades https to wss and refuses a non-http(s) base", () => {
+    expect(syncUrlFromGateway("https://api.example.com/v1")).toBe("wss://api.example.com/sync");
+    expect(syncUrlFromGateway("HTTPS://api.example.com/v1")).toBe("wss://api.example.com/sync");
+    expect(syncUrlFromGateway("http://localhost:8080/v1")).toBe("ws://localhost:8080/sync");
+    expect(() => syncUrlFromGateway("ftp://evil.example.com/v1")).toThrow();
+    expect(() => syncUrlFromGateway("api.example.com/v1")).toThrow();
+    expect(() => syncUrlFromGateway("ws://sneaky.example.com/v1")).toThrow();
   });
 });
 

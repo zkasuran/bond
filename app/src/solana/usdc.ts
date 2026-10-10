@@ -13,11 +13,25 @@ import {
 import { PublicKey, Transaction, type Connection } from "@solana/web3.js";
 import { USDC_DECIMALS, USDC_DEVNET_MINT } from "./config";
 
+/** The on-chain amount type is a u64, so a base-unit amount above this cannot settle. The
+ *  ceiling is asserted here rather than left to SPL serialization to reject later. */
+export const MAX_U64 = 18_446_744_073_709_551_615n;
+/** A sane ceiling on the raw amount string. A u64 is 20 digits, so 32 covers any legal
+ *  value with its decimal point while bounding the cost of parsing a hostile long string. */
+export const MAX_AMOUNT_INPUT_LEN = 32;
+
 /** Convert a UI amount (like "12.5" USDC) to integer base units. Parsed as a decimal
  *  string so there is no float rounding: 12.5 with 6 decimals is 12500000n. Rejects a
- *  malformed amount or one with more fractional digits than the mint allows. */
+ *  malformed amount, a NaN/Infinity/negative number, an over-long input, more fractional
+ *  digits than the mint allows, or a result above the u64 ceiling. */
 export function toBaseUnits(uiAmount: number | string, decimals = USDC_DECIMALS): bigint {
-  let s = typeof uiAmount === "number" ? uiAmount.toString() : uiAmount.trim();
+  if (typeof uiAmount === "number" && !Number.isFinite(uiAmount)) {
+    throw new Error("Amount must be a finite number");
+  }
+  const s = typeof uiAmount === "number" ? uiAmount.toString() : uiAmount.trim();
+  if (s.length > MAX_AMOUNT_INPUT_LEN) {
+    throw new Error("Amount is too long");
+  }
   if (/[eE]/.test(s)) {
     throw new Error("Pass very small or very large amounts as a decimal string, not a number");
   }
@@ -29,7 +43,11 @@ export function toBaseUnits(uiAmount: number | string, decimals = USDC_DECIMALS)
     throw new Error(`Amount has more than ${decimals} decimal places`);
   }
   const digits = (whole === "" ? "0" : whole) + frac.padEnd(decimals, "0");
-  return BigInt(digits);
+  const base = BigInt(digits);
+  if (base > MAX_U64) {
+    throw new Error("Amount exceeds the maximum supported value");
+  }
+  return base;
 }
 
 /** Convert integer base units back to a trimmed decimal string. 12500000n at 6 decimals

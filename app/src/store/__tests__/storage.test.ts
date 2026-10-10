@@ -10,7 +10,10 @@ import { makeNode } from "../../model/factory";
 import { generateKeypair, type RawKeypair } from "../../identity/keys";
 import { signNode, verifyNode } from "../../identity/sign";
 
-const author: Identity = { did: "did:key:zA", displayName: "A", kind: "human" };
+// An unsigned fixture node stands in for a legacy or agent node. Those use a non-did:key
+// did (did:bond:...), which the guard allows unsigned. A did:key author with no signature
+// is a forgery and is covered by its own tests below.
+const author: Identity = { did: "did:bond:legacy", displayName: "A", kind: "agent" };
 
 function node(id: string, roomId: string, lamport: number): BondNode {
   return {
@@ -142,6 +145,24 @@ describe.each(cases)("Storage contract: $name", ({ setup }) => {
     expect(verifyNode(back)).toBe("unsigned");
   });
 
+  it("drops an unsigned node that claims a did:key author", async () => {
+    // A relay injects a node with a victim did:key author and no signature. A genuine
+    // did:key node is always signed, so this is impersonation and must not be stored or
+    // returned as if the victim authored it.
+    const victim: Identity = { did: "did:key:zVictim", displayName: "Victim", kind: "human" };
+    const forged = makeNode({
+      roomId: "r1",
+      parentId: null,
+      author: victim,
+      type: "text",
+      payload: { body: "I never said this" },
+      lamport: 1,
+    });
+    forged.id = "f1";
+    await store.append(forged);
+    expect(await store.nodesForRoom("r1")).toEqual([]);
+  });
+
   it("drops a tampered relayed node and never returns it", async () => {
     const kp = generateKeypair();
     const good = signedNode(kp, "ok", "r1", 1);
@@ -268,5 +289,22 @@ describe("WebStorage survives a hostile localStorage", () => {
     const store = withRaw({ "bond:nodes:r1": JSON.stringify([good, tampered]) });
     const ids = (await store.nodesForRoom("r1")).map((n) => n.id);
     expect(ids).toEqual(["ok"]);
+  });
+
+  it("drops an unsigned did:key node injected directly at rest", async () => {
+    // A hostile localStorage edit adds a node with a victim did:key author and no signature.
+    // Reading it back must not present it as the victim's message.
+    const forged = {
+      id: "f1",
+      roomId: "r1",
+      parentId: null,
+      lamport: 1,
+      createdAt: new Date(0).toISOString(),
+      author: { did: "did:key:zVictim", displayName: "Victim", kind: "human" },
+      type: "text",
+      payload: { body: "forged at rest" },
+    };
+    const store = withRaw({ "bond:nodes:r1": JSON.stringify([forged]) });
+    expect(await store.nodesForRoom("r1")).toEqual([]);
   });
 });

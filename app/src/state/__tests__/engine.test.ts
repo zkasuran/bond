@@ -90,4 +90,21 @@ describe("state engine", () => {
     const tampered = { ...node, refs: [{ kind: "depends_on" as const, target: "z" }] };
     expect(verifyNode(tampered)).toBe("tampered");
   });
+
+  it("binds the full author identity into the signature, so a relabel is tampered", () => {
+    // createSignedNode must set every signed field, now including the author display name
+    // and kind, before signing. So an honest node verifies. A relay that keeps the did but
+    // rewrites the shown name or the human/agent flag is detected.
+    const kp = generateKeypair();
+    const author: Identity = { did: kp.did, displayName: "Me", kind: "human" };
+    const node = createSignedNode(
+      { roomId: "r", parentId: null, author, type: "text", payload: { body: "hi" }, lamport: 1 },
+      kp.secretKey,
+    );
+    expect(verifyNode(node)).toBe("verified");
+    const relabeled = { ...node, author: { ...node.author, displayName: "Admin" } };
+    expect(verifyNode(relabeled)).toBe("tampered");
+    const reflagged = { ...node, author: { ...node.author, kind: "agent" as const } };
+    expect(verifyNode(reflagged)).toBe("tampered");
+  });
 });

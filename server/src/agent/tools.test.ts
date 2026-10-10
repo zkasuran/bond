@@ -1,8 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { Connection, Keypair, PublicKey } from "@solana/web3.js";
-import { loadWallet, solanaTools } from "./tools.js";
-import { MAX_AGENT_TRANSFER_USDC } from "../limits.js";
+import { loadWallet, solanaTools, withTimeout, isSafeMcpUrl, sanitizeMcpTool } from "./tools.js";
+import { MAX_AGENT_TRANSFER_USDC, MAX_AGENT_TRANSFER_TOTAL_USDC } from "../limits.js";
 
 const DEVNET_USDC = "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU";
 
@@ -88,4 +88,92 @@ test("solana_transfer_usdc rejects a non-positive amount", async () => {
   };
   assert.equal(out.ok, false);
   assert.ok(out.error?.includes("positive"));
+});
+
+test("concurrent transfers cannot drain past the per-process ceiling", async () => {
+  // A fake connection so the transfer path never touches the network. getAccount
+  // sees a null account (so the create-ATA branch runs), and the send resolves
+  // after a microtask to make the concurrent interleave real.
+  let sent = 0;
+  const fakeConnection = {
+    getAccountInfo: async () => null,
+    getLatestBlockhash: async () => ({ blockhash: "11111111111111111111111111111111", lastValidBlockHeight: 1 }),
+    sendTransaction: async () => {
+      await new Promise((r) => setImmediate(r));
+      sent += 1;
+      return `sig${sent}`;
+    },
+  } as unknown as Connection;
+  const recipient = Keypair.generate().publicKey.toBase58();
+  const tools = solanaTools(fakeConnection, Keypair.generate(), new PublicKey(DEVNET_USDC));
+  const transfer = tool(tools, "solana_transfer_usdc");
+  // Fire many concurrent transfers, each at the per-transfer cap. Only
+  // floor(total / per-transfer) can fit under the per-process ceiling.
+  const n = 12;
+  const results = (await Promise.all(
+    Array.from({ length: n }, () => transfer.execute({ to: recipient, amount: MAX_AGENT_TRANSFER_USDC })),
+  )) as Array<{ ok: boolean; amount?: number }>;
+  const moved = results.filter((r) => r.ok).reduce((s, r) => s + (r.amount ?? 0), 0);
+  assert.ok(
+    moved <= MAX_AGENT_TRANSFER_TOTAL_USDC,
+    `moved ${moved} USDC must not exceed the ${MAX_AGENT_TRANSFER_TOTAL_USDC} ceiling`,
+  );
+  assert.ok(
+    results.some((r) => !r.ok),
+    "at least one concurrent transfer is refused by the ceiling",
+  );
+});
+
+test("withTimeout rejects a promise that never settles", async () => {
+  await assert.rejects(withTimeout(new Promise(() => {}), 30, "it timed out"), /it timed out/);
+});
+
+test("withTimeout resolves a promise that settles in time", async () => {
+  assert.equal(await withTimeout(Promise.resolve(42), 1000, "unused"), 42);
+});
+
+test("isSafeMcpUrl rejects non-https, loopback, link-local and private targets", () => {
+  assert.equal(isSafeMcpUrl("https://skills.example.com/mcp"), true);
+  assert.equal(isSafeMcpUrl("http://skills.example.com/mcp"), false);
+  assert.equal(isSafeMcpUrl("https://localhost/mcp"), false);
+  assert.equal(isSafeMcpUrl("https://127.0.0.1/mcp"), false);
+  assert.equal(isSafeMcpUrl("https://169.254.169.254/latest/meta-data/"), false);
+  assert.equal(isSafeMcpUrl("https://10.0.0.5/mcp"), false);
+  assert.equal(isSafeMcpUrl("https://172.16.0.9/mcp"), false);
+  assert.equal(isSafeMcpUrl("https://192.168.1.1/mcp"), false);
+  assert.equal(isSafeMcpUrl("https://[::1]/mcp"), false);
+  // IPv4-mapped IPv6 must not smuggle an internal IPv4 past the dotted-quad check (V9).
+  assert.equal(isSafeMcpUrl("https://[::ffff:169.254.169.254]/latest/meta-data/"), false);
+  assert.equal(isSafeMcpUrl("https://[::ffff:a9fe:a9fe]/mcp"), false);
+  assert.equal(isSafeMcpUrl("https://[fe80::1]/mcp"), false);
+  assert.equal(isSafeMcpUrl("https://[fd00::1]/mcp"), false);
+  assert.equal(isSafeMcpUrl("not a url"), false);
+});
+
+test("sanitizeMcpTool rejects an unsafe or oversized tool name", () => {
+  assert.equal(sanitizeMcpTool({ name: "../../evil tool", description: "x" }), null);
+  assert.equal(sanitizeMcpTool({ name: "", description: "x" }), null);
+  assert.equal(sanitizeMcpTool({ name: "a".repeat(200), description: "x" }), null);
+  assert.ok(sanitizeMcpTool({ name: "good_tool", description: "fine" }));
+});
+
+test("sanitizeMcpTool bounds the description and strips control characters", () => {
+  const ctrl = String.fromCharCode(0, 7, 27, 31, 127);
+  const inject = `before${ctrl}after` + "y".repeat(5000);
+  const safe = sanitizeMcpTool({ name: "good_tool", description: inject });
+  assert.ok(safe);
+  const hasControl = [...safe!.description].some((ch) => {
+    const code = ch.charCodeAt(0);
+    return code < 0x20 || code === 0x7f;
+  });
+  assert.equal(hasControl, false, "control chars are stripped");
+  assert.ok(safe!.description.length <= 1024, "description is length bounded");
+});
+
+test("sanitizeMcpTool falls back to an empty schema for an oversized schema", () => {
+  const big: { type: string; properties: Record<string, unknown> } = { type: "object", properties: {} };
+  for (let i = 0; i < 5000; i++) big.properties[`k${i}`] = { type: "string", description: "z".repeat(50) };
+  const safe = sanitizeMcpTool({ name: "good_tool", inputSchema: big });
+  assert.ok(safe);
+  assert.deepEqual(safe!.inputSchema, { type: "object", properties: {} });
 });

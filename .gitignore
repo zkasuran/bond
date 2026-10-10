@@ -18,6 +18,14 @@ playwright-report/
 
 *.apk
 
+# signing material, never committed (release keystore lives outside the repo)
+*.keystore
+*.jks
+*.p12
+*.pfx
+*.pem
+*.key
+
 # publish + submission artifacts, never shipped to the public repo
 CONTENT-*.html
 DEMO-*.mp4

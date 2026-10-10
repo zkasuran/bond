@@ -32,10 +32,23 @@ export function shortMiddle(value: string, lead = 4, tail = 4): string {
 
 export type ReceiptTone = "verified" | "warning" | "tampered" | "muted";
 
+/** The outcome of re-checking a payment's signature on-chain on this device. A payment node
+ *  arrives signed by its author but never chain-verified, so "unverified" is the default and
+ *  the only state the renderer can assume without a real re-check (confirmSignature). */
+export type ChainCheck = "verified" | "failed" | "unverified";
+
+/** Shown on an unverified receipt so a peer's self-reported transfer is never read as a
+ *  settlement. The payment analog of the tool card's agent-reported disclaimer. */
+export const PAYMENT_CLAIM_DISCLAIMER = "Reported by the sender. Not re-checked on-chain.";
+
 export interface PaymentView {
   amountDisplay: string;
   asset: string;
+  /** Clean validated network name, used for the explorer link label. */
   networkLabel: string;
+  /** The network chip text. Reads as a confident network only after a local on-chain
+   *  re-check; otherwise it is marked unverified so a peer-set cluster is never a fact. */
+  networkChip: string;
   from: string;
   to: string;
   fromShort: string;
@@ -45,46 +58,105 @@ export interface PaymentView {
   explorerUrl?: string;
   statusLabel: string;
   statusTone: ReceiptTone;
-  /** True only for a settled, on-chain-confirmed transfer. */
+  /** The sender's self-reported status, straight from the signed-but-not-chain-checked
+   *  payload. Never on its own a statement that the transfer settled. */
+  claimedStatus: PaymentPayload["status"];
+  /** True ONLY after a local on-chain re-check matched this transfer. Never derived from the
+   *  attacker-set `status` field, so a peer cannot paint a receipt as confirmed. */
   confirmed: boolean;
+  /** Present whenever the receipt is only the sender's claim, so the card can say so. */
+  claimDisclaimer?: string;
   honesty: string;
 }
 
-const STATUS_META: Record<PaymentPayload["status"], { label: string; tone: ReceiptTone }> = {
-  proposed: { label: "Proposed", tone: "muted" },
-  pending: { label: "Pending", tone: "warning" },
-  confirmed: { label: "Confirmed", tone: "verified" },
-  failed: { label: "Failed", tone: "tampered" },
-};
+/** The three clusters a payment node may legitimately name. Any other value is a hostile or
+ *  malformed string and must never be echoed on the card as if it were a real network. */
+const KNOWN_CLUSTERS: readonly PaymentPayload["cluster"][] = ["devnet", "mainnet-beta", "testnet"];
 
-function clusterLabel(cluster: PaymentPayload["cluster"]): string {
+function isKnownCluster(cluster: unknown): cluster is PaymentPayload["cluster"] {
+  return typeof cluster === "string" && (KNOWN_CLUSTERS as readonly string[]).includes(cluster);
+}
+
+/** Human label for a validated cluster. An unrecognized value reads as "unknown network"
+ *  rather than echoing the attacker-set string. */
+function clusterLabel(cluster: unknown): string {
+  if (!isKnownCluster(cluster)) return "unknown network";
   return cluster === "mainnet-beta" ? "mainnet" : cluster;
 }
 
-/** Build the receipt view for a payment payload. Tolerant of a malformed payload: a bad
- *  amount shows "0" and an unknown status reads as proposed rather than throwing. */
-export function paymentView(payload: PaymentPayload): PaymentView {
-  const status = STATUS_META[payload.status] ?? STATUS_META.proposed;
+/** The one-line honesty footer. The only line that asserts a real settled transfer
+ *  ("On-chain transfer.") is reachable solely through a local on-chain re-check, so a peer
+ *  who claims mainnet-beta without a re-check never prints a settlement. Devnet and testnet
+ *  always read as no real funds, and an unrecognized network reads as unverified. */
+function honestyLine(cluster: unknown, known: boolean, confirmed: boolean): string {
+  if (!known) return "Unverified transfer. Network not recognized.";
+  if (cluster === "mainnet-beta") {
+    return confirmed ? "On-chain transfer." : "Claimed mainnet transfer, unverified.";
+  }
+  const net = cluster === "testnet" ? "Testnet" : "Devnet";
+  return `${net} transfer. No real funds.`;
+}
+
+/** Resolve the pill from the local chain-check first, then fall back to the sender's claim.
+ *  A green, settled "verified" tone is reachable only through a real on-chain re-check; a
+ *  self-reported "confirmed" with no re-check reads as an unverified claim, never settled. */
+function statusView(
+  claimed: PaymentPayload["status"],
+  chainCheck: ChainCheck,
+): { label: string; tone: ReceiptTone; confirmed: boolean } {
+  if (chainCheck === "verified") return { label: "Confirmed on-chain", tone: "verified", confirmed: true };
+  if (chainCheck === "failed") return { label: "Failed on-chain", tone: "tampered", confirmed: false };
+  switch (claimed) {
+    case "failed":
+      return { label: "Failed", tone: "tampered", confirmed: false };
+    case "pending":
+      return { label: "Pending", tone: "warning", confirmed: false };
+    case "confirmed":
+      return { label: "Claimed", tone: "muted", confirmed: false };
+    default:
+      return { label: "Proposed", tone: "muted", confirmed: false };
+  }
+}
+
+/** Build the receipt view for a payment payload. `chainCheck` is the local on-chain re-check
+ *  outcome and defaults to "unverified", so a receipt is treated as the sender's claim until
+ *  a real re-check proves it. Tolerant of a malformed payload: a bad amount shows "0" and an
+ *  unknown status reads as proposed rather than throwing. */
+export function paymentView(payload: PaymentPayload, chainCheck: ChainCheck = "unverified"): PaymentView {
+  const status = statusView(payload.status, chainCheck);
   const signature = payload.signature;
-  const cluster = payload.cluster as ExplorerCluster;
+  const known = isKnownCluster(payload.cluster);
+  // Normalize the cluster before it reaches the explorer link so a hostile value cannot steer
+  // the deep link. An unknown cluster falls back to devnet.
+  const explorerCluster: ExplorerCluster = known ? (payload.cluster as ExplorerCluster) : "devnet";
+  const impliesSettlement = payload.status === "confirmed" || !!signature;
+  const baseNetwork = clusterLabel(payload.cluster);
+  // The network chip and the settlement honesty line are gated on the SAME on-chain re-check
+  // as the settled pill (status.confirmed). A peer-set cluster can never on its own make the
+  // card read as a confident network or assert a real on-chain transfer.
+  const networkChip = !known
+    ? "unknown network"
+    : status.confirmed
+      ? baseNetwork
+      : `unverified · ${baseNetwork}`;
   return {
     amountDisplay: formatBaseUnits(String(payload.amount ?? "0"), payload.decimals ?? 0),
     asset: payload.asset || "token",
-    networkLabel: clusterLabel(payload.cluster),
+    networkLabel: baseNetwork,
+    networkChip,
     from: payload.from ?? "",
     to: payload.to ?? "",
     fromShort: shortMiddle(payload.from ?? ""),
     toShort: shortMiddle(payload.to ?? ""),
     memo: payload.memo,
     signature,
-    explorerUrl: signature ? explorerTxUrl(signature, cluster) : undefined,
+    explorerUrl: signature ? explorerTxUrl(signature, explorerCluster) : undefined,
     statusLabel: status.label,
     statusTone: status.tone,
-    confirmed: payload.status === "confirmed",
-    honesty:
-      payload.cluster === "mainnet-beta"
-        ? "On-chain transfer."
-        : "Devnet transfer. No real funds.",
+    claimedStatus: payload.status,
+    confirmed: status.confirmed,
+    claimDisclaimer: !status.confirmed && impliesSettlement ? PAYMENT_CLAIM_DISCLAIMER : undefined,
+    honesty: honestyLine(payload.cluster, known, status.confirmed),
   };
 }
 
@@ -103,11 +175,20 @@ export interface ToolView {
 
 const TOOL_DISCLAIMER = "Agent-reported. Not a signed on-chain receipt.";
 
+/** Render-side ceiling on any tool text a card holds. A hostile tool_call whose arguments or
+ *  result is multi-megabyte must not reach the view as one giant string, so it is clipped
+ *  here before it becomes a view-model field. */
+export const MAX_TOOL_TEXT_CHARS = 4000;
+
+function clipText(s: string): string {
+  return s.length > MAX_TOOL_TEXT_CHARS ? `${s.slice(0, MAX_TOOL_TEXT_CHARS)}…` : s;
+}
+
 function safeStringify(value: unknown): string {
   try {
-    return JSON.stringify(value, null, 2) ?? String(value);
+    return clipText(JSON.stringify(value, null, 2) ?? String(value));
   } catch {
-    return String(value);
+    return clipText(String(value));
   }
 }
 
@@ -170,7 +251,7 @@ export function toolResultView(payload: ToolResultPayload): ToolView {
   }
   return {
     name: "result",
-    resultText: text || (payload.isError ? "tool error" : "tool result"),
+    resultText: clipText(text) || (payload.isError ? "tool error" : "tool result"),
     isError: !!payload.isError,
     disclaimer: TOOL_DISCLAIMER,
     summary: text ? summarize(raw) : "",

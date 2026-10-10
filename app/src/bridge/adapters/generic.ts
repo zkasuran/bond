@@ -10,8 +10,8 @@ import type {
   GatewayConfig,
   SendTurnInput,
 } from "../adapter";
-import { getStreamingFetch, joinUrl } from "../net";
-import { parseSSE, streamBytes } from "../sse";
+import { allowBearer, getStreamingFetch, joinUrl } from "../net";
+import { BridgeStreamError, bridgeStreamLimits, parseSSE, streamBytes } from "../sse";
 
 interface ToolAcc {
   id?: string;
@@ -25,10 +25,13 @@ export class GenericOpenAIAdapter implements GatewayAdapter {
   protected config: GatewayConfig = { baseUrl: "" };
 
   protected headers(): Record<string, string> {
+    const key = this.config.apiKey;
     return {
       "content-type": "application/json",
       accept: "text/event-stream",
-      ...(this.config.apiKey ? { authorization: `Bearer ${this.config.apiKey}` } : {}),
+      // Only send the bearer over TLS or to a loopback host, never to a remote plaintext
+      // endpoint where an on-path observer could read it.
+      ...(key && allowBearer(this.config.baseUrl) ? { authorization: `Bearer ${key}` } : {}),
       ...(this.config.headers ?? {}),
     };
   }
@@ -97,48 +100,64 @@ export class GenericOpenAIAdapter implements GatewayAdapter {
       return;
     }
 
+    const lim = bridgeStreamLimits();
     let started = false;
     const tools = new Map<number, ToolAcc>();
-    for await (const ev of parseSSE(streamBytes(res.body))) {
-      if (ev.data === "[DONE]") break;
-      let json: any;
-      try {
-        json = JSON.parse(ev.data);
-      } catch {
-        continue;
-      }
-      const choice = json?.choices?.[0];
-      if (!choice) continue;
-      if (!started) {
-        started = true;
-        yield { kind: "turn_start" };
-      }
-      const delta = choice.delta ?? {};
-      if (typeof delta.content === "string" && delta.content.length > 0) {
-        yield { kind: "text", delta: delta.content };
-      }
-      if (Array.isArray(delta.tool_calls)) {
-        for (const tc of delta.tool_calls) {
-          const i: number = tc.index ?? 0;
-          const cur = tools.get(i) ?? { args: "" };
-          if (tc.id) cur.id = tc.id;
-          if (tc.function?.name) cur.name = tc.function.name;
-          if (tc.function?.arguments) cur.args += tc.function.arguments;
-          tools.set(i, cur);
+    try {
+      for await (const ev of parseSSE(streamBytes(res.body))) {
+        if (ev.data === "[DONE]") break;
+        let json: any;
+        try {
+          json = JSON.parse(ev.data);
+        } catch {
+          continue;
         }
-      }
-      if (choice.finish_reason) {
-        for (const tc of tools.values()) {
-          let args: unknown = {};
-          try {
-            args = tc.args ? JSON.parse(tc.args) : {};
-          } catch {
-            args = tc.args;
+        const choice = json?.choices?.[0];
+        if (!choice) continue;
+        if (!started) {
+          started = true;
+          yield { kind: "turn_start" };
+        }
+        const delta = choice.delta ?? {};
+        if (typeof delta.content === "string" && delta.content.length > 0) {
+          yield { kind: "text", delta: delta.content };
+        }
+        if (Array.isArray(delta.tool_calls)) {
+          for (const tc of delta.tool_calls) {
+            const i: number = tc.index ?? 0;
+            if (!tools.has(i) && tools.size >= lim.maxToolCalls) {
+              throw new BridgeStreamError("agent stream exceeded its tool-call count cap");
+            }
+            const cur = tools.get(i) ?? { args: "" };
+            if (tc.id) cur.id = tc.id;
+            if (tc.function?.name) cur.name = tc.function.name;
+            if (tc.function?.arguments) {
+              cur.args += tc.function.arguments;
+              if (cur.args.length > lim.maxToolArgsLen) {
+                throw new BridgeStreamError("agent stream tool-call arguments exceeded their size cap");
+              }
+            }
+            tools.set(i, cur);
           }
-          yield { kind: "tool_call", id: tc.id ?? `call_${tools.size}`, name: tc.name ?? "", args };
         }
-        tools.clear();
+        if (choice.finish_reason) {
+          for (const tc of tools.values()) {
+            let args: unknown = {};
+            try {
+              args = tc.args ? JSON.parse(tc.args) : {};
+            } catch {
+              args = tc.args;
+            }
+            yield { kind: "tool_call", id: tc.id ?? `call_${tools.size}`, name: tc.name ?? "", args };
+          }
+          tools.clear();
+        }
       }
+    } catch (e) {
+      const retryable = e instanceof BridgeStreamError ? e.retryable : true;
+      yield { kind: "error", message: String((e as Error)?.message ?? e), retryable };
+      yield { kind: "done" };
+      return;
     }
     if (!started) yield { kind: "turn_start" };
     yield { kind: "turn_end" };

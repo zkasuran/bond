@@ -95,6 +95,16 @@ describe("computeSplit", () => {
     expect(computeSplit(1_000_000n, 10000)).toMatchObject({ authorAmount: 0n, platformAmount: 1_000_000n });
   });
 
+  it("never floors the creator cut to zero while they are owed a share (F14 LOW)", () => {
+    // One base unit at the default 20% fee used to pay the author 0 and the platform 1.
+    const dust = computeSplit(1n);
+    expect(dust.authorAmount).toBe(1n);
+    expect(dust.platformAmount).toBe(0n);
+    expect(dust.authorAmount + dust.platformAmount).toBe(1n);
+    // A 100% fee still pays the author nothing, which is the explicit no-author-share case.
+    expect(computeSplit(1n, 10000).authorAmount).toBe(0n);
+  });
+
   it("rejects an out-of-range or non-integer fee and a negative total", () => {
     expect(() => computeSplit(100n, -1)).toThrow();
     expect(() => computeSplit(100n, 10001)).toThrow();

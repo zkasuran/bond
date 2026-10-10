@@ -208,16 +208,20 @@ function PartyRow({ label, value }: { label: string; value: string }) {
 }
 
 /** The dedicated receipt card for a payment node. Amount hero, asset and network chips, the
- *  parties, a status pill that pops when it settles and an explorer deep link once a
- *  signature exists. */
+ *  parties, a status pill and an explorer deep link once a signature exists. The settled,
+ *  green affordance appears only after a local on-chain re-check: a payment node is author
+ *  signed but not chain verified, so paymentView defaults to an unverified claim. */
 function PaymentReceipt({ node }: { node: BondNode }) {
   const { c, space, radius } = useTokens();
   if (!isType(node, "payment") || !node.payload) {
     return <Txt variant="body" muted>[payment]</Txt>;
   }
+  // No local chain re-check is wired through this renderer, so the receipt is shown as the
+  // sender's claim. Confirmed/settled is driven by paymentView.confirmed, never by the
+  // attacker-set status field, so a peer cannot paint their node as an on-chain settlement.
   const v = paymentView(node.payload);
   const status = toneColors(v.statusTone, c);
-  const settled = v.statusTone === "verified";
+  const settled = v.confirmed;
   const openExplorer = () => {
     if (v.explorerUrl) void Linking.openURL(v.explorerUrl).catch(() => {});
   };
@@ -252,14 +256,14 @@ function PaymentReceipt({ node }: { node: BondNode }) {
           <Txt variant="callout" muted style={{ marginBottom: 4 }}>{v.asset}</Txt>
           <View
             style={{
-              backgroundColor: c.brandSoft,
+              backgroundColor: settled ? c.brandSoft : c.surfaceAlt,
               paddingHorizontal: space[2],
               paddingVertical: 2,
               borderRadius: radius.pill,
               marginBottom: 5,
             }}
           >
-            <Txt variant="caption" color={c.brand} style={{ fontSize: 12, lineHeight: 16 }}>{v.networkLabel}</Txt>
+            <Txt variant="caption" color={settled ? c.brand : c.textMuted} style={{ fontSize: 12, lineHeight: 16 }}>{v.networkChip}</Txt>
           </View>
         </View>
 
@@ -278,11 +282,16 @@ function PaymentReceipt({ node }: { node: BondNode }) {
           >
             <Ionicons name="open-outline" size={13} color={c.brand} />
             <Txt variant="caption" color={c.brand}>
-              View on Solana Explorer ({v.networkLabel})
+              {settled
+                ? `View on Solana Explorer (${v.networkLabel})`
+                : `Check the sender's signature on Solana Explorer (${v.networkLabel})`}
             </Txt>
           </Pressable>
         ) : null}
 
+        {v.claimDisclaimer ? (
+          <Txt variant="caption" faint style={{ fontSize: 11, lineHeight: 14 }}>{v.claimDisclaimer}</Txt>
+        ) : null}
         <Txt variant="caption" faint style={{ fontSize: 12 }}>{v.honesty}</Txt>
       </View>
     </View>
@@ -312,7 +321,9 @@ function StatusPill({ label, fg, bg, pop }: { label: string; fg: string; bg: str
 
 /** A tool_call or tool_result rendered as a labeled card. Every tool card carries the
  *  agent-reported disclaimer so an agent's claimed balance or signature is never read as a
- *  signed on-chain receipt (that is only the payment card above). */
+ *  signed on-chain receipt. The payment card is only the sender's claim too until its
+ *  signature is re-checked on-chain (see paymentView). Neither card implies settlement on
+ *  its own. */
 function ToolCard({ node }: { node: BondNode }) {
   const { c, space, radius } = useTokens();
   const [open, setOpen] = useState(false);

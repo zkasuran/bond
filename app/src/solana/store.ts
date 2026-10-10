@@ -15,6 +15,7 @@ import {
   type WalletConnection,
 } from "./wallet";
 import { bindWalletToIdentity, loadBinding, type WalletBinding } from "./binding";
+import { loadOrCreateIdentity } from "../identity/storage";
 
 // The MWA session (account + auth token) is cached so a restart does not leave the UI
 // looking connected while every signing call fails for want of a token. MWA's guidance is
@@ -96,6 +97,16 @@ export const useWallet = create<WalletStoreState>((set, get) => ({
     set({ connecting: true, error: null });
     try {
       const conn = await connectWallet();
+      // If this identity is already bound to a wallet, a connect that returns a different
+      // account must not be seated as "you". Reject it rather than silently adopt it.
+      const bound = get().binding;
+      if (bound && bound.walletAddress !== conn.address) {
+        set({
+          connecting: false,
+          error: "This wallet does not match your bound identity. Connect the bound wallet or clear the binding first.",
+        });
+        return null;
+      }
       set({
         connectedAddress: conn.address,
         addressBase64: conn.addressBase64,
@@ -152,12 +163,28 @@ export const useWallet = create<WalletStoreState>((set, get) => ({
   bindIdentity: async (did) => {
     const { connectedAddress, addressBase64, authToken, label } = get();
     try {
+      // Only this device can bind its own did. Load the device identity and refuse a did
+      // that is not its own, so a bind always counter-signs with a key we actually hold.
+      const self = await loadOrCreateIdentity();
+      if (self.identity.did !== did) {
+        set({ error: "Can only bind this device's own identity." });
+        return null;
+      }
       const connection: WalletConnection | undefined =
         connectedAddress && addressBase64 && authToken
           ? { address: connectedAddress, addressBase64, authToken, label: label ?? undefined }
           : undefined;
-      const binding = await bindWalletToIdentity(did, connection);
-      set({ binding, connectedAddress: binding.walletAddress });
+      const { binding, connection: bound } = await bindWalletToIdentity(did, self.secretKey, connection);
+      // Persist the full session the bind signed with, not just the address, so the UI does
+      // not show "connected" over a null token that the next signing call would replay.
+      set({
+        binding,
+        connectedAddress: bound.address,
+        addressBase64: bound.addressBase64,
+        authToken: bound.authToken,
+        label: bound.label ?? null,
+      });
+      await saveSession({ address: bound.address, addressBase64: bound.addressBase64, authToken: bound.authToken, label: bound.label ?? null });
       return binding;
     } catch (e) {
       set({ error: errorMessage(e) });

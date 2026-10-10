@@ -12,10 +12,18 @@
 // queue only once that queue is full. Nothing here signs or weakens a signature.
 import type { BondNode } from "../model/node";
 
-// A node frame larger than this is dropped before it is parsed. The server caps a frame at
-// 64 KB (MAX_NODE_BYTES) so an honest frame is always smaller. This is the guard against a
-// hostile server trying to make the client buffer an unbounded string.
+// A node frame whose UTF-8 size exceeds this is dropped before it is parsed then stored. The
+// server caps a frame at 64 KB (MAX_NODE_BYTES) so an honest frame is always smaller. The
+// platform WebSocket materializes the whole frame before this code runs, so this bounds what
+// the client parses and stores, not what the socket buffers. True pre-receive rejection needs
+// a native max-payload that the browser then React Native WebSocket do not expose.
 export const MAX_INBOUND_BYTES = 64 * 1024;
+
+// Inbound flood ceiling. At most this many node frames are ingested per window; past it a
+// relay's frames are dropped until the window rolls, so a relay cannot grow local storage
+// without bound. Sized well above an honest hello replay plus live traffic for one room.
+export const MAX_INBOUND_NODES_PER_WINDOW = 500;
+export const INBOUND_WINDOW_MS = 10_000;
 
 // Largest number of node frames held while the socket is down. Past this the oldest queued
 // frame is dropped, so a long offline spell cannot grow memory without end. The node stays
@@ -31,6 +39,11 @@ const BACKOFF_JITTER_MS = 250;
 // A socket that never reaches OPEN inside this window is torn down then retried, so a half
 // open connection cannot sit forever.
 const CONNECT_TIMEOUT_MS = 15_000;
+
+// A connection must stay open at least this long before a success resets the backoff. A relay
+// that accepts the socket then closes it at once never clears this bar, so the client keeps
+// backing off instead of spinning at the base delay.
+const STABLE_CONNECTION_MS = 5_000;
 
 // A socket that receives nothing for this long is assumed dead then reconnected. A silently
 // dropped TCP connection fires no close event, so this watchdog is the only thing that
@@ -48,15 +61,39 @@ export function computeBackoff(attempt: number): number {
   const raw = BASE_BACKOFF_MS * 2 ** n;
   return raw < MAX_BACKOFF_MS ? raw : MAX_BACKOFF_MS;
 }
+
+/** True when the UTF-8 byte length of `s` exceeds `cap`. The size check compares bytes, not
+ *  UTF-16 code units, so a multibyte frame cannot carry more than `cap` bytes past a plain
+ *  length check. The loop early-exits once it passes the cap, so it runs at most cap+1 steps
+ *  whatever the string length. */
+function overByteCap(s: string, cap: number): boolean {
+  let bytes = 0;
+  for (let i = 0; i < s.length; i++) {
+    const c = s.charCodeAt(i);
+    if (c < 0x80) bytes += 1;
+    else if (c < 0x800) bytes += 2;
+    else if (c >= 0xd800 && c <= 0xdbff && i + 1 < s.length) {
+      bytes += 4;
+      i += 1; // a surrogate pair is one code point of four UTF-8 bytes
+    } else bytes += 3;
+    if (bytes > cap) return true;
+  }
+  return false;
+}
 /**
  * Derive the sync WebSocket origin from the configured gateway base. The gateway base is an
  * http(s) URL ending in /v1 (see EXPO_PUBLIC_BOND_GATEWAY). Swap the scheme for ws(s) then the
  * /v1 API path for the /sync path the server mounts. A base with no /v1 gets /sync appended.
+ * The scheme match is case-insensitive, https maps to the secure wss, then a base that is not
+ * http(s) is refused rather than passed through unupgraded (a cleartext or junk scheme would
+ * leak the token or build an invalid URL).
  */
 export function syncUrlFromGateway(baseUrl: string): string {
   let s = baseUrl.trim().replace(/\/+$/, "");
-  if (s.startsWith("https://")) s = "wss://" + s.slice("https://".length);
-  else if (s.startsWith("http://")) s = "ws://" + s.slice("http://".length);
+  const scheme = s.slice(0, s.indexOf("://")).toLowerCase();
+  if (scheme === "https") s = "wss://" + s.slice("https://".length);
+  else if (scheme === "http") s = "ws://" + s.slice("http://".length);
+  else throw new Error("sync gateway base must be an http(s) URL");
   if (/\/v1$/.test(s)) s = s.replace(/\/v1$/, "/sync");
   else s = s + "/sync";
   return s;
@@ -102,6 +139,9 @@ export interface SyncClientOptions {
   socketFactory?: (url: string) => SocketLike;
   /** Jitter source for backoff, injectable so a test gets deterministic delays. */
   random?: () => number;
+  /** Clock for the inbound rate window, injectable so a flood test is deterministic.
+   *  Defaults to Date.now. */
+  now?: () => number;
 }
 
 /** True when a WebSocket implementation exists in this runtime. The store checks this before
@@ -143,6 +183,7 @@ export class SyncClient {
   private readonly opts: SyncClientOptions;
   private readonly makeSocket: (url: string) => SocketLike;
   private readonly random: () => number;
+  private readonly now: () => number;
 
   private running = false;
   private socket: SocketLike | null = null;
@@ -151,11 +192,15 @@ export class SyncClient {
   private connectTimer: ReturnType<typeof setTimeout> | null = null;
   private idleTimer: ReturnType<typeof setTimeout> | null = null;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  private stableTimer: ReturnType<typeof setTimeout> | null = null;
+  private windowStart = 0;
+  private windowCount = 0;
 
   constructor(opts: SyncClientOptions) {
     this.opts = opts;
     this.makeSocket = opts.socketFactory ?? defaultSocketFactory;
     this.random = opts.random ?? Math.random;
+    this.now = opts.now ?? (() => Date.now());
   }
 
   start(): void {
@@ -170,6 +215,7 @@ export class SyncClient {
     this.clearTimer("reconnectTimer");
     this.clearTimer("connectTimer");
     this.clearTimer("idleTimer");
+    this.clearTimer("stableTimer");
     const sock = this.socket;
     this.socket = null;
     if (sock) this.safeClose(sock);
@@ -214,7 +260,7 @@ export class SyncClient {
   private handleOpen(sock: SocketLike): void {
     if (sock !== this.socket) return;
     this.clearTimer("connectTimer");
-    this.attempt = 0; // a real open resets the backoff
+    this.armStable(sock); // reset the backoff only once this stays open, not on a bare accept
     this.armIdle();
     void this.sendHello(sock);
     this.flushOutbound(sock);
@@ -225,7 +271,7 @@ export class SyncClient {
     this.armIdle(); // any inbound frame proves the socket is live
     const data = ev?.data;
     if (typeof data !== "string") return; // the client only speaks the JSON text protocol
-    if (data.length > MAX_INBOUND_BYTES) return; // oversized frame dropped before parsing
+    if (overByteCap(data, MAX_INBOUND_BYTES)) return; // oversized frame dropped before parse then store
     let msg: unknown;
     try {
       msg = JSON.parse(data);
@@ -236,6 +282,7 @@ export class SyncClient {
     const m = msg as Record<string, unknown>;
     if (m.type !== "node") return; // hello replay then live fan-out both arrive as node frames
     if (!looksLikeBondNode(m.node, this.opts.roomId)) return;
+    if (this.overInboundRate()) return; // flood: drop past the per-window ceiling
     this.ingest(m.node);
   }
   private ingest(node: BondNode): void {
@@ -248,6 +295,20 @@ export class SyncClient {
       // The Storage port rejected or threw. The gate dropping a node is a normal outcome,
       // never a reason to drop the socket.
     }
+  }
+
+  /** True when the inbound node-frame ceiling for the current window is already reached. The
+   *  window rolls on the injected clock, so a steady honest stream is never blocked but a
+   *  relay flood is capped and the surplus is dropped. */
+  private overInboundRate(): boolean {
+    const t = this.now();
+    if (t - this.windowStart >= INBOUND_WINDOW_MS) {
+      this.windowStart = t;
+      this.windowCount = 0;
+    }
+    if (this.windowCount >= MAX_INBOUND_NODES_PER_WINDOW) return true;
+    this.windowCount += 1;
+    return false;
   }
 
   private async sendHello(sock: SocketLike): Promise<void> {
@@ -285,6 +346,7 @@ export class SyncClient {
     this.socket = null;
     this.clearTimer("connectTimer");
     this.clearTimer("idleTimer");
+    this.clearTimer("stableTimer");
     this.safeClose(sock);
     this.scheduleReconnect();
   }
@@ -316,7 +378,17 @@ export class SyncClient {
     }, IDLE_TIMEOUT_MS);
   }
 
-  private clearTimer(which: "connectTimer" | "idleTimer" | "reconnectTimer"): void {
+  private armStable(sock: SocketLike): void {
+    this.clearTimer("stableTimer");
+    this.stableTimer = setTimeout(() => {
+      this.stableTimer = null;
+      // Only a connection that stayed open this long is treated as real progress, so an
+      // accept-then-close relay never clears the backoff.
+      if (sock === this.socket) this.attempt = 0;
+    }, STABLE_CONNECTION_MS);
+  }
+
+  private clearTimer(which: "connectTimer" | "idleTimer" | "reconnectTimer" | "stableTimer"): void {
     const t = this[which];
     if (t) {
       clearTimeout(t);

@@ -21,6 +21,10 @@ import { branchToLeaf, createSignedNode, maxLamport } from "./engine";
 import { agentMentions, threadToChatMessages } from "../rooms/routing";
 import type { SyncClient } from "../sync/client";
 import { useSkills } from "../skills/registry";
+import { signBytes } from "../identity/keys";
+import { base64urlnopad } from "@scure/base";
+import { useWallet } from "../solana/store";
+import type { WalletBinding } from "../solana/binding";
 
 const BOND_AGENT_DID = "did:bond:assistant";
 const SYSTEM_PROMPT =
@@ -38,6 +42,83 @@ function defaultBondConfig(): GatewayConfig {
     apiKey: process.env.EXPO_PUBLIC_BOND_TOKEN,
     model: process.env.EXPO_PUBLIC_BOND_MODEL,
   };
+}
+
+// A skill claim carries a wallet-ownership proof (F14 HIGH): the device did:key signs a fresh
+// server challenge over the skill id, the purchase signature and the paying wallet, and a
+// one-time wallet-signed binding ties that did:key to the paying wallet. The server rebuilds
+// the message and verifies both signatures against the on-chain payer, so naming the payer is
+// not enough to unlock a skill.
+interface SkillClaimWire {
+  id: string;
+  signature: string;
+  buyer: string;
+  proof: { challenge: string; did: string; didSig: string; binding: WalletBinding };
+}
+
+// The exact bytes the server rebuilds and verifies against the device did:key. Must match
+// server/src/agent/skills.ts claimMessageBytes.
+function skillClaimMessage(id: string, txSignature: string, buyer: string, challenge: string): Uint8Array {
+  return new TextEncoder().encode(
+    [
+      "Bond skill claim v1",
+      `skill: ${id}`,
+      `tx: ${txSignature}`,
+      `buyer: ${buyer}`,
+      `challenge: ${challenge}`,
+    ].join("\n"),
+  );
+}
+
+// Fetch a fresh, short-lived freshness challenge from the Bond gateway. Null on any failure,
+// which makes the caller send no proof, so skills fail closed rather than unlock stale.
+async function fetchSkillChallenge(): Promise<string | null> {
+  try {
+    const cfg = defaultBondConfig();
+    const base = cfg.baseUrl.replace(/\/+$/, "");
+    const res = await fetch(`${base}/agent/skill-challenge`, {
+      headers: cfg.apiKey ? { authorization: `Bearer ${cfg.apiKey}` } : {},
+    });
+    if (!res.ok) return null;
+    const body = (await res.json()) as { challenge?: unknown };
+    return typeof body.challenge === "string" ? body.challenge : null;
+  } catch {
+    return null;
+  }
+}
+
+// Build each installed skill's purchase claim with a fresh wallet-ownership proof. Returns an
+// empty list, so no skill unlocks, whenever ownership cannot be proven: no identity key, no
+// wallet binding for this device, or no fresh challenge. The device did:key signs silently, so
+// this costs no wallet prompt per turn; the wallet signed once, in the stored binding.
+async function buildSkillClaims(
+  identity: Identity | null,
+  secretKey: Uint8Array | null,
+): Promise<SkillClaimWire[]> {
+  if (!identity || !secretKey) return [];
+  await useSkills.getState().load().catch(() => {});
+  const entitlements = Object.values(useSkills.getState().entitlements);
+  if (entitlements.length === 0) return [];
+  await useWallet.getState().loadStoredBinding(identity.did).catch(() => {});
+  const binding = useWallet.getState().binding;
+  if (!binding || binding.did !== identity.did) return [];
+  const challenge = await fetchSkillChallenge();
+  if (!challenge) return [];
+  const claims: SkillClaimWire[] = [];
+  for (const e of entitlements) {
+    // Only a purchase paid by the bound wallet can be proven, so skip any other.
+    if (e.buyer !== binding.walletAddress) continue;
+    const didSig = base64urlnopad.encode(
+      signBytes(skillClaimMessage(e.skillId, e.signature, e.buyer, challenge), secretKey),
+    );
+    claims.push({
+      id: e.skillId,
+      signature: e.signature,
+      buyer: e.buyer,
+      proof: { challenge, did: identity.did, didSig, binding },
+    });
+  }
+  return claims;
 }
 
 // Live /sync sockets, keyed by room. Kept outside the zustand state because a socket is not
@@ -392,8 +473,10 @@ export const useBond = create<BondState>((set, get) => ({
           controller.abort();
         }, INACTIVITY_MS);
       };
-      // Installed skills ride along as purchase proofs; the runtime verifies each on chain.
-      await useSkills.getState().load().catch(() => {});
+      // Build each installed skill's claim with a fresh wallet-ownership proof. The server
+      // verifies the proof against the on-chain payer before unlocking, so a claim that only
+      // names the payer (the explorer-read bypass) unlocks nothing. Fails closed to no skills.
+      const skillClaims = await buildSkillClaims(get().identity, get().secretKey);
       try {
         armInactivity();
         for await (const ev of bridge.adapter.sendTurn({
@@ -401,10 +484,7 @@ export const useBond = create<BondState>((set, get) => ({
           sessionKey: roomId,
           messages,
           signal: controller.signal,
-          skills: Object.values(useSkills.getState().entitlements).map((e) => ({
-            id: e.skillId,
-            signature: e.signature,
-          })),
+          skills: skillClaims,
         })) {
           armInactivity(); // every event resets the inactivity window
           if (ev.kind === "text") {

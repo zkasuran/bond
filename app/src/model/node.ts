@@ -90,9 +90,12 @@ export interface BondNode<T = unknown> {
  *
  *  Structural and semantic fields (refs, causalParent, forkKind, topicId,
  *  collapsedByDefault) are signed too, so a relay cannot rewrite an edge or collapse a
- *  subtree while the node still shows a verified badge. "authorDid" maps to author.did
- *  and "refs" is normalized to a sorted {kind,target} set before hashing (see sign.ts),
- *  so the signature commits to the set of edges rather than their relay order. */
+ *  subtree while the node still shows a verified badge. The whole presented author identity
+ *  is signed, not just the did: "authorDid" maps to author.did, "authorDisplayName" to
+ *  author.displayName and "authorKind" to author.kind (see sign.ts), so a relay cannot keep
+ *  a valid did while relabeling the shown name or flipping the human/agent flag. "refs" is
+ *  normalized to a sorted {kind,target} set before hashing, so the signature commits to the
+ *  set of edges rather than their relay order. */
 export const SIGNED_FIELDS = [
   "id",
   "roomId",
@@ -104,6 +107,8 @@ export const SIGNED_FIELDS = [
   "type",
   "payload",
   "authorDid",
+  "authorDisplayName",
+  "authorKind",
   "lamport",
   "createdAt",
   "collapsedByDefault",

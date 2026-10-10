@@ -6,7 +6,7 @@
 import { Platform } from "react-native";
 import * as SecureStore from "expo-secure-store";
 import { create } from "zustand";
-import { publicKeyToDid, solanaAddressToPublicKey } from "../identity/keys";
+import { didToSolanaAddress, publicKeyToDid, solanaAddressToPublicKey } from "../identity/keys";
 import type { Entitlement, Skill, SkillAuthor } from "./manifest";
 
 const ENTITLEMENTS_KEY = "bond.skills.entitlements";
@@ -20,7 +20,7 @@ function sampleAuthor(wallet: string, displayName: string): SkillAuthor {
 // Four sample skills across the shelves, each really runnable: the Bond runtime unlocks
 // a skill for a turn once it has verified the purchase transaction on chain. Prices sit either side of the default spend
 // gate (1 USDC) so the buy flow exercises both the waved-through and the prompted path.
-export const SKILL_CATALOG: Skill[] = [
+const RAW_SKILL_CATALOG: Skill[] = [
   {
     id: "usdc-price-watcher",
     name: "USDC Price Watcher",
@@ -132,6 +132,36 @@ export const SKILL_CATALOG: Skill[] = [
   },
 ];
 
+// A base58 string with no 0, O, I or l, the alphabet Solana addresses and signatures use.
+const BASE58 = /^[1-9A-HJ-NP-Za-km-z]+$/;
+
+// Validate a catalog entry's shape before it is trusted (F14). There is no signed
+// bond.skill.json ingestion yet, the catalog below is hardcoded, so this is the floor: the
+// required fields are present, the price is a plain decimal, an endpoint is present exactly
+// for the distributions that call out, and the author's did and payout wallet are the same
+// ed25519 key. That did-to-wallet binding was only asserted in a test before, so a future
+// listing could claim a famous creator's did while paying out to its own wallet. A full
+// author signature over the manifest bytes is future work, tracked in the audit report.
+export function isValidSkill(skill: Skill): boolean {
+  if (!skill || typeof skill !== "object") return false;
+  const okStr = (s: unknown): s is string => typeof s === "string" && s.length > 0;
+  if (!okStr(skill.id) || !okStr(skill.name) || !okStr(skill.description)) return false;
+  if (!skill.author || !okStr(skill.author.did) || !okStr(skill.author.wallet)) return false;
+  if (!skill.price || skill.price.asset !== "USDC" || !/^\d+(\.\d+)?$/.test(skill.price.amount)) return false;
+  if (!Array.isArray(skill.tools) || skill.tools.length === 0) return false;
+  const needsEndpoint = skill.distribution === "http" || skill.distribution === "mcp";
+  if (needsEndpoint !== (typeof skill.endpoint === "string")) return false;
+  try {
+    return didToSolanaAddress(skill.author.did) === skill.author.wallet;
+  } catch {
+    return false;
+  }
+}
+
+// The catalog that ships is the validated one, so an entry that fails the shape or the
+// did-to-wallet binding never reaches the market or a purchase.
+export const SKILL_CATALOG: Skill[] = RAW_SKILL_CATALOG.filter(isValidSkill);
+
 // Persist entitlements. SecureStore is native only, so fall back to localStorage on web
 // the same way the identity and protection stores do rather than crashing.
 async function persistGet(key: string): Promise<string | null> {
@@ -164,7 +194,16 @@ function isEntitlement(v: unknown): v is Entitlement {
     typeof e.skillId === "string" &&
     typeof e.signature === "string" &&
     typeof e.buyer === "string" &&
-    typeof e.amount === "string"
+    typeof e.amount === "string" &&
+    // F14 LOW: the local cache is only a display hint, the server's on-chain re-check is the
+    // authority, but still reject a row whose signature or buyer is not even the right shape
+    // so a hand-written localStorage value cannot pose as a settled purchase in the UI.
+    e.signature.length >= 64 &&
+    e.signature.length <= 90 &&
+    BASE58.test(e.signature) &&
+    e.buyer.length >= 32 &&
+    e.buyer.length <= 44 &&
+    BASE58.test(e.buyer)
   );
 }
 

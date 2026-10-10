@@ -9,7 +9,7 @@ import type {
   SendTurnInput,
 } from "../adapter";
 import { getStreamingFetch, joinUrl } from "../net";
-import { parseSSE, streamBytes } from "../sse";
+import { BridgeStreamError, bridgeStreamLimits, parseSSE, streamBytes } from "../sse";
 import { GenericOpenAIAdapter } from "./generic";
 
 const EVENT_KINDS = new Set([
@@ -22,14 +22,54 @@ const EVENT_KINDS = new Set([
   "done",
 ]);
 
+const isString = (v: unknown): v is string => typeof v === "string";
+const optStr = (v: unknown): boolean => v === undefined || typeof v === "string";
+const optBool = (v: unknown): boolean => v === undefined || typeof v === "boolean";
+
+/** True when a value serializes to at most `cap` characters. A circular or unserializable
+ *  value fails closed. */
+function withinSize(v: unknown, cap: number): boolean {
+  if (v === null || v === undefined) return true;
+  if (typeof v === "string") return v.length <= cap;
+  try {
+    return JSON.stringify(v).length <= cap;
+  } catch {
+    return false;
+  }
+}
+
 // Validate a parsed server event at the trust boundary before it enters Bond's core. The
-// gateway is ours but the bytes on the wire are untrusted, so a null, a non-object or an
-// unknown `kind` is dropped rather than yielded, which would otherwise crash a consumer that
-// switches on `ev.kind`.
+// gateway is ours but the bytes on the wire are untrusted, so the full AdapterEvent shape is
+// checked per kind: required fields, their types, and a size cap on any payload. A null, a
+// non-object, an unknown kind, a wrong-typed or oversized field is dropped rather than
+// yielded, which would otherwise feed a consumer that switches on `ev.kind` a malformed or
+// memory-exhausting event. A `tool_result` that passes here is still only agent-reported: the
+// bridge cannot settle a payment, so the on-chain signature check in the model/render layer is
+// what makes it authentic, and this adapter never treats it as a settled fact.
 function isAdapterEvent(value: unknown): value is AdapterEvent {
   if (!value || typeof value !== "object") return false;
-  const kind = (value as { kind?: unknown }).kind;
-  return typeof kind === "string" && EVENT_KINDS.has(kind);
+  const v = value as Record<string, unknown>;
+  const kind = v.kind;
+  if (typeof kind !== "string" || !EVENT_KINDS.has(kind)) return false;
+  const cap = bridgeStreamLimits().maxEventDataLen;
+  switch (kind) {
+    case "turn_start":
+      return optStr(v.runId) && optStr(v.agentId);
+    case "text":
+      return isString(v.delta) && v.delta.length <= cap;
+    case "tool_call":
+      return isString(v.id) && isString(v.name) && "args" in v && withinSize(v.args, cap);
+    case "tool_result":
+      return isString(v.id) && "result" in v && optBool(v.isError) && withinSize(v.result, cap);
+    case "turn_end":
+      return optStr(v.runId);
+    case "error":
+      return isString(v.message) && typeof v.retryable === "boolean";
+    case "done":
+      return true;
+    default:
+      return false;
+  }
 }
 
 export class BondOwnGatewayAdapter extends GenericOpenAIAdapter {
@@ -84,17 +124,24 @@ export class BondOwnGatewayAdapter extends GenericOpenAIAdapter {
       return;
     }
 
-    for await (const ev of parseSSE(streamBytes(res.body))) {
-      if (!ev.data) continue;
-      let parsed: unknown;
-      try {
-        parsed = JSON.parse(ev.data);
-      } catch {
-        continue;
+    try {
+      for await (const ev of parseSSE(streamBytes(res.body))) {
+        if (!ev.data) continue;
+        let parsed: unknown;
+        try {
+          parsed = JSON.parse(ev.data);
+        } catch {
+          continue;
+        }
+        if (!isAdapterEvent(parsed)) continue; // drop anything that is not a well-formed event
+        yield parsed;
+        if (parsed.kind === "done") return;
       }
-      if (!isAdapterEvent(parsed)) continue; // drop anything that is not a known event
-      yield parsed;
-      if (parsed.kind === "done") return;
+    } catch (e) {
+      const retryable = e instanceof BridgeStreamError ? e.retryable : true;
+      yield { kind: "error", message: String((e as Error)?.message ?? e), retryable };
+      yield { kind: "done" };
+      return;
     }
     yield { kind: "done" };
   }

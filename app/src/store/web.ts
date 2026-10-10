@@ -21,18 +21,46 @@ const KV_INDEX_KEY = "bond:kvkeys";
 const MAX_NODES_PER_ROOM = 100_000;
 const MAX_ROOMS = 10_000;
 const MAX_KV_KEYS = 10_000;
+// A single key-value entry holds small app state (room metadata, flags, bridge config). A
+// value past this is treated as corrupt or hostile then read as absent, never parsed whole.
+const MAX_KV_VALUE_CHARS = 1_000_000;
 
 /** Parse a JSON array from untrusted storage. Returns [] on anything that is not a
- *  well-formed array. Truncates to `cap` so a huge value cannot exhaust memory. */
-function parseArray<T>(raw: string | null, cap: number): T[] {
+ *  well-formed array. Truncates to `cap` so a huge value cannot exhaust memory. When an item
+ *  guard is given, each item is validated and the junk is dropped, so a well-formed array of
+ *  malformed items (for example [null,null] or [{}]) can never reach a read path that
+ *  dereferences a node's fields. */
+function parseArray<T>(raw: string | null, cap: number, isItem?: (x: unknown) => x is T): T[] {
   if (!raw) return [];
   try {
     const parsed: unknown = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
-    return (parsed.length > cap ? parsed.slice(0, cap) : parsed) as T[];
+    const items: unknown[] = parsed.length > cap ? parsed.slice(0, cap) : parsed;
+    if (!isItem) return items as T[];
+    return items.filter(isItem);
   } catch {
     return [];
   }
+}
+
+function isString(x: unknown): x is string {
+  return typeof x === "string";
+}
+
+/** True when a parsed item carries the minimum shape every read path dereferences: a
+ *  non-empty string id and roomId, a finite lamport, a null or string parentId, then an
+ *  author.did string. compareNodes, maxLamport then presentableOnRead all read these, so an
+ *  item that fails this is dropped before it can throw. */
+function isStoredNode(x: unknown): x is BondNode {
+  if (!x || typeof x !== "object") return false;
+  const n = x as Record<string, unknown>;
+  if (typeof n.id !== "string" || n.id.length === 0) return false;
+  if (typeof n.roomId !== "string") return false;
+  if (typeof n.lamport !== "number" || !Number.isFinite(n.lamport)) return false;
+  if (!(n.parentId === null || typeof n.parentId === "string")) return false;
+  const author = n.author as Record<string, unknown> | undefined;
+  if (!author || typeof author.did !== "string") return false;
+  return true;
 }
 
 /** The small slice of the localStorage API this adapter uses. */
@@ -49,7 +77,11 @@ export class WebStorage implements Storage {
   }
 
   private readNodes(store: WebStore, roomId: string): BondNode[] {
-    return parseArray<BondNode>(store.getItem(NODES_PREFIX + roomId), MAX_NODES_PER_ROOM);
+    return parseArray<BondNode>(
+      store.getItem(NODES_PREFIX + roomId),
+      MAX_NODES_PER_ROOM,
+      isStoredNode,
+    );
   }
 
   private writeNodes(store: WebStore, roomId: string, nodes: BondNode[]): void {
@@ -57,7 +89,7 @@ export class WebStorage implements Storage {
   }
 
   private readRooms(store: WebStore): string[] {
-    return parseArray<string>(store.getItem(ROOMS_KEY), MAX_ROOMS);
+    return parseArray<string>(store.getItem(ROOMS_KEY), MAX_ROOMS, isString);
   }
 
   private trackRoom(store: WebStore, roomId: string): void {
@@ -135,7 +167,7 @@ export class WebStorage implements Storage {
   }
 
   private readKvKeys(store: WebStore): string[] {
-    return parseArray<string>(store.getItem(KV_INDEX_KEY), MAX_KV_KEYS);
+    return parseArray<string>(store.getItem(KV_INDEX_KEY), MAX_KV_KEYS, isString);
   }
 
   private trackKvKey(store: WebStore, key: string): void {
@@ -159,6 +191,7 @@ export class WebStorage implements Storage {
     if (!store) return null;
     const raw = store.getItem(KV_PREFIX + key);
     if (raw === null) return null;
+    if (raw.length > MAX_KV_VALUE_CHARS) return null; // an over-ceiling value reads as absent
     try {
       return JSON.parse(raw) as T;
     } catch {

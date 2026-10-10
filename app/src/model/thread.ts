@@ -2,6 +2,14 @@
 // model types, so this is the most heavily unit-tested part of Bond. See DESIGN.md sec 2.
 import type { BondNode } from "./node";
 import type { TokenDeltaPayload, TypedNode } from "./messages";
+import { isValidPayload } from "./messages";
+
+/** Hard ceiling on render depth. A relayed set of validly signed nodes can form an
+ *  arbitrarily deep parent chain, so flattenForRender walks with an explicit stack, never
+ *  the call stack. It stops descending past this depth. A real thread never approaches it,
+ *  so this only caps a hostile chain that would otherwise overflow the stack and blank the
+ *  room. */
+const MAX_RENDER_DEPTH = 10_000;
 
 /**
  * Total order consistent with causality: Lamport clock first, ties broken by signer
@@ -92,34 +100,47 @@ export interface RenderRow {
 }
 
 /** Flatten the forest into an ordered render list, honoring a collapsed set. A
- *  collapsed node still renders; its subtree is skipped and counted. Pure, so the UI
- *  stays dumb and this stays testable. */
+ *  collapsed node still renders; its subtree is skipped and counted. Walks with an explicit
+ *  stack and a depth cap, so a long parent chain cannot overflow the call stack. Pure, so
+ *  the UI stays dumb and this stays testable. */
 export function flattenForRender(
   forest: Forest,
   collapsed: ReadonlySet<string> = new Set(),
 ): RenderRow[] {
   const rows: RenderRow[] = [];
-  const walk = (node: BondNode, depth: number) => {
+  const stack: { node: BondNode; depth: number }[] = [];
+  // Push roots in reverse so the first root is processed first, pre-order.
+  for (let i = forest.roots.length - 1; i >= 0; i--) {
+    stack.push({ node: forest.roots[i], depth: 0 });
+  }
+  while (stack.length) {
+    const { node, depth } = stack.pop() as { node: BondNode; depth: number };
     const kids = forest.childrenOf.get(node.id) ?? [];
     const isCollapsed =
       collapsed.has(node.id) || (node.collapsedByDefault && !collapsed.has("!" + node.id));
     if (isCollapsed && kids.length) {
       rows.push({ node, depth, hiddenCount: collectSubtree(node.id, forest).length - 1 });
-      return;
+      continue;
     }
     rows.push({ node, depth, hiddenCount: 0 });
-    for (const k of kids) walk(k, depth + 1);
-  };
-  for (const r of forest.roots) walk(r, 0);
+    // Stop descending past the cap. Children are pushed in reverse so the leftmost renders
+    // next, which reproduces the pre-order a recursive walk gave.
+    if (depth < MAX_RENDER_DEPTH) {
+      for (let i = kids.length - 1; i >= 0; i--) stack.push({ node: kids[i], depth: depth + 1 });
+    }
+  }
   return rows;
 }
 
-/** Concatenate token_delta nodes for one streaming target on a channel, in seq order. */
+/** Concatenate token_delta nodes for one streaming target on a channel, in seq order. A
+ *  node's payload is signed but still attacker-chosen, so a delta whose payload is not a
+ *  valid token_delta shape is skipped rather than dereferenced. */
 export function assembleTokenStream(
   deltas: TypedNode<"token_delta">[],
   channel: NonNullable<TokenDeltaPayload["channel"]> = "text",
 ): { text: string; done: boolean } {
   const rel = deltas
+    .filter((d) => isValidPayload("token_delta", d.payload))
     .filter((d) => (d.payload.channel ?? "text") === channel)
     .sort((a, b) => a.payload.seq - b.payload.seq);
   return {

@@ -15,6 +15,24 @@ import { Connection } from "@solana/web3.js";
 
 const ANTHROPIC_DEFAULT_MODEL = "claude-3-5-sonnet-latest";
 
+// A client may ask for a provider and a model, but only from these lists. Anything
+// else is rejected so a holder of the shared bearer cannot point the server's paid
+// key at an arbitrary, costly upstream model. limits.ts is owned by another
+// engineer right now, so the allowlists live here as local named constants. The
+// server's own configured default is trusted and never checked against these.
+const ALLOWED_PROVIDERS = new Set(["openai", "anthropic"]);
+const ALLOWED_MODELS = new Set<string>([
+  "gpt-4o-mini",
+  "gpt-4o",
+  "gpt-4.1-mini",
+  "claude-3-5-sonnet-latest",
+  "claude-3-5-haiku-latest",
+]);
+
+// Longest run of recovered text emitted when a <think> block is never closed, so
+// a lost answer or refusal is surfaced without buffering an unbounded stream.
+const THINK_RECOVERY_MAX = 16 * 1024;
+
 // The agent's system prompt is fixed on the server. It is never taken from the
 // client request body, so a caller cannot redefine the agent's role or try to
 // talk it past the spend caps. The caps themselves are enforced in code in
@@ -33,6 +51,14 @@ export const BOND_SYSTEM_PROMPT = [
 // Resolve a LanguageModel from a provider name and an optional model id. Throws
 // a clear error when the selected provider has no key configured.
 export function resolveModel(provider?: string, model?: string): LanguageModel {
+  // Validate only what the client supplied. A request that names a provider or a
+  // model off the allowlist is rejected before any upstream call is made.
+  if (provider !== undefined && !ALLOWED_PROVIDERS.has(provider.toLowerCase())) {
+    throw new Error(`provider ${provider} is not allowed`);
+  }
+  if (model !== undefined && !ALLOWED_MODELS.has(model)) {
+    throw new Error(`model ${model} is not allowed`);
+  }
   const name = (provider ?? config.aiProvider).toLowerCase();
   if (name === "anthropic") {
     if (!config.anthropicApiKey) throw new Error("ANTHROPIC_API_KEY is not set");
@@ -78,6 +104,11 @@ export function makeThinkStripper(): { feed(delta: string): string; flush(): str
   const CLOSE = "</think>";
   let inThink = false;
   let buf = "";
+  // Content seen inside the current think block. Dropped when the block closes
+  // normally, but surfaced on flush if the block is never closed, so a truncated
+  // or malformed stream does not swallow a real answer or a refusal. Bounded to
+  // the most recent THINK_RECOVERY_MAX chars so a runaway block cannot grow it.
+  let thinkBuf = "";
   // Longest suffix of s that is a proper prefix of tag, so a tag split across
   // chunks is held back rather than emitted or mistaken for real text.
   const partialLen = (s: string, tag: string): number => {
@@ -102,22 +133,33 @@ export function makeThinkStripper(): { feed(delta: string): string; flush(): str
         out += buf.slice(0, i);
         buf = buf.slice(i + OPEN.length);
         inThink = true;
+        thinkBuf = "";
       } else {
         const j = buf.indexOf(CLOSE);
         if (j === -1) {
-          buf = buf.slice(buf.length - partialLen(buf, CLOSE));
+          const keep = partialLen(buf, CLOSE);
+          thinkBuf += buf.slice(0, buf.length - keep);
+          if (thinkBuf.length > THINK_RECOVERY_MAX) {
+            thinkBuf = thinkBuf.slice(thinkBuf.length - THINK_RECOVERY_MAX);
+          }
+          buf = buf.slice(buf.length - keep);
           break;
         }
         buf = buf.slice(j + CLOSE.length);
         inThink = false;
+        thinkBuf = "";
       }
     }
     return out;
   };
-  // Any buffered text that is not inside a think block is real output.
+  // Any text left outside a think block is real output. Text left inside a think
+  // block that never closed is surfaced too, rather than dropped, so the answer or
+  // refusal is never lost.
   const flush = (): string => {
-    const rest = inThink ? "" : buf;
+    const rest = inThink ? thinkBuf : buf;
     buf = "";
+    thinkBuf = "";
+    inThink = false;
     return rest;
   };
   return { feed, flush };

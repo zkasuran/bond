@@ -32,3 +32,16 @@ test("buildCsp allows exactly self plus the hashes, never unsafe-inline scripts"
   assert.ok(!scriptSrc.includes("unsafe-inline"));
   assert.match(csp, /frame-ancestors 'none'/);
 });
+
+test("buildCsp keeps default-src none and the exact connect-src allowlist", () => {
+  const csp = buildCsp([]);
+  assert.match(csp, /^default-src 'none';/);
+  const connectSrc = /connect-src ([^;]+);/.exec(csp)?.[1] ?? "";
+  assert.equal(
+    connectSrc,
+    "'self' https://api.devnet.solana.com https://api.mainnet-beta.solana.com https://lite-api.jup.ag",
+  );
+  assert.match(csp, /object-src 'none'/);
+  assert.match(csp, /base-uri 'none'/);
+  assert.match(csp, /form-action 'none'/);
+});

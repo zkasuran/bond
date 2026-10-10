@@ -14,8 +14,8 @@ import type {
   GatewayConfig,
   SendTurnInput,
 } from "../adapter";
-import { getStreamingFetch, joinUrl } from "../net";
-import { parseSSE, streamBytes } from "../sse";
+import { allowBearer, getStreamingFetch, joinUrl } from "../net";
+import { BridgeStreamError, parseSSE, streamBytes } from "../sse";
 
 function tryJSON(s: string): any {
   try {
@@ -31,10 +31,12 @@ export class HermesAdapter implements GatewayAdapter {
   private config: GatewayConfig = { baseUrl: "http://localhost:8642/v1" };
 
   private headers(): Record<string, string> {
+    const key = this.config.apiKey;
     return {
       "content-type": "application/json",
       accept: "text/event-stream",
-      ...(this.config.apiKey ? { authorization: `Bearer ${this.config.apiKey}` } : {}),
+      // Only send the bearer over TLS or to a loopback host, never a remote plaintext endpoint.
+      ...(key && allowBearer(this.config.baseUrl) ? { authorization: `Bearer ${key}` } : {}),
       ...(this.config.headers ?? {}),
     };
   }
@@ -98,46 +100,53 @@ export class HermesAdapter implements GatewayAdapter {
       return;
     }
 
-    for await (const ev of parseSSE(streamBytes(evRes.body))) {
-      if (ev.data === "[DONE]") break;
-      const data = tryJSON(ev.data) ?? {};
-      const type = ev.event ?? data.type ?? data.event;
-      switch (type) {
-        case "run.started":
-          break;
-        case "assistant.delta":
-        case "message.delta": {
-          const delta = data.delta ?? data.content ?? "";
-          if (delta) yield { kind: "text", delta: String(delta) };
-          break;
+    try {
+      for await (const ev of parseSSE(streamBytes(evRes.body))) {
+        if (ev.data === "[DONE]") break;
+        const data = tryJSON(ev.data) ?? {};
+        const type = ev.event ?? data.type ?? data.event;
+        switch (type) {
+          case "run.started":
+            break;
+          case "assistant.delta":
+          case "message.delta": {
+            const delta = data.delta ?? data.content ?? "";
+            if (delta) yield { kind: "text", delta: String(delta) };
+            break;
+          }
+          case "tool.started":
+            yield {
+              kind: "tool_call",
+              id: data.id ?? data.tool_call_id ?? "",
+              name: data.name ?? "",
+              args: data.arguments ?? data.args ?? {},
+            };
+            break;
+          case "tool.completed":
+          case "tool.failed":
+            yield {
+              kind: "tool_result",
+              id: data.id ?? data.tool_call_id ?? "",
+              result: data.result ?? data.output ?? null,
+              isError: type === "tool.failed",
+            };
+            break;
+          case "run.completed":
+            yield { kind: "turn_end", runId };
+            break;
+          case "run.failed":
+          case "error":
+            yield { kind: "error", message: data.message ?? "Hermes run error", retryable: false };
+            break;
+          default:
+            break;
         }
-        case "tool.started":
-          yield {
-            kind: "tool_call",
-            id: data.id ?? data.tool_call_id ?? "",
-            name: data.name ?? "",
-            args: data.arguments ?? data.args ?? {},
-          };
-          break;
-        case "tool.completed":
-        case "tool.failed":
-          yield {
-            kind: "tool_result",
-            id: data.id ?? data.tool_call_id ?? "",
-            result: data.result ?? data.output ?? null,
-            isError: type === "tool.failed",
-          };
-          break;
-        case "run.completed":
-          yield { kind: "turn_end", runId };
-          break;
-        case "run.failed":
-        case "error":
-          yield { kind: "error", message: data.message ?? "Hermes run error", retryable: false };
-          break;
-        default:
-          break;
       }
+    } catch (e) {
+      const retryable = e instanceof BridgeStreamError ? e.retryable : true;
+      yield { kind: "error", message: String((e as Error)?.message ?? e), retryable };
+      yield { kind: "done" };
+      return;
     }
     yield { kind: "done" };
   }

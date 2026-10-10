@@ -1,10 +1,13 @@
 import * as SecureStore from "expo-secure-store";
 import * as LA from "expo-local-authentication";
 import {
+  authorizePolicyChange,
   clearAuthCache,
   getLastAuthAt,
   isWithinGrace,
+  markPinEnrolledInSession,
   pinLockoutMs,
+  pinLockoutRemainingMs,
   requireAuth,
   setPin,
   setPinPrompter,
@@ -295,5 +298,201 @@ describe("PIN attempt limiter", () => {
     setPinPrompter(async () => "0000");
     const afterReset = await requireAuth("spend", { amountUsdc: 5, policy: p, force: true });
     expect(afterReset.outcome).toBe("failed");
+  });
+});
+
+describe("PIN lockout monotonic clock", () => {
+  it("does not clear a lockout when the device wall clock jumps forward", async () => {
+    const p = policyWith({ methods: { spend: "pin" }, spendThresholdUsdc: 0 });
+    await setPin("1357");
+    // Drive monotonic time by hand so advancing the wall clock (Date.now) can be shown not to
+    // touch the lockout. Manual swap and restore, because a jest spy on performance.now does not
+    // restore cleanly in this environment.
+    let mono = 1000;
+    const realPerfNow = performance.now.bind(performance);
+    const realDateNow = Date.now;
+    performance.now = () => mono;
+    try {
+      setPinPrompter(async () => "0000"); // always wrong
+      let last;
+      for (let i = 0; i < 5; i++) {
+        last = await requireAuth("spend", { amountUsdc: 5, policy: p, force: true });
+      }
+      expect(last!.outcome).toBe("locked_out");
+
+      // The attacker turns off automatic time and winds the clock ten years forward.
+      Date.now = () => realDateNow() + 10 * 365 * 24 * 3600 * 1000;
+      setPinPrompter(async () => "1357"); // correct, but the monotonic lockout still holds
+      const stillLocked = await requireAuth("spend", { amountUsdc: 5, policy: p, force: true });
+      expect(stillLocked.outcome).toBe("locked_out");
+
+      // Only real elapsed time, measured monotonically, clears it.
+      mono += 30 * 60 * 1000;
+      const cleared = await requireAuth("spend", { amountUsdc: 5, policy: p, force: true });
+      expect(cleared.outcome).toBe("granted");
+    } finally {
+      performance.now = realPerfNow;
+      Date.now = realDateNow;
+    }
+  });
+});
+
+describe("PIN attempt counter atomicity", () => {
+  it("counts every concurrent wrong PIN so overlapping guesses cannot defeat the lockout", async () => {
+    const p = policyWith({ methods: { spend: "pin" }, spendThresholdUsdc: 0 });
+    await setPin("1357");
+    const N = 5;
+    let entered = 0;
+    let release!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+    // Hold every flow at the prompt until all N are past the counter read, then let them all guess
+    // wrong at once. A stale read-modify-write would record a single failure for the whole burst.
+    setPinPrompter(async () => {
+      entered += 1;
+      if (entered === N) release();
+      await gate;
+      return "0000";
+    });
+    const results = await Promise.all(
+      Array.from({ length: N }, () =>
+        requireAuth("spend", { amountUsdc: 5, policy: p, force: true }),
+      ),
+    );
+    expect(results.every((r) => !r.ok)).toBe(true);
+    expect(await pinLockoutRemainingMs()).toBeGreaterThan(0);
+
+    setPinPrompter(async () => "1357"); // correct, but the burst must have tripped the lockout
+    const after = await requireAuth("spend", { amountUsdc: 5, policy: p, force: true });
+    expect(after.outcome).toBe("locked_out");
+  });
+});
+
+describe("stored PIN record", () => {
+  it("stretches the PIN with a slow salted KDF, not a bare digest", async () => {
+    await setPin("1357");
+    const rec = JSON.parse(store.get("bond.protection.pin")!);
+    expect(rec.v).toBe(2);
+    expect(rec.kdf).toBe("scrypt");
+    expect(rec.N).toBeGreaterThanOrEqual(1 << 14);
+    expect(typeof rec.salt).toBe("string");
+    expect(typeof rec.hash).toBe("string");
+    // The old shape was a single SHA-256 of `${salt}:${pin}`; the KDF digest is not that.
+    expect(rec.hash).not.toBe(`digest(${rec.salt}:1357)`);
+  });
+});
+
+describe("spend grace is amount scoped", () => {
+  it("re-prompts for a spend larger than the amount last approved", async () => {
+    const p = policyWith({
+      methods: { spend: "biometric" },
+      spendThresholdUsdc: 1,
+      reauthWindowSec: 60,
+    });
+    const first = await requireAuth("spend", { amountUsdc: 1, policy: p });
+    expect(first.outcome).toBe("granted");
+    expect(auth).toHaveBeenCalledTimes(1);
+
+    // A larger spend inside the window must prompt again, not ride the small approval.
+    const bigger = await requireAuth("spend", { amountUsdc: 500, policy: p });
+    expect(bigger.outcome).toBe("granted");
+    expect(auth).toHaveBeenCalledTimes(2);
+
+    // A spend at or below the amount last approved still rides the grace.
+    const smaller = await requireAuth("spend", { amountUsdc: 10, policy: p });
+    expect(smaller.outcome).toBe("grace");
+    expect(auth).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("authorizePolicyChange", () => {
+  it("lets a strengthening change through with no prompt", async () => {
+    const current = policyWith({ methods: { spend: "pin" }, spendThresholdUsdc: 50 });
+    const next = policyWith({ methods: { spend: "biometric" }, spendThresholdUsdc: 50 });
+    const r = await authorizePolicyChange(current, next);
+    expect(r.ok).toBe(true);
+    expect(auth).not.toHaveBeenCalled();
+  });
+
+  it("requires the current factor before a downgrade and blocks it when auth fails", async () => {
+    const current = policyWith({ methods: { spend: "biometric" } });
+    const next = policyWith({ methods: { spend: "none" } });
+    auth.mockResolvedValueOnce({ success: false, error: "authentication_failed" });
+    const blocked = await authorizePolicyChange(current, next);
+    expect(blocked.ok).toBe(false);
+    expect(auth).toHaveBeenCalledTimes(1);
+  });
+
+  it("applies a downgrade once the current factor is proven", async () => {
+    const current = policyWith({ methods: { spend: "biometric" } });
+    const next = policyWith({ methods: { spend: "none" } });
+    const ok = await authorizePolicyChange(current, next);
+    expect(ok.ok).toBe(true);
+    expect(auth).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("PIN lockout survives an attempts-store reset", () => {
+  it("fails closed when the attempts record is deleted while a PIN is enrolled", async () => {
+    const p = policyWith({ methods: { spend: "pin" }, spendThresholdUsdc: 0 });
+    await setPin("1357");
+    setPinPrompter(async () => "0000"); // wrong, drive into a lockout the normal way
+    for (let i = 0; i < 5; i++) await requireAuth("spend", { amountUsdc: 5, policy: p, force: true });
+    // The attacker deletes the unprotected attempts key to wipe the lockout, leaving the PIN record
+    // in place to keep guessing against. loadAttempts must not hand back a fresh clean slate.
+    store.delete("bond.protection.pin.attempts");
+    setPinPrompter(async () => "1357"); // even the correct PIN stays gated after the reset
+    const after = await requireAuth("spend", { amountUsdc: 5, policy: p, force: true });
+    expect(after.ok).toBe(false);
+    expect(after.outcome).toBe("locked_out");
+  });
+});
+
+describe("PIN hard ceiling is atomic with consuming an attempt", () => {
+  it("does not let a concurrent burst all pass the ceiling on one stale count", async () => {
+    const p = policyWith({ methods: { spend: "pin" }, spendThresholdUsdc: 0 });
+    await setPin("1357");
+    // Seed one below the hard ceiling of 10, so only one more guess may be tried before the
+    // permanent lock. A check-to-act gate would wave the whole burst past on this stale count.
+    store.set("bond.protection.pin.attempts", JSON.stringify({ failed: 9, lockUntilMono: 0 }));
+    let promptCount = 0;
+    let release!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+    setPinPrompter(async () => {
+      promptCount += 1;
+      await gate;
+      return "0000"; // wrong
+    });
+    const pending = Promise.all(
+      Array.from({ length: 5 }, () => requireAuth("spend", { amountUsdc: 5, policy: p, force: true })),
+    );
+    // Let every flow reach either the prompt or an atomic denial, then release the held prompt.
+    await new Promise((r) => setTimeout(r, 0));
+    release();
+    const results = await pending;
+    // The reservation lets through only the single attempt the ceiling still allows.
+    expect(promptCount).toBe(1);
+    expect(results.every((r) => !r.ok)).toBe(true);
+  });
+});
+
+describe("authorizePolicyChange rejects a factor enrolled this session", () => {
+  it("refuses a downgrade proven only by a PIN set in this session with no prior factor", async () => {
+    hasHw.mockResolvedValue(false); // no biometric, so the app PIN is the only possible factor
+    await setPin("0000");
+    // The attacker bootstrapped this PIN through the lock screen, which unlocked with no proof of
+    // prior ownership. That enrollment must not then authenticate switching protection off.
+    markPinEnrolledInSession();
+    setPinPrompter(async () => "0000");
+    const blocked = await authorizePolicyChange(policyWith(), policyWith({ methods: { spend: "none" } }));
+    expect(blocked.ok).toBe(false);
+    expect(auth).not.toHaveBeenCalled();
+  });
+
+  it("allows the same downgrade when the PIN pre-existed this session", async () => {
+    hasHw.mockResolvedValue(false);
+    await setPin("0000"); // a PIN carried over from a previous session, the session flag is not set
+    setPinPrompter(async () => "0000");
+    const ok = await authorizePolicyChange(policyWith(), policyWith({ methods: { spend: "none" } }));
+    expect(ok.ok).toBe(true);
   });
 });

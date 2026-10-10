@@ -29,6 +29,7 @@ export function WalletConnectButton({
   const available = useWallet((s) => s.available);
   const connecting = useWallet((s) => s.connecting);
   const address = useWallet((s) => s.connectedAddress);
+  const authToken = useWallet((s) => s.authToken);
   const label = useWallet((s) => s.label);
   const error = useWallet((s) => s.error);
   const connect = useWallet((s) => s.connect);
@@ -50,7 +51,9 @@ export function WalletConnectButton({
     );
   }
 
-  if (address) {
+  // "Connected" needs a live auth token, not an address alone. A restored address with a
+  // null token cannot sign, so showing it as connected would offer actions that fail.
+  if (address && authToken) {
     return (
       <View style={[{ gap: space[2] }, style]}>
         <View

@@ -13,6 +13,12 @@ import {
   SYNC_UPGRADE_BURST,
   SYNC_UPGRADE_PER_SEC,
   MAX_RATE_LIMIT_KEYS,
+  MAX_SOCKET_BUFFER_BYTES,
+  SOCKET_DRAIN_TIMEOUT_MS,
+  SOCKET_DRAIN_POLL_MS,
+  MAX_SOCKETS_PER_ROOM,
+  MAX_TOTAL_SOCKETS,
+  MAX_TOTAL_STORE_BYTES,
   TokenBucket,
   KeyedRateLimiter,
 } from "./limits.js";
@@ -31,6 +37,13 @@ export interface SyncNode {
 // room holds no memory.
 const store = new Map<string, Map<string, SyncNode>>();
 const members = new Map<string, Set<WebSocket>>();
+
+// Total bytes retained across every room's store, plus the count of live
+// sockets. Both are tracked so a global ceiling can be enforced that the
+// per-room limits alone cannot (the per-room and per-node ceilings would
+// otherwise multiply into an unbounded total).
+let totalStoreBytes = 0;
+let liveSockets = 0;
 
 // Per-IP cap on how fast one address can open sync sockets.
 const upgradeLimiter = new KeyedRateLimiter(
@@ -57,6 +70,104 @@ function roomMembers(room: string): Set<WebSocket> {
   return s;
 }
 
+function byteLen(s: string): number {
+  return Buffer.byteLength(s, "utf8");
+}
+
+// A new socket is admitted only while both the global and the per-room socket
+// ceilings have room. Pure so the ceiling logic is tested without opening
+// thousands of real sockets (which the per-IP upgrade limiter would throttle).
+export function admitSocket(totalLive: number, roomLive: number): boolean {
+  return totalLive < MAX_TOTAL_SOCKETS && roomLive < MAX_SOCKETS_PER_ROOM;
+}
+
+// A node is retained only while the global store budget has room for it. Pure for
+// the same reason as admitSocket.
+export function withinStoreBudget(currentBytes: number, incomingBytes: number): boolean {
+  return currentBytes + incomingBytes <= MAX_TOTAL_STORE_BYTES;
+}
+
+// Store a brand-new node under the per-room node ceiling and the global byte
+// budget. Past the per-room ceiling the oldest node is evicted. Past the global
+// budget the node is not retained (the caller still relays it live), so total
+// memory stays bounded across all rooms.
+function storeNode(nodes: Map<string, SyncNode>, node: SyncNode, nodeJson: string): void {
+  while (nodes.size >= MAX_NODES_PER_ROOM) {
+    const oldestId = nodes.keys().next().value as string | undefined;
+    if (oldestId === undefined) break;
+    const old = nodes.get(oldestId);
+    nodes.delete(oldestId);
+    if (old) totalStoreBytes -= byteLen(JSON.stringify(old));
+  }
+  const size = byteLen(nodeJson);
+  if (!withinStoreBudget(totalStoreBytes, size)) return;
+  nodes.set(node.id, node);
+  totalStoreBytes += size;
+}
+
+// Resolve true once the socket's outbound buffer has drained below the ceiling,
+// or false if it never does inside the window (or the socket closed). Polling,
+// because the ws drain event does not fire while a reader simply stops reading.
+function drained(ws: WebSocket): Promise<boolean> {
+  return new Promise((resolve) => {
+    const deadline = Date.now() + SOCKET_DRAIN_TIMEOUT_MS;
+    const poll = (): void => {
+      if (ws.readyState !== WebSocket.OPEN) return resolve(false);
+      if (ws.bufferedAmount <= MAX_SOCKET_BUFFER_BYTES) return resolve(true);
+      if (Date.now() >= deadline) return resolve(false);
+      setTimeout(poll, SOCKET_DRAIN_POLL_MS);
+    };
+    poll();
+  });
+}
+
+// Replay stored nodes to one socket with backpressure. Outbound buffering is
+// capped: when the socket's unflushed buffer passes the ceiling the replay pauses
+// and waits for it to drain. A reader that never drains is dropped. One tiny
+// hello frame can therefore never force the server to buffer a whole room, which
+// is the memory-exhaustion path the per-message rate limit does not cover.
+export async function replaySince(ws: WebSocket, nodes: readonly SyncNode[]): Promise<void> {
+  for (const node of nodes) {
+    if (ws.readyState !== WebSocket.OPEN) return;
+    if (ws.bufferedAmount > MAX_SOCKET_BUFFER_BYTES && !(await drained(ws))) {
+      try {
+        ws.terminate();
+      } catch {
+        // Socket already gone. Nothing to free.
+      }
+      return;
+    }
+    try {
+      ws.send(JSON.stringify({ type: "node", node }));
+    } catch {
+      // The socket closed mid-replay. Stop feeding it.
+      return;
+    }
+  }
+}
+
+// Fan a node out to every other live member of a room, with the same outbound cap
+// as the replay. A member whose buffer is already past the ceiling is dropped
+// rather than fed, so a single slow reader in a busy room cannot grow memory.
+function broadcastNode(room: string, from: WebSocket, payload: string): void {
+  for (const client of roomMembers(room)) {
+    if (client === from || client.readyState !== WebSocket.OPEN) continue;
+    if (client.bufferedAmount > MAX_SOCKET_BUFFER_BYTES) {
+      try {
+        client.terminate();
+      } catch {
+        // Already gone.
+      }
+      continue;
+    }
+    try {
+      client.send(payload);
+    } catch {
+      // A failed send to one peer must not stop the broadcast to the rest.
+    }
+  }
+}
+
 function bearerFrom(header?: string): string | null {
   if (!header) return null;
   const match = /^Bearer\s+(.+)$/i.exec(header);
@@ -72,13 +183,16 @@ function reject(socket: Duplex, status: number, text: string): void {
   }
 }
 
-// A same-origin request and a non-browser client that sends no Origin header
-// are always allowed. A browser cross-origin request is allowed only when its
-// Origin is in the configured allowlist. This blocks cross-site WebSocket
-// hijacking without breaking the bundled web build or the native app.
+// A same-origin request is always allowed. A cross-origin browser request is
+// allowed only when its Origin is in the configured allowlist. A request that
+// carries no Origin is rejected by default (fail closed): a browser always sends
+// Origin, so this only turns away non-browser clients. A native deployment that
+// needs them sets SYNC_ALLOW_MISSING_ORIGIN=1. This blocks cross-site WebSocket
+// hijacking without a silent allow-all bypass for any client that simply omits
+// the header.
 function originAllowed(req: IncomingMessage): boolean {
   const origin = req.headers.origin;
-  if (!origin) return true;
+  if (!origin) return config.syncAllowMissingOrigin;
   try {
     const o = new URL(origin);
     const host = req.headers.host;
@@ -148,7 +262,16 @@ export function mountSync(server: Server): WebSocketServer {
 
       // Refuse a brand-new room once the room ceiling is reached. A reconnect to
       // a room that already has members is always allowed.
-      if (!members.has(room) && members.size >= MAX_ROOMS) {
+      const roomSet = members.get(room);
+      if (!roomSet && members.size >= MAX_ROOMS) {
+        reject(socket, 503, "Service Unavailable");
+        return;
+      }
+
+      // Cap live sockets per room and across all rooms. Unlike the room ceiling
+      // this fires for reconnects to an existing room too, so one known room id
+      // cannot be used to open unbounded sockets and exhaust file descriptors.
+      if (!admitSocket(liveSockets, roomSet?.size ?? 0)) {
         reject(socket, 503, "Service Unavailable");
         return;
       }
@@ -162,6 +285,7 @@ export function mountSync(server: Server): WebSocketServer {
   wss.on(
     "connection",
     (ws: WebSocket, _req: IncomingMessage, room: string) => {
+      liveSockets += 1;
       roomMembers(room).add(ws);
 
       // Per-socket token buckets. A socket over either budget has the offending
@@ -190,17 +314,13 @@ export function mountSync(server: Server): WebSocketServer {
 
         if (m.type === "hello") {
           const since = Number(m.lastLamport ?? 0);
-          const nodes = [...roomStore(room).values()]
+          const toReplay = [...roomStore(room).values()]
             .filter((n) => n.lamport > since)
             .sort((a, b) => a.lamport - b.lamport);
-          for (const node of nodes) {
-            try {
-              ws.send(JSON.stringify({ type: "node", node }));
-            } catch {
-              // The socket may have closed mid-replay. Stop feeding it.
-              break;
-            }
-          }
+          // Backpressure-aware replay. One tiny hello cannot force the server to
+          // buffer the whole room: replaySince caps outbound buffering and drops
+          // a reader that never drains.
+          void replaySince(ws, toReplay);
           return;
         }
 
@@ -210,40 +330,44 @@ export function mountSync(server: Server): WebSocketServer {
           if (typeof node.lamport !== "number") node.lamport = 0;
 
           const nodes = roomStore(room);
-          // Dedupe by id. A node we already hold is not stored again and not
-          // rebroadcast, so reconnect replays never echo round the room.
-          if (nodes.has(node.id)) return;
-
-          // Bound the store. Past the ceiling the oldest node is evicted so the
-          // room keeps syncing without the store growing without end.
-          if (nodes.size >= MAX_NODES_PER_ROOM) {
-            const oldest = nodes.keys().next().value;
-            if (oldest !== undefined) nodes.delete(oldest);
-          }
-          nodes.set(node.id, node);
-
+          const nodeJson = JSON.stringify(node);
           const payload = JSON.stringify({ type: "node", node });
-          for (const client of roomMembers(room)) {
-            if (client !== ws && client.readyState === WebSocket.OPEN) {
-              try {
-                client.send(payload);
-              } catch {
-                // A failed send to one peer must not stop the broadcast to the
-                // rest of the room.
-              }
-            }
+          const existing = nodes.get(node.id);
+
+          if (existing) {
+            // An identical duplicate is a reconnect echo: do not store or
+            // rebroadcast it again. A different node under the same id must not
+            // be shadowed by whichever arrived first. The relay cannot verify a
+            // signature and must not vouch for authorship, so it rebroadcasts the
+            // differing node for every live client to re-verify, keeping the
+            // authentic one reachable. It does not overwrite the stored copy or
+            // grow the store, so a forgery can neither pin an id nor evict history.
+            if (JSON.stringify(existing) === nodeJson) return;
+            broadcastNode(room, ws, payload);
+            return;
           }
+
+          // Brand-new id. Retain it under the per-room ceiling and the global
+          // byte budget, then relay it to the room.
+          storeNode(nodes, node, nodeJson);
+          broadcastNode(room, ws, payload);
         }
       });
 
       ws.on("close", () => {
+        liveSockets -= 1;
         const set = members.get(room);
         if (!set) return;
         set.delete(ws);
         if (set.size === 0) {
           members.delete(room);
-          // Free the room's stored nodes once nobody is left to replay them to.
-          store.delete(room);
+          // Free the room's stored nodes once nobody is left to replay them to,
+          // and release their bytes from the global store budget.
+          const m = store.get(room);
+          if (m) {
+            for (const n of m.values()) totalStoreBytes -= byteLen(JSON.stringify(n));
+            store.delete(room);
+          }
         }
       });
     },

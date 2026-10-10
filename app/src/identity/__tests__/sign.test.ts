@@ -143,6 +143,35 @@ describe("structural and semantic fields are now covered by the signature", () =
   });
 });
 
+describe("the signature commits to the presented author identity", () => {
+  const kp = generateKeypair();
+
+  function signed() {
+    const node = textNode(kp.did);
+    node.sig = signNode(node, kp.secretKey);
+    return node;
+  }
+
+  it("detects a relabeled author.displayName as tampered", () => {
+    // A relay keeps the real did but swaps the shown name to a trusted-looking label. The
+    // did stays bound, so without displayName in the signed set the node would still verify.
+    const node = signed();
+    const tampered = { ...node, author: { ...node.author, displayName: "Treasury Admin" } };
+    expect(verifyNode(tampered)).toBe("tampered");
+  });
+
+  it("detects a flipped author.kind as tampered", () => {
+    // Flipping human to agent (or back) under a verified badge misrepresents who spoke.
+    const node = signed();
+    const tampered = { ...node, author: { ...node.author, kind: "agent" as const } };
+    expect(verifyNode(tampered)).toBe("tampered");
+  });
+
+  it("still verifies when the full author is unchanged", () => {
+    expect(verifyNode(signed())).toBe("verified");
+  });
+});
+
 describe("verifyNode never throws on hostile input", () => {
   it("returns a status for random and malformed node-shaped values", () => {
     const kp = generateKeypair();

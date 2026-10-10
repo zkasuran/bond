@@ -24,10 +24,14 @@ function canonicalRefs(refs: NodeRef[] | undefined): { kind: string; target: str
     );
 }
 
-/** The value a signed field contributes. Most map straight through; authorDid is pulled
- *  from author.did and refs is canonicalized. */
+/** The value a signed field contributes. Most map straight through; the author fields are
+ *  pulled from the author object and refs is canonicalized. Signing the display name and the
+ *  kind, not just the did, stops a relay relabeling a verified node or flipping its
+ *  human/agent flag while the signature still checks out. */
 function signedValue(node: BondNode, field: SignedField): unknown {
   if (field === "authorDid") return node.author?.did;
+  if (field === "authorDisplayName") return node.author?.displayName;
+  if (field === "authorKind") return node.author?.kind;
   if (field === "refs") return canonicalRefs(node.refs);
   return (node as unknown as Record<string, unknown>)[field];
 }

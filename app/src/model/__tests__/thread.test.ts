@@ -1,5 +1,6 @@
 import type { BondNode, Identity } from "../node";
 import type { TypedNode } from "../messages";
+import { isType } from "../messages";
 import {
   compareNodes,
   nextLamport,
@@ -115,5 +116,54 @@ describe("assembleTokenStream", () => {
     const out = assembleTokenStream(deltas);
     expect(out.text).toBe("hello world");
     expect(out.done).toBe(true);
+  });
+
+  it("ignores a delta whose payload is null instead of throwing", () => {
+    // A validly signed node can carry type token_delta with a null payload. Stream assembly
+    // must skip it, not dereference it and crash the room.
+    const good = {
+      ...node("d1", "t", 2),
+      type: "token_delta",
+      payload: { targetId: "t", seq: 1, delta: "hello" },
+    } as unknown as TypedNode<"token_delta">;
+    const hostile = { ...node("d2", "t", 3), type: "token_delta", payload: null } as unknown as TypedNode<"token_delta">;
+    let out: { text: string; done: boolean } | undefined;
+    expect(() => {
+      out = assembleTokenStream([good, hostile]);
+    }).not.toThrow();
+    expect(out!.text).toBe("hello");
+  });
+});
+
+describe("payload-shape validation", () => {
+  it("isType does not narrow a node whose payload is null", () => {
+    const n = { ...node("x", null, 1), type: "token_delta", payload: null } as unknown as BondNode;
+    expect(isType(n, "token_delta")).toBe(false);
+  });
+
+  it("isType narrows a node whose payload matches the type", () => {
+    const n = {
+      ...node("x", null, 1),
+      type: "token_delta",
+      payload: { targetId: "t", seq: 1, delta: "hi" },
+    } as unknown as BondNode;
+    expect(isType(n, "token_delta")).toBe(true);
+  });
+});
+
+describe("flattenForRender bounds recursion depth", () => {
+  it("does not overflow the stack on a very deep parent chain", () => {
+    // A relayed set of validly signed nodes can form a long linear chain. A recursive walk
+    // overflows the JS call stack a few thousand deep and blanks the room. The render must
+    // survive it.
+    const nodes: BondNode[] = [node("n0", null, 1)];
+    for (let i = 1; i < 60000; i++) nodes.push(node(`n${i}`, `n${i - 1}`, i + 1));
+    const forest = buildForest(nodes);
+    let rows: ReturnType<typeof flattenForRender> | undefined;
+    expect(() => {
+      rows = flattenForRender(forest);
+    }).not.toThrow();
+    expect(rows!.length).toBeGreaterThan(0);
+    expect(rows!.length).toBeLessThanOrEqual(nodes.length);
   });
 });

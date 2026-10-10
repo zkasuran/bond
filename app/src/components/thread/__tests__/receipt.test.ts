@@ -1,6 +1,7 @@
 import {
   formatBaseUnits,
   lastPaymentCounterparty,
+  MAX_TOOL_TEXT_CHARS,
   paymentView,
   shortMiddle,
   toolCallView,
@@ -45,18 +46,28 @@ describe("shortMiddle", () => {
 });
 
 describe("paymentView", () => {
-  it("builds a confirmed receipt with the amount, network and explorer link", () => {
-    const v = paymentView(payment({ signature: "SigABC123", memo: "lunch" }));
+  it("marks a confirmed receipt only after a local on-chain re-check", () => {
+    const v = paymentView(payment({ signature: "SigABC123", memo: "lunch" }), "verified");
     expect(v.amountDisplay).toBe("2.5");
     expect(v.asset).toBe("USDC");
     expect(v.networkLabel).toBe("devnet");
-    expect(v.statusLabel).toBe("Confirmed");
+    expect(v.statusLabel).toBe("Confirmed on-chain");
     expect(v.statusTone).toBe("verified");
     expect(v.confirmed).toBe(true);
+    expect(v.claimDisclaimer).toBeUndefined();
     expect(v.memo).toBe("lunch");
     expect(v.explorerUrl).toContain("https://explorer.solana.com/tx/SigABC123");
     expect(v.explorerUrl).toContain("cluster=devnet");
     expect(v.honesty).toMatch(/no real funds/i);
+  });
+
+  it("treats a peer-reported confirmed payment as an unverified claim, not a settlement (F16 HIGH)", () => {
+    const v = paymentView(payment({ status: "confirmed", signature: "SigABC123" }));
+    expect(v.claimedStatus).toBe("confirmed");
+    expect(v.confirmed).toBe(false);
+    expect(v.statusTone).not.toBe("verified");
+    expect(v.statusLabel).toBe("Claimed");
+    expect(v.claimDisclaimer).toMatch(/not re-checked on-chain/i);
   });
 
   it("has no explorer link until a signature exists and marks a pending transfer", () => {
@@ -71,6 +82,41 @@ describe("paymentView", () => {
     const v = paymentView({ ...payment(), amount: "oops", status: "weird" } as unknown as PaymentPayload);
     expect(v.amountDisplay).toBe("0");
     expect(v.statusLabel).toBe("Proposed");
+    expect(v.confirmed).toBe(false);
+  });
+});
+
+describe("paymentView network and honesty gating (V2 bypass 1)", () => {
+  it("never prints an on-chain settlement line for an unverified mainnet claim", () => {
+    const v = paymentView(payment({ cluster: "mainnet-beta", status: "confirmed", signature: "S" }));
+    expect(v.confirmed).toBe(false);
+    expect(v.honesty).not.toBe("On-chain transfer.");
+    expect(v.honesty).not.toMatch(/on-chain transfer/i);
+    // The network chip must read as unverified, never a confident "mainnet".
+    expect(v.networkChip).toMatch(/unverified/i);
+    expect(v.networkChip).not.toBe("mainnet");
+  });
+
+  it("prints the on-chain settlement line only after a local re-check", () => {
+    const v = paymentView(payment({ cluster: "mainnet-beta", status: "confirmed", signature: "S" }), "verified");
+    expect(v.confirmed).toBe(true);
+    expect(v.honesty).toBe("On-chain transfer.");
+    expect(v.networkChip).toBe("mainnet");
+  });
+
+  it("does not echo an unknown cluster as a real network", () => {
+    const v = paymentView(
+      payment({ cluster: "evil-net" as PaymentPayload["cluster"], status: "confirmed", signature: "S" }),
+    );
+    expect(v.networkLabel).toBe("unknown network");
+    expect(v.networkChip).not.toContain("evil-net");
+    expect(v.honesty).not.toMatch(/on-chain transfer/i);
+  });
+
+  it("keeps a verified devnet transfer labelled as no real funds", () => {
+    const v = paymentView(payment({ cluster: "devnet", signature: "S" }), "verified");
+    expect(v.networkChip).toBe("devnet");
+    expect(v.honesty).toMatch(/no real funds/i);
   });
 });
 
@@ -88,6 +134,11 @@ describe("tool views", () => {
     const bad = toolResultView({ callId: "c2", content: [], isError: true });
     expect(bad.isError).toBe(true);
     expect(bad.resultText).toBe("tool error");
+  });
+
+  it("bounds a giant tool-call args string so one node cannot blow up the card (F16 LOW)", () => {
+    const v = toolCallView({ callId: "c1", name: "big", arguments: { blob: "x".repeat(50000) } });
+    expect(v.argsText!.length).toBeLessThanOrEqual(MAX_TOOL_TEXT_CHARS + 1);
   });
 });
 

@@ -14,6 +14,11 @@ type MaxRow = { m: number | null };
 type KvRow = { v: string };
 type RoomRow = { roomId: string };
 
+// Row ceiling for one room read, mirroring the web adapter's MAX_NODES_PER_ROOM. A flooded
+// room cannot pull an unbounded result set into memory. Defined here, not imported from
+// web.ts, so the native bundle never drags in the localStorage adapter.
+const MAX_NODES_PER_ROOM = 100_000;
+
 export class SqliteStorage implements Storage {
   private dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;
 
@@ -84,13 +89,20 @@ export class SqliteStorage implements Storage {
   async nodesForRoom(roomId: string): Promise<BondNode[]> {
     const db = await this.db();
     const rows = await db.getAllAsync<NodeRow>(
-      "SELECT json FROM nodes WHERE roomId = ?",
-      [roomId],
+      "SELECT json FROM nodes WHERE roomId = ? ORDER BY lamport LIMIT ?",
+      [roomId, MAX_NODES_PER_ROOM],
     );
-    return rows
-      .map((r) => JSON.parse(r.json) as BondNode)
-      .filter(presentableOnRead)
-      .sort(compareNodes);
+    const nodes: BondNode[] = [];
+    for (const r of rows) {
+      let node: BondNode;
+      try {
+        node = JSON.parse(r.json) as BondNode;
+      } catch {
+        continue; // a corrupt row (on-disk tamper, schema drift) is skipped, not fatal
+      }
+      if (presentableOnRead(node)) nodes.push(node);
+    }
+    return nodes.sort(compareNodes);
   }
 
   async maxLamport(roomId: string): Promise<number> {
@@ -112,7 +124,11 @@ export class SqliteStorage implements Storage {
     const db = await this.db();
     const row = await db.getFirstAsync<KvRow>("SELECT v FROM kv WHERE k = ?", [key]);
     if (!row) return null;
-    return JSON.parse(row.v) as T;
+    try {
+      return JSON.parse(row.v) as T;
+    } catch {
+      return null; // a corrupt kv cell reads as absent rather than throwing the whole read
+    }
   }
 
   async setItem<T = unknown>(key: string, value: T): Promise<void> {

@@ -18,12 +18,14 @@ function Field({
   onChangeText,
   placeholder,
   keyboardType,
+  testID,
 }: {
   label: string;
   value: string;
   onChangeText: (t: string) => void;
   placeholder?: string;
   keyboardType?: "default" | "decimal-pad";
+  testID?: string;
 }) {
   const { c, space, radius, font } = useTokens();
   return (
@@ -32,6 +34,7 @@ function Field({
         {label}
       </Txt>
       <TextInput
+        testID={testID}
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
@@ -69,13 +72,18 @@ export function PaySheet({
   onClose: () => void;
 }) {
   const { c, space, radius } = useTokens();
-  // State initializes from the open-time props. The parent remounts this sheet with a fresh
-  // key each time it opens, so these initial values re-seed without a setState-in-effect.
-  const [recipient, setRecipient] = useState(defaultRecipient);
+  // The recipient field starts empty on purpose. `defaultRecipient` is learned from room
+  // payment nodes, whose `from`/`to` are attacker-chosen, so it is offered as a suggestion
+  // the user must tap to apply, never silently trusted as the send-to address. The parent
+  // remounts this sheet with a fresh key each time it opens, so these re-seed on open.
+  const [recipient, setRecipient] = useState("");
   const [amount, setAmount] = useState("");
   const [memo, setMemo] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const suggestion = defaultRecipient.trim();
+  const showSuggestion = suggestion.length > 0 && recipient.trim() !== suggestion;
 
   const canSend = recipient.trim().length > 0 && amount.trim().length > 0 && !busy;
 
@@ -124,7 +132,37 @@ export function PaySheet({
             <Button title="Close" variant="ghost" onPress={onClose} />
           </View>
 
-          <Field label="Recipient address" value={recipient} onChangeText={setRecipient} placeholder="Solana address" />
+          <Field label="Recipient address" value={recipient} onChangeText={setRecipient} placeholder="Solana address" testID="pay-recipient-input" />
+          {showSuggestion ? (
+            <Pressable
+              testID="pay-recipient-suggestion"
+              onPress={() => setRecipient(suggestion)}
+              accessibilityRole="button"
+              accessibilityLabel={`Use suggested recipient ${shortMiddle(suggestion)}`}
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                gap: space[2],
+                backgroundColor: c.surfaceAlt,
+                borderWidth: 1,
+                borderColor: c.border,
+                borderRadius: radius.md,
+                paddingHorizontal: space[3],
+                paddingVertical: space[2],
+              }}
+            >
+              <Ionicons name="sparkles-outline" size={14} color={c.textMuted} />
+              <View style={{ flex: 1 }}>
+                <Txt variant="caption" faint>
+                  From a recent payment in this chat. Check it before you use it.
+                </Txt>
+                <Txt variant="mono" muted numberOfLines={1} style={{ fontSize: 12 }}>
+                  {shortMiddle(suggestion)}
+                </Txt>
+              </View>
+              <Txt variant="caption" color={c.brand}>Use</Txt>
+            </Pressable>
+          ) : null}
           <Field label="Amount (USDC)" value={amount} onChangeText={setAmount} placeholder="0.00" keyboardType="decimal-pad" />
           <Field label="Memo (optional)" value={memo} onChangeText={setMemo} placeholder="What is this for?" />
 

@@ -24,6 +24,27 @@ import { useSkills } from "@/skills/registry";
 import { distributionLabel, formatPrice } from "@/skills/manifest";
 import { executeSkillPurchase, quoteSkillPurchase } from "@/skills/purchase";
 
+/**
+ * Scope a recovery boundary to this screen so a render throw in the skill detail view is
+ * contained here while the rest of Bond stays mounted, instead of bubbling to the single root
+ * boundary and blanking the whole app. expo-router renders this in place of the screen when its
+ * subtree throws.
+ */
+export function ErrorBoundary({ error, retry }: { error: Error; retry: () => Promise<void> }) {
+  const { c, space, radius } = useTokens();
+  return (
+    <View style={{ flex: 1, backgroundColor: c.bg, alignItems: "center", justifyContent: "center", padding: space[6], gap: space[4] }}>
+      <View style={{ width: 64, height: 64, borderRadius: radius.pill, backgroundColor: c.tamperedSoft, alignItems: "center", justifyContent: "center" }}>
+        <Ionicons name="warning-outline" size={30} color={c.tampered} />
+      </View>
+      <Txt variant="title" style={{ textAlign: "center" }}>This screen hit an error</Txt>
+      <Txt variant="body" muted style={{ textAlign: "center" }}>The rest of Bond is fine. Try again or go back.</Txt>
+      <Txt variant="mono" faint selectable style={{ textAlign: "center" }}>{String(error?.message ?? error)}</Txt>
+      <Button title="Try again" variant="primary" onPress={() => void retry()} />
+    </View>
+  );
+}
+
 function SectionLabel({ children }: { children: string }) {
   const { space } = useTokens();
   return (

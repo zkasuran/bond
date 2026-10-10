@@ -12,8 +12,10 @@ import { Button } from "@/components/ui/Button";
 import { useTokens } from "@/theme";
 import { PinSheet } from "./PinPad";
 import {
+  authorizePolicyChange,
   getLastAuthAt,
   isWithinGrace,
+  markPinEnrolledInSession,
   requireAuth,
   setPin,
   setPinPrompter,
@@ -34,10 +36,12 @@ interface ProtectionStore {
   ready: boolean;
   hydrate: () => Promise<void>;
   refresh: () => Promise<void>;
+  /** Apply a policy change. Returns false when a protection-weakening change was not approved
+   *  with the current factor, in which case nothing is persisted. */
   setPolicy: (
     patch: Partial<ProtectionPolicy> | ((p: ProtectionPolicy) => ProtectionPolicy),
-  ) => Promise<void>;
-  setMethod: (trigger: Trigger, method: ProtectionMethod) => Promise<void>;
+  ) => Promise<boolean>;
+  setMethod: (trigger: Trigger, method: ProtectionMethod) => Promise<boolean>;
 }
 
 export const useProtection = create<ProtectionStore>((set, get) => ({
@@ -53,11 +57,16 @@ export const useProtection = create<ProtectionStore>((set, get) => ({
   setPolicy: async (patch) => {
     const current = get().policy;
     const next = typeof patch === "function" ? patch(current) : { ...current, ...patch };
+    // Lowering the barrier (a weaker method, a higher spend threshold or a longer window) must be
+    // re-authenticated with the current factor before it takes effect.
+    const decision = await authorizePolicyChange(current, next);
+    if (!decision.ok) return false;
     const saved = await saveProtectionPolicy(next);
     set({ policy: saved });
+    return true;
   },
   setMethod: async (trigger, method) => {
-    await get().setPolicy((p) => ({ ...p, methods: { ...p.methods, [trigger]: method } }));
+    return get().setPolicy((p) => ({ ...p, methods: { ...p.methods, [trigger]: method } }));
   },
 }));
 
@@ -126,6 +135,10 @@ export function LockGate({ children }: { children: ReactNode }) {
       }
       try {
         await setPin(pin);
+        // This PIN was set through the lock-screen bootstrap, which unlocks the session without
+        // proving a prior owner factor. Mark it so it cannot later authenticate a protection
+        // downgrade: a factor enrolled in this same flow is not evidence the owner is present.
+        markPinEnrolledInSession();
       } catch (e) {
         setEnrollError(String((e as Error)?.message ?? e));
         setEnroll({ step: "choose", first: "" });

@@ -30,6 +30,30 @@ export const SYNC_BYTES_PER_SEC = 512 * 1024;
 export const SYNC_UPGRADE_BURST = 10;
 export const SYNC_UPGRADE_PER_SEC = 5;
 
+// Largest unflushed outbound buffer the sync server holds for one socket. A
+// reader that stops draining (or a hostile client that never reads) must not
+// force the server to buffer a whole room in memory. Past this the server stops
+// feeding that socket and waits for it to drain, then drops it if it never does.
+export const MAX_SOCKET_BUFFER_BYTES = 512 * 1024;
+
+// How long a backed-up socket may sit above the buffer ceiling before it is
+// dropped, polled at this interval. A reader that drains inside the window keeps
+// its replay, one that never drains is terminated so its memory is freed.
+export const SOCKET_DRAIN_TIMEOUT_MS = 2_000;
+export const SOCKET_DRAIN_POLL_MS = 50;
+
+// Most live sync sockets in one room, plus a ceiling in total across every room.
+// The per-room cap stops one room id being used to open unbounded sockets, the
+// global cap bounds total file descriptors and memory. Both are enforced at
+// upgrade, reconnects included, so an existing room no longer skips the ceiling.
+export const MAX_SOCKETS_PER_ROOM = 100;
+export const MAX_TOTAL_SOCKETS = 2_000;
+
+// Global ceiling on bytes retained across every room's store, so the per-room and
+// per-node ceilings cannot multiply into an unbounded total. Past it a new node
+// is still relayed to live peers but not retained, so memory stays bounded.
+export const MAX_TOTAL_STORE_BYTES = 256 * 1024 * 1024;
+
 // --- Gateway proxy ----------------------------------------------------------
 
 // How long an upstream request may take to send its response headers before the

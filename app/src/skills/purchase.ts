@@ -21,7 +21,10 @@ import { requireAuth, type AuthResult } from "../protection/gate";
 import type { ProtectionPolicy } from "../protection/policy";
 import type { Entitlement, Skill } from "./manifest";
 
-/** Platform fee in basis points. 2000 = 20%, so a creator keeps 80% of every sale. */
+/** Platform fee in basis points. 2000 = 20%, so a creator keeps up to 80% of a sale. The
+ *  platform absorbs sub-unit rounding dust, so on a non-divisible total the creator's share
+ *  is the floor of 80%, never rounded up, but it is never floored all the way to zero while
+ *  they are owed a share (see computeSplit). */
 export const DEFAULT_PLATFORM_FEE_BPS = 2000;
 
 /** Where the platform fee lands: zkasuran's Solana identity wallet, the same address the
@@ -42,14 +45,22 @@ export interface Split {
 
 /** Split a total into a creator cut and a platform remainder. The author cut is floored so
  *  the platform absorbs the dust, which guarantees authorAmount + platformAmount === total
- *  and no fraction of a base unit ever leaks. */
+ *  and no fraction of a base unit ever leaks. The one guard (F14 LOW): when the creator is
+ *  owed a share, the floor is never allowed to take their whole cut to zero on a dust total,
+ *  so a sale always pays the creator at least one base unit if the platform is not taking
+ *  everything by a 100% fee. */
 export function computeSplit(total: bigint, platformFeeBps = DEFAULT_PLATFORM_FEE_BPS): Split {
   if (!Number.isInteger(platformFeeBps) || platformFeeBps < 0 || platformFeeBps > 10000) {
     throw new Error("platformFeeBps must be an integer between 0 and 10000");
   }
   if (total < 0n) throw new Error("Total must not be negative");
   const authorBps = BigInt(10000 - platformFeeBps);
-  const authorAmount = (total * authorBps) / BPS_DENOMINATOR; // floor division
+  let authorAmount = (total * authorBps) / BPS_DENOMINATOR; // floor division
+  // The creator is owed a share (authorBps > 0) but the floor rounded it to nothing on a
+  // dust total. Give them the minimum base unit; the platform still takes the exact rest.
+  if (authorBps > 0n && authorAmount === 0n && total > 0n) {
+    authorAmount = 1n;
+  }
   const platformAmount = total - authorAmount; // remainder keeps the total exact
   return { total, authorAmount, platformAmount, platformFeeBps };
 }

@@ -52,6 +52,12 @@ function toConnection(result: AuthorizationResultLike): WalletConnection {
   const account = result.accounts[0];
   if (!account) throw new Error("Wallet returned no account");
   const bytes = Uint8Array.from(Buffer.from(account.address, "base64"));
+  // A Solana account is a 32-byte ed25519 public key. Reject anything else here rather than
+  // base58-encoding a wrong-length blob into a bogus "address" that only fails deep in a
+  // later transfer build, after it has been stored and shown as the user.
+  if (bytes.length !== 32) {
+    throw new Error("Wallet returned an address that is not a 32-byte ed25519 public key");
+  }
   return {
     address: publicKeyToSolanaAddress(bytes),
     addressBase64: account.address,
@@ -73,14 +79,63 @@ export function setSessionRenewedListener(fn: (conn: WalletConnection) => void):
   onSessionRenewed = fn;
 }
 
-/** Inside one MWA session: replay the cached token, and when the wallet has revoked or
- *  expired it (MWA error -1, "authorization request failed"), ask for a fresh authorization
- *  instead of failing the user's action. The wallet shows its approve sheet once. */
-export async function reauthorizeOrAuthorize(wallet: MwaWalletLike, authToken: string): Promise<WalletConnection> {
+/** Thrown when a reauthorize or fallback authorize resolves to a different wallet account
+ *  than the one the pending action was built for. The caller must rebuild against the
+ *  current account rather than send a transaction to an account the user did not approve. */
+export class WalletAccountChangedError extends Error {
+  readonly expectedAddress: string;
+  readonly actualAddress: string;
+  constructor(expectedAddress: string, actualAddress: string) {
+    super("Wallet account changed. Reconnect and rebuild this action for the current account.");
+    this.name = "WalletAccountChangedError";
+    this.expectedAddress = expectedAddress;
+    this.actualAddress = actualAddress;
+  }
+}
+
+/** True only for the specific condition the reauthorize fallback is meant to handle: the
+ *  wallet revoked or expired the cached auth token (MWA error -1, "authorization request
+ *  failed"). A user cancel, a network blip or a wallet-busy error returns false so it is
+ *  rethrown instead of being escalated into a fresh account-selection prompt. */
+export function isAuthTokenInvalidError(e: unknown): boolean {
+  if ((e as { code?: unknown })?.code === -1) return true;
+  const msg = String((e as Error)?.message ?? e).toLowerCase();
+  return (
+    msg.includes("authorization request failed") ||
+    msg.includes("auth_token") ||
+    msg.includes("token expired") ||
+    msg.includes("token revoked") ||
+    msg.includes("reauthorize failed")
+  );
+}
+
+/** Inside one MWA session: replay the cached token, and only when the wallet has revoked or
+ *  expired it ask for a fresh authorization instead of failing the user's action. When
+ *  `expectedAddress` is given, a resolved account that differs from it aborts with a
+ *  WalletAccountChangedError and is never adopted: an action built for one account must not
+ *  be signed or sent by another. The wallet shows its approve sheet once on a real fallback. */
+export async function reauthorizeOrAuthorize(
+  wallet: MwaWalletLike,
+  authToken: string,
+  expectedAddress?: string,
+): Promise<WalletConnection> {
+  let conn: WalletConnection;
   try {
-    return toConnection((await wallet.reauthorize({ auth_token: authToken, identity: APP_IDENTITY })) as AuthorizationResultLike);
-  } catch {
-    const conn = toConnection((await wallet.authorize({ chain: MWA_CHAIN, identity: APP_IDENTITY })) as AuthorizationResultLike);
+    conn = toConnection((await wallet.reauthorize({ auth_token: authToken, identity: APP_IDENTITY })) as AuthorizationResultLike);
+    if (expectedAddress && conn.address !== expectedAddress) {
+      throw new WalletAccountChangedError(expectedAddress, conn.address);
+    }
+    return conn;
+  } catch (e) {
+    if (e instanceof WalletAccountChangedError) throw e;
+    // Only a revoked or expired token escalates to a fresh authorize. Anything else
+    // (user cancel, transient wallet error) propagates with its original message.
+    if (!isAuthTokenInvalidError(e)) throw e;
+    conn = toConnection((await wallet.authorize({ chain: MWA_CHAIN, identity: APP_IDENTITY })) as AuthorizationResultLike);
+    if (expectedAddress && conn.address !== expectedAddress) {
+      // Do not adopt a different account for an action built against the old one.
+      throw new WalletAccountChangedError(expectedAddress, conn.address);
+    }
     onSessionRenewed(conn);
     return conn;
   }
@@ -118,17 +173,32 @@ export async function disconnectWallet(authToken: string): Promise<void> {
   });
 }
 
+/** The base58 account that must sign a transaction: the explicit feePayer on a legacy
+ *  Transaction, else the first static account key on a versioned one. Null when it cannot be
+ *  read, in which case there is no approved account to compare against. */
+function transactionFeePayer(tx: Transaction | VersionedTransaction): string | null {
+  const legacyFeePayer = (tx as Transaction).feePayer;
+  if (legacyFeePayer && typeof legacyFeePayer.toBase58 === "function") return legacyFeePayer.toBase58();
+  const message = (tx as VersionedTransaction).message as
+    | { staticAccountKeys?: { toBase58(): string }[] }
+    | undefined;
+  const first = message?.staticAccountKeys?.[0];
+  return first && typeof first.toBase58 === "function" ? first.toBase58() : null;
+}
+
 /** Sign an arbitrary message with the connected wallet. Reauthorizes inside the same MWA
- *  session first, which is required before any privileged call. Returns the raw signed
- *  payload the wallet produced (see binding.extractSignature for the signature bytes). */
+ *  session first, which is required before any privileged call. The account that comes back
+ *  must still be the one the message is addressed to, else the call aborts rather than let a
+ *  different account sign. Returns the raw signed payload (see binding.extractSignature). */
 export async function signMessage(
   message: Uint8Array,
   ctx: { authToken: string; addressBase64: string },
 ): Promise<Uint8Array> {
   assertAndroid();
+  const expected = publicKeyToSolanaAddress(Uint8Array.from(Buffer.from(ctx.addressBase64, "base64")));
   const transact = await loadTransact();
   return transact(async (wallet) => {
-    const conn = await reauthorizeOrAuthorize(wallet as unknown as MwaWalletLike, ctx.authToken);
+    const conn = await reauthorizeOrAuthorize(wallet as unknown as MwaWalletLike, ctx.authToken, expected);
     const signed = await wallet.signMessages({
       addresses: [conn.addressBase64],
       payloads: [message],
@@ -139,15 +209,31 @@ export async function signMessage(
 
 /** Sign and submit a transaction through the wallet. The wallet holds the key and relays
  *  the transaction to the cluster, returning the base58 signature. Accepts both legacy and
- *  versioned transactions (usdc.ts builds legacy, swap.ts builds versioned). */
+ *  versioned transactions (usdc.ts builds legacy, swap.ts builds versioned). The reauthorized
+ *  account must equal the transaction fee payer, so a revoked-token fallback that lands on a
+ *  different account can never send an action the user built for the original account. Fails
+ *  closed when the fee payer cannot be read: with no approved account to compare the signing
+ *  account against, the transaction is refused rather than sent unguarded. */
 export async function signAndSendTransaction(
   tx: Transaction | VersionedTransaction,
   ctx: { authToken: string; minContextSlot?: number },
 ): Promise<string> {
   assertAndroid();
+  const feePayer = transactionFeePayer(tx);
+  if (!feePayer) {
+    // An indeterminate fee payer leaves no approved account to check the reauthorized signer
+    // against, so the account-swap guard below could not fire. Refuse rather than submit a
+    // transaction whose signing account cannot be confirmed as the approved one.
+    throw new Error(
+      "Cannot determine the transaction fee payer, so the signing account cannot be confirmed against the approved account. Refusing to send this transaction.",
+    );
+  }
   const transact = await loadTransact();
   return transact(async (wallet) => {
-    await reauthorizeOrAuthorize(wallet as unknown as MwaWalletLike, ctx.authToken);
+    const conn = await reauthorizeOrAuthorize(wallet as unknown as MwaWalletLike, ctx.authToken, feePayer);
+    if (conn.address !== feePayer) {
+      throw new WalletAccountChangedError(feePayer, conn.address);
+    }
     const signatures = await wallet.signAndSendTransactions({
       transactions: [tx],
       minContextSlot: ctx.minContextSlot,

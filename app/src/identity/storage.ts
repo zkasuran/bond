@@ -6,7 +6,7 @@ import { Platform } from "react-native";
 import * as SecureStore from "expo-secure-store";
 import { base64urlnopad } from "@scure/base";
 import type { Identity } from "../model/node";
-import { generateKeypair, keypairFromSecret } from "./keys";
+import { generateKeypair, keypairFromStoredSecret } from "./keys";
 
 const SECRET_KEY = "bond.identity.secret";
 const META_KEY = "bond.identity.meta";
@@ -44,15 +44,20 @@ export async function loadOrCreateIdentity(displayName = "You"): Promise<StoredI
   const assurance: StoredIdentity["assurance"] = Platform.OS === "web" ? "web" : "device";
   const existing = await readItem(SECRET_KEY);
   if (existing) {
-    const secretKey = base64urlnopad.decode(existing);
-    const kp = keypairFromSecret(secretKey);
-    const metaRaw = await readItem(META_KEY);
-    const name = metaRaw ? (JSON.parse(metaRaw).displayName ?? displayName) : displayName;
-    return {
-      identity: { did: kp.did, displayName: name, kind: "human" },
-      secretKey,
-      assurance,
-    };
+    // A stored secret is untrusted input: a corrupted or hostile value must not crash the
+    // load. keypairFromStoredSecret validates the encoding and the 32-byte length and
+    // returns null on anything invalid, so a bad value falls through to a fresh identity
+    // rather than throwing on launch.
+    const kp = keypairFromStoredSecret(existing);
+    if (kp) {
+      const metaRaw = await readItem(META_KEY);
+      const name = metaRaw ? (JSON.parse(metaRaw).displayName ?? displayName) : displayName;
+      return {
+        identity: { did: kp.did, displayName: name, kind: "human" },
+        secretKey: kp.secretKey,
+        assurance,
+      };
+    }
   }
   const kp = generateKeypair();
   await writeItem(SECRET_KEY, base64urlnopad.encode(kp.secretKey));

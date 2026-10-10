@@ -138,15 +138,17 @@ export default function ProtectionScreen() {
   }, []);
 
   const onRemovePin = useCallback(async () => {
-    await clearPin();
-    setPinSet(false);
-    // Keep the policy coherent: a trigger cannot ask for a PIN that no longer exists.
-    await setPolicy((p) => ({
+    // Removing the PIN rewrites every pin trigger to "none", a protection downgrade. Prove the
+    // current factor through the guarded setPolicy first, then clear the PIN only if it applied.
+    const applied = await setPolicy((p) => ({
       ...p,
       methods: Object.fromEntries(
         TRIGGERS.map((t) => [t, p.methods[t] === "pin" ? "none" : p.methods[t]]),
       ) as Record<Trigger, ProtectionMethod>,
     }));
+    if (!applied) return;
+    await clearPin();
+    setPinSet(false);
   }, [setPolicy]);
 
   return (

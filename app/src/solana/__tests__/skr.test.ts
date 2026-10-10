@@ -7,6 +7,11 @@ jest.mock("@solana/web3.js", () => {
   class PublicKey {
     value: string;
     constructor(value: string) {
+      // The real web3.js PublicKey throws on a non-base58 or wrong-length string. The mock
+      // mirrors that for a sentinel bad value so the malformed-owner path can be exercised.
+      if (typeof value !== "string" || value.length === 0 || value.includes("!")) {
+        throw new Error("Invalid public key input");
+      }
       this.value = value;
     }
     toBase58() {
@@ -33,16 +38,21 @@ jest.mock("@solana/spl-token", () => ({
   getAccount: jest.fn(),
 }));
 
+import { Buffer } from "buffer";
 import { getAccount } from "@solana/spl-token";
+import { setFetchImpl } from "../../bridge/net";
 import {
   applySkrHolderDiscount,
   MAX_SKR_HOLDER_DISCOUNT_BPS,
   readSkrTouchpoint,
   skrHolderDiscountBps,
+  SKR_HOLDER_DISCLOSURE,
 } from "../skr";
 
 // A live USDC to SKR quote: 1 USDC in, 20 SKR out, so one SKR is worth 0.05 USDC.
 const skrQuote = {
+  inputMint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+  outputMint: "SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3",
   inAmount: "1000000",
   outAmount: "20000000",
   otherAmountThreshold: "19900000",
@@ -52,12 +62,39 @@ const skrQuote = {
   routePlan: [],
 };
 
+// The Jupiter price fetch runs through the app streaming fetch (getStreamingFetch), the same
+// path the device uses, so the price feed is injected with setFetchImpl rather than the global
+// fetch. skr.ts reads the SKR price through swap.ts getQuote, which streams the response body, so
+// the mock models a readable device response with a getReader stream, the same shape swap.test.ts
+// uses.
+function streamResponse(
+  bodyText: string,
+  init: { ok?: boolean; status?: number; contentLength?: string | null } = {},
+): Response {
+  const bytes = Uint8Array.from(Buffer.from(bodyText, "utf8"));
+  let sent = false;
+  const reader = {
+    read: async (): Promise<{ done: boolean; value?: Uint8Array }> => {
+      if (sent) return { done: true, value: undefined };
+      sent = true;
+      return { done: false, value: bytes };
+    },
+    cancel: async () => {},
+  };
+  return {
+    ok: init.ok ?? true,
+    status: init.status ?? 200,
+    headers: { get: () => init.contentLength ?? null },
+    body: { getReader: () => reader },
+  } as unknown as Response;
+}
+
+function streamJson(value: unknown, init: { ok?: boolean; status?: number } = {}): Response {
+  return streamResponse(JSON.stringify(value), init);
+}
+
 function mockQuoteFetch(): void {
-  (global as { fetch?: unknown }).fetch = jest.fn(async () => ({
-    ok: true,
-    status: 200,
-    json: async () => skrQuote,
-  }));
+  setFetchImpl(jest.fn(async () => streamJson(skrQuote)));
 }
 
 beforeEach(() => {
@@ -66,6 +103,8 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  jest.restoreAllMocks();
+  setFetchImpl(null);
   (global as { fetch?: unknown }).fetch = undefined;
 });
 
@@ -94,15 +133,52 @@ describe("readSkrTouchpoint balance", () => {
 
   it("returns a 0 price when the quote feed is unavailable, keeping the balance", async () => {
     (getAccount as jest.Mock).mockResolvedValueOnce({ amount: 5000000n });
-    (global as { fetch?: unknown }).fetch = jest.fn(async () => ({
-      ok: false,
-      status: 503,
-      text: async () => "unavailable",
-    }));
+    setFetchImpl(jest.fn(async () => streamResponse("unavailable", { ok: false, status: 503 })));
     const t = await readSkrTouchpoint("OWNERaddress1111");
     expect(t.skrBalanceUi).toBe("5");
     expect(t.isHolder).toBe(true);
     expect(t.skrPriceInUsdc).toBe(0);
+  });
+});
+
+describe("readSkrTouchpoint safety", () => {
+  it("labels the holder badge as a client read, not an attestation", async () => {
+    (getAccount as jest.Mock).mockResolvedValueOnce({ amount: 1n });
+    const t = await readSkrTouchpoint("OWNERaddress1111");
+    expect(t.holderDisclosure).toMatch(/not an attestation/i);
+    expect(SKR_HOLDER_DISCLOSURE).toMatch(/not an attestation/i);
+  });
+
+  it("degrades to a safe non-holder when the owner address is malformed", async () => {
+    const t = await readSkrTouchpoint("bad!address");
+    expect(t.skrBalanceUi).toBe("0");
+    expect(t.isHolder).toBe(false);
+    expect(getAccount).not.toHaveBeenCalled();
+  });
+
+  it("keeps isHolder and a bounded discount even when the price feed is hostile", async () => {
+    (getAccount as jest.Mock).mockResolvedValueOnce({ amount: 10n }); // dust holder
+    setFetchImpl(
+      jest.fn(async () =>
+        streamJson({
+          inputMint: "U",
+          outputMint: "S",
+          inAmount: "0",
+          outAmount: "NaN",
+          otherAmountThreshold: "abc",
+          slippageBps: 50,
+          priceImpactPct: "x",
+          routePlan: [],
+        }),
+      ),
+    );
+    const t = await readSkrTouchpoint("OWNERaddress1111");
+    expect(t.isHolder).toBe(true);
+    expect(Number.isFinite(t.skrPriceInUsdc)).toBe(true);
+    expect(t.skrPriceInUsdc).toBeGreaterThanOrEqual(0);
+    const d = applySkrHolderDiscount("2.00", t.isHolder, 999999);
+    expect(d.bps).toBeLessThanOrEqual(MAX_SKR_HOLDER_DISCOUNT_BPS);
+    expect(Number.isNaN(Number(d.discountedUi))).toBe(false);
   });
 });
 
@@ -133,5 +209,14 @@ describe("skr holder discount", () => {
     expect(skrHolderDiscountBps(true, 2000)).toBe(2000);
     expect(skrHolderDiscountBps(true, 100000)).toBe(2500);
     expect(skrHolderDiscountBps(true)).toBe(1000);
+  });
+
+  it("stays bounded on a hostile creator bps (NaN, negative or non-finite)", () => {
+    expect(skrHolderDiscountBps(true, Number.NaN)).toBe(1000);
+    expect(skrHolderDiscountBps(true, Number.POSITIVE_INFINITY)).toBe(1000);
+    expect(skrHolderDiscountBps(true, -5000)).toBe(0);
+    const d = applySkrHolderDiscount("2.00", true, Number.NaN);
+    expect(d.bps).toBeLessThanOrEqual(MAX_SKR_HOLDER_DISCOUNT_BPS);
+    expect(Number(d.discountedUi)).toBeGreaterThanOrEqual(0);
   });
 });

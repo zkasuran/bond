@@ -5,6 +5,8 @@ jest.mock("@expo/vector-icons", () => ({ Ionicons: () => null }));
 
 import TestRenderer from "react-test-renderer";
 import { MessageNode } from "../MessageNode";
+import { PaySheet } from "../PaySheet";
+import { shortMiddle } from "../receipt";
 import type { RenderRow } from "@/model/thread";
 import type { BondNode } from "@/model/node";
 
@@ -33,7 +35,7 @@ const base = {
 };
 
 describe("MessageNode payment receipt", () => {
-  it("renders a confirmed payment as a receipt card with amount, network and explorer link", () => {
+  it("renders a peer-reported confirmed payment as an unverified claim, not a settlement (F16 HIGH)", () => {
     const node = {
       ...base,
       type: "payment",
@@ -53,15 +55,42 @@ describe("MessageNode payment receipt", () => {
     expect(out).toContain("2.5");
     expect(out).toContain("USDC");
     expect(out).toContain("devnet");
-    expect(out).toContain("Confirmed");
+    expect(out).toContain("Claimed");
     expect(out).toContain("Solana Explorer");
+    expect(out).toMatch(/not re-checked on-chain/i);
     expect(out).toMatch(/no real funds/i);
+    // The attacker-set status must not surface as a green on-chain confirmation.
+    expect(out).not.toContain("Confirmed");
   });
 
   it("does not throw on a payment node with no payload", () => {
     const node = { ...base, type: "payment", payload: undefined } as unknown as BondNode;
     expect(() => renderNode(node)).not.toThrow();
     expect(renderNode(node)).toContain("[payment]");
+  });
+
+  it("does not render an on-chain settlement line for a peer-set mainnet cluster (V2 bypass 1)", () => {
+    const node = {
+      ...base,
+      type: "payment",
+      payload: {
+        cluster: "mainnet-beta",
+        mint: "M",
+        asset: "USDC",
+        amount: "500000000",
+        decimals: 6,
+        from: "FROMaddressAAAAAAAAAA",
+        to: "TOaddressBBBBBBBBBB",
+        signature: "SigZ999",
+        status: "confirmed",
+      },
+    } as BondNode;
+    const out = renderNode(node);
+    // A peer who signs a mainnet-beta payment node must not make the card assert settlement.
+    expect(out).not.toContain("On-chain transfer.");
+    expect(out).toMatch(/unverified/i);
+    expect(out).toMatch(/not re-checked on-chain/i);
+    expect(out).not.toContain("Confirmed on-chain");
   });
 });
 
@@ -95,5 +124,43 @@ describe("MessageNode malformed guard", () => {
     const out = renderNode(node);
     expect(out).toContain("Unknown");
     expect(out).toContain("hello");
+  });
+});
+
+describe("PaySheet recipient suggestion (F16 MED)", () => {
+  const attacker = "ATTACKERwalletADDRESSxxxxxxxxxxxxxxxxxxxxxx";
+
+  function mountPaySheet() {
+    let tree: TestRenderer.ReactTestRenderer | undefined;
+    TestRenderer.act(() => {
+      tree = TestRenderer.create(
+        <PaySheet
+          visible
+          defaultRecipient={attacker}
+          selfAddress="SELFwalletADDRESS"
+          onSubmit={async () => {}}
+          onClose={() => {}}
+        />,
+      );
+    });
+    return tree!;
+  }
+
+  it("does not silently pre-fill the recipient from an untrusted payment node", () => {
+    const tree = mountPaySheet();
+    // The full untrusted address must never land in the send-to field as a trusted default.
+    expect(JSON.stringify(tree.toJSON())).not.toContain(attacker);
+    const inputs = tree.root
+      .findAll((n) => n.props?.testID === "pay-recipient-input")
+      .filter((n) => typeof n.props.value === "string");
+    expect(inputs.length).toBeGreaterThan(0);
+    for (const i of inputs) expect(i.props.value).toBe("");
+  });
+
+  it("offers the learned address as a suggestion the user must tap", () => {
+    const tree = mountPaySheet();
+    const suggestion = tree.root.findAll((n) => n.props?.testID === "pay-recipient-suggestion");
+    expect(suggestion.length).toBeGreaterThan(0);
+    expect(JSON.stringify(tree.toJSON())).toContain(shortMiddle(attacker));
   });
 });

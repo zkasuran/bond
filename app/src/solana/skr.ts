@@ -32,6 +32,14 @@ export const MAX_SKR_HOLDER_DISCOUNT_BPS = 2500;
  *  1000 bps = 10% off the devnet-USDC price for a wallet that holds SKR. */
 export const DEFAULT_SKR_HOLDER_DISCOUNT_BPS = 1000;
 
+/** Honesty label shown with the holder badge and the discount. The badge and the discount are
+ *  derived from a client-side mainnet balance READ, not a signed attestation. A self-custody
+ *  client is attacker-controlled, so this value is display-only: the authoritative check is the
+ *  on-chain USDC transfer at settlement, which can be re-verified against the cluster. The UI
+ *  shows this string so a user is never told the discount is proven when it is only read. */
+export const SKR_HOLDER_DISCLOSURE =
+  "Holder status is read from this device, not an attestation. The discount is applied for display and the sale settles in USDC on-chain.";
+
 const BPS_DENOMINATOR = 10_000n;
 
 /** SKR holder discounts the sample skill creators have set, in basis points, keyed by skill
@@ -56,8 +64,11 @@ export interface SkrTouchpoint {
   skrBalanceUi: string;
   /** Price of one SKR in USDC, from a live mainnet USDC to SKR quote. 0 when unavailable. */
   skrPriceInUsdc: number;
-  /** True when the wallet holds any SKR. */
+  /** True when the wallet holds any SKR. Derived from a client read, not an attestation. */
   isHolder: boolean;
+  /** Honesty label (SKR_HOLDER_DISCLOSURE): the badge and discount are a client read, not a
+   *  proof. The UI shows this beside the badge. */
+  holderDisclosure: string;
 }
 
 /** Read a wallet's SKR balance and a live SKR price in one pass. Mainnet, read-only: it
@@ -74,13 +85,21 @@ export async function readSkrTouchpoint(
   let skrBalanceUi = "0";
   let isHolder = false;
   if (ownerAddress) {
-    const owner = new PublicKey(ownerAddress);
-    const bal = await getUsdcBalance(connection, owner, {
-      mint: new PublicKey(SKR_MINT),
-      decimals: SKR_DECIMALS,
-    });
-    skrBalanceUi = bal.uiAmount;
-    isHolder = bal.amountBaseUnits > 0n;
+    try {
+      const owner = new PublicKey(ownerAddress);
+      const bal = await getUsdcBalance(connection, owner, {
+        mint: new PublicKey(SKR_MINT),
+        decimals: SKR_DECIMALS,
+      });
+      skrBalanceUi = bal.uiAmount;
+      isHolder = bal.amountBaseUnits > 0n;
+    } catch {
+      // A malformed owner address (bad base58 or wrong length) or any read error degrades to
+      // a safe non-holder rather than throwing out of the whole touchpoint. isHolder stays
+      // false, so a bad address never earns a discount.
+      skrBalanceUi = "0";
+      isHolder = false;
+    }
   }
 
   let skrPriceInUsdc = 0;
@@ -92,13 +111,17 @@ export async function readSkrTouchpoint(
       signal: options.signal,
     });
     const summary = summarizeQuote(raw, USDC_DECIMALS, SKR_DECIMALS);
-    // rate is SKR out per 1 USDC in; invert to get the price of one SKR in USDC.
-    skrPriceInUsdc = summary.rate > 0 ? 1 / summary.rate : 0;
+    // rate is SKR out per 1 USDC in; invert to get the price of one SKR in USDC. The price is
+    // display-only: it never feeds isHolder or the discount (both are set from the balance read
+    // above, before this quote). Sanitise it so a hostile or garbled feed (huge, zero, negative
+    // or NaN) can only ever show 0, never a non-finite or negative number.
+    const price = summary.rate > 0 ? 1 / summary.rate : 0;
+    skrPriceInUsdc = Number.isFinite(price) && price > 0 ? price : 0;
   } catch {
     skrPriceInUsdc = 0;
   }
 
-  return { skrBalanceUi, skrPriceInUsdc, isHolder };
+  return { skrBalanceUi, skrPriceInUsdc, isHolder, holderDisclosure: SKR_HOLDER_DISCLOSURE };
 }
 
 /** Resolve the SKR holder discount for a sale, in basis points. A non-holder always gets 0.

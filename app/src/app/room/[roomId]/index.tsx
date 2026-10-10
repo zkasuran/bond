@@ -11,6 +11,7 @@ import { useTokens } from "@/theme";
 import { enter } from "@/theme/motion";
 import { Screen } from "@/components/ui/Screen";
 import { Txt } from "@/components/ui/Text";
+import { Button } from "@/components/ui/Button";
 import { Avatar } from "@/components/ui/Avatar";
 import { PresenceDot } from "@/components/ui/PresenceDot";
 import { MessageNode } from "@/components/thread/MessageNode";
@@ -23,6 +24,40 @@ import { useAndroidKeyboardInset } from "@/hooks/use-keyboard-inset";
 
 const EMPTY: never[] = [];
 
+/**
+ * A roomId arrives from a deep link as untrusted input. expo-router returns a repeated query
+ * param as an array, so collapse an array to its first value, trim it, then accept it only when
+ * it has the shape of an id this app mints (a 26 char Crockford base32 ULID). Anything else
+ * returns "" so the screen treats it as no room, never as a live id to open a socket for.
+ */
+export function normalizeRoomId(raw: string | string[] | undefined): string {
+  const first = Array.isArray(raw) ? raw[0] : raw;
+  const value = (first ?? "").trim();
+  return /^[0-9A-HJKMNP-TV-Z]{26}$/.test(value) ? value : "";
+}
+
+/**
+ * Scope a recovery boundary to this screen. A room renders synced message nodes from other
+ * devices, the content the app trusts least, so a render throw here is contained to the room
+ * while the rest of Bond (tabs, other rooms, the lock) stays mounted. expo-router renders this
+ * exported ErrorBoundary in place of the screen when its subtree throws, instead of letting the
+ * throw bubble to the single root boundary and blank the whole app.
+ */
+export function ErrorBoundary({ error, retry }: { error: Error; retry: () => Promise<void> }) {
+  const { c, space, radius } = useTokens();
+  return (
+    <View style={{ flex: 1, backgroundColor: c.bg, alignItems: "center", justifyContent: "center", padding: space[6], gap: space[4] }}>
+      <View style={{ width: 64, height: 64, borderRadius: radius.pill, backgroundColor: c.tamperedSoft, alignItems: "center", justifyContent: "center" }}>
+        <Ionicons name="warning-outline" size={30} color={c.tampered} />
+      </View>
+      <Txt variant="title" style={{ textAlign: "center" }}>This room hit an error</Txt>
+      <Txt variant="body" muted style={{ textAlign: "center" }}>The rest of Bond is fine. Try again or go back.</Txt>
+      <Txt variant="mono" faint selectable style={{ textAlign: "center" }}>{String(error?.message ?? error)}</Txt>
+      <Button title="Try again" variant="primary" onPress={() => void retry()} />
+    </View>
+  );
+}
+
 /** Starter prompts for an empty room. Each one mentions the agent, so it runs a real turn. */
 const STARTERS = ["What is my USDC balance on devnet?", "Quote 1 SOL to USDC on Jupiter", "What skills can you run?"];
 
@@ -30,7 +65,7 @@ export default function RoomScreen() {
   const keyboardInset = useAndroidKeyboardInset();
   const { c, space, radius } = useTokens();
   const { roomId } = useLocalSearchParams<{ roomId: string }>();
-  const rid = roomId ?? "";
+  const rid = normalizeRoomId(roomId);
   const router = useRouter();
 
   const room = useBond((s) => s.rooms.find((r) => r.id === rid));
@@ -53,6 +88,10 @@ export default function RoomScreen() {
   useEffect(() => {
     if (!rid) return;
     const bond = useBond.getState();
+    // Only open a live /sync subscription for a room this device already has. A deep link that
+    // carries an unknown id (normalizeRoomId has already dropped a malformed one) must not drive
+    // a subscription to an arbitrary room.
+    if (!bond.rooms.some((r) => r.id === rid)) return;
     void bond.openRoomSync(rid);
     return () => bond.closeRoomSync(rid);
   }, [rid]);

@@ -17,8 +17,8 @@
 </p>
 
 <p align="center">
-  <img alt="app tests" src="https://img.shields.io/badge/app%20tests-187%20passing-14F195?style=flat-square&labelColor=0B0E11">
-  <img alt="server tests" src="https://img.shields.io/badge/server%20tests-29%20passing-14F195?style=flat-square&labelColor=0B0E11">
+  <img alt="app tests" src="https://img.shields.io/badge/app%20tests-336%20passing-14F195?style=flat-square&labelColor=0B0E11">
+  <img alt="server tests" src="https://img.shields.io/badge/server%20tests-74%20passing-14F195?style=flat-square&labelColor=0B0E11">
   <img alt="release gate" src="https://img.shields.io/badge/verify.sh-ALL%20GREEN-14F195?style=flat-square&labelColor=0B0E11">
   <img alt="chain" src="https://img.shields.io/badge/Solana-devnet-9945FF?style=flat-square&labelColor=0B0E11">
   <img alt="stack" src="https://img.shields.io/badge/Expo-SDK%2057-F2F5F9?style=flat-square&labelColor=0B0E11">
@@ -88,7 +88,7 @@ The agent runtime is live on MiniMax (OpenAI-compatible API), so a mention gets 
 | SKR price and holder discount (mainnet, read only) | [`app/src/solana/skr.ts`](app/src/solana/skr.ts) |
 | Digital Asset Links for the verified-app badge | [`server/src/assetlinks.ts`](server/src/assetlinks.ts) |
 
-Run `./verify.sh` for the release gate: 187 app tests, 29 server tests, lint, type-check and audit.
+Run `./verify.sh` for the release gate: 336 app tests, 74 server tests, lint, type-check and audit.
 
 **What is on chain.** Payments, purchases and agent transfers run on Solana **devnet** with no real funds. The only mainnet calls are reads (Jupiter quotes and SKR). The full table is under [What is real and what is simulated](#what-is-real-and-what-is-simulated). Real devnet transactions from the recorded run of 2026-10-06, viewable on Solana Explorer with `?cluster=devnet`:
 

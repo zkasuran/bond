@@ -150,10 +150,59 @@ export type TypedNode<K extends MessageType = MessageType> = Omit<
 /** The discriminated union over every message type. Switch on `.type` to narrow. */
 export type AnyNode = { [K in MessageType]: TypedNode<K> }[MessageType];
 
-/** Narrow a node to a specific message type. */
+/** Minimal runtime shape check per MessageType. A node's payload is signed, so a hostile
+ *  peer can produce a validly signed node whose payload is null or the wrong shape. The
+ *  discriminant alone is therefore not enough to narrow: callers that then read the typed
+ *  fields would dereference whatever the attacker put there. This checks the fields a
+ *  consumer relies on so a malformed payload is treated as inert, not dereferenced. */
+export function isValidPayload(type: MessageType, payload: unknown): boolean {
+  if (payload === null || typeof payload !== "object") return false;
+  const p = payload as Record<string, unknown>;
+  switch (type) {
+    case "text":
+      return typeof p.body === "string";
+    case "tool_call":
+      return typeof p.callId === "string" && typeof p.name === "string";
+    case "tool_result":
+      return typeof p.callId === "string" && Array.isArray(p.content);
+    case "token_delta":
+      return (
+        typeof p.targetId === "string" &&
+        typeof p.seq === "number" &&
+        Number.isFinite(p.seq) &&
+        typeof p.delta === "string"
+      );
+    case "receipt":
+      return (
+        typeof p.signer === "string" &&
+        typeof p.digest === "string" &&
+        typeof p.signature === "string" &&
+        Array.isArray(p.subjectIds)
+      );
+    case "card":
+      return typeof p.variant === "string";
+    case "handoff":
+      return typeof p.fromAgent === "string" && typeof p.toAgent === "string";
+    case "status":
+      // Every StatusPayload field is optional, so any object is a valid status.
+      return true;
+    case "payment":
+      return (
+        typeof p.mint === "string" &&
+        typeof p.amount === "string" &&
+        typeof p.from === "string" &&
+        typeof p.to === "string"
+      );
+    default:
+      return false;
+  }
+}
+
+/** Narrow a node to a specific message type. Checks both the discriminant and the payload
+ *  shape, so a validly signed node with a mismatched or null payload does not narrow. */
 export function isType<K extends MessageType>(
   node: BondNode,
   type: K,
 ): node is TypedNode<K> {
-  return node.type === type;
+  return node.type === type && isValidPayload(type, node.payload);
 }

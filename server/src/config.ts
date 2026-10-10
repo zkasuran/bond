@@ -10,6 +10,27 @@ function required(name: string, fallback: string): string {
   return value == null || value === "" ? fallback : value;
 }
 
+// The host the server binds to. Default 127.0.0.1 keeps the plaintext port
+// private behind a TLS reverse proxy; an operator opens it on every interface
+// deliberately with HOST=0.0.0.0, never by forgetting to set it.
+export function resolveHost(raw: string | undefined): string {
+  return raw != null && raw.trim() !== "" ? raw : "127.0.0.1";
+}
+
+// Whether to trust an X-Forwarded-For header for the client IP. Off unless
+// TRUST_PROXY is set, because XFF is client-spoofable: trusting it blindly lets
+// any caller forge its rate-limit identity. "true"/"1" trust it, "false"/"0" do
+// not, anything else is passed to Fastify as a proxy address or CIDR list.
+export function resolveTrustProxy(raw: string | undefined): boolean | string {
+  if (raw == null) return false;
+  const v = raw.trim();
+  if (v === "") return false;
+  const low = v.toLowerCase();
+  if (low === "true" || v === "1") return true;
+  if (low === "false" || v === "0") return false;
+  return v;
+}
+
 // Devnet USDC mint. This is the token the payment tools move on devnet.
 const DEVNET_USDC = "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU";
 
@@ -61,13 +82,25 @@ export const config = {
   mcpSkillUrl: process.env.MCP_SKILL_URL ?? "",
 
   // Browser Origins allowed to open a sync WebSocket, comma-separated in
-  // ALLOWED_ORIGINS. A same-origin request (the bundled web build) and a
-  // non-browser client that sends no Origin header are always allowed, so this
-  // list only names extra cross-origin front ends.
+  // ALLOWED_ORIGINS. A same-origin request (the bundled web build) is always
+  // allowed, so this list only names extra cross-origin front ends.
   allowedOrigins: (process.env.ALLOWED_ORIGINS ?? "")
     .split(",")
     .map((s) => s.trim())
     .filter((s) => s.length > 0),
+
+  // Host the HTTP + WebSocket server binds to. Private by default.
+  host: resolveHost(process.env.HOST),
+
+  // Trust an X-Forwarded-For header for the client IP only when TRUST_PROXY is
+  // set. Passed straight to Fastify, so request.ip is the socket peer by default
+  // and the real client behind a configured proxy, never a spoofable header.
+  trustProxy: resolveTrustProxy(process.env.TRUST_PROXY),
+
+  // Allow a sync WebSocket upgrade that carries no Origin header. Off by default
+  // (fail closed). A native-client deployment that needs headerless clients sets
+  // SYNC_ALLOW_MISSING_ORIGIN=1 deliberately.
+  syncAllowMissingOrigin: process.env.SYNC_ALLOW_MISSING_ORIGIN === "1",
 };
 
 export type Config = typeof config;

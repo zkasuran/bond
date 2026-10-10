@@ -31,10 +31,102 @@ import { errText } from "./events.js";
 const USDC_DECIMALS = 6;
 const B58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
 
+// MCP import ceilings. limits.ts is owned by another engineer right now, so these
+// live here as local named constants until they move there.
+const MCP_IMPORT_TIMEOUT_MS = 10_000; // connect + listTools must finish inside this
+const MCP_CALL_TIMEOUT_MS = 30_000; // a single imported tool call
+const MAX_MCP_TOOLS = 32; // most tools imported from one skill server
+const MAX_MCP_DESC = 1024; // longest imported tool description
+const MAX_MCP_SCHEMA_BYTES = 16 * 1024; // longest serialized input schema
+
 // Cumulative USDC moved by the transfer tool over the life of this process.
 // Enforced in code against MAX_AGENT_TRANSFER_TOTAL_USDC so an agent cannot be
-// talked into draining the wallet across many turns.
+// talked into draining the wallet across many turns. The reserve-before-await
+// pattern in solana_transfer_usdc keeps the check-and-reserve atomic, so N
+// concurrent transfers cannot each read this at the same value and all pass.
 let transferredThisProcess = 0;
+
+// Resolve a promise or reject once ms has passed, clearing the timer either way.
+// Used to bound an MCP connect, list or call so a stalled skill server cannot
+// hang the whole turn server side.
+export async function withTimeout<T>(p: Promise<T>, ms: number, message: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(message)), ms);
+  });
+  try {
+    return await Promise.race([p, timeout]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
+// Only an https target that is not an internal, loopback or link-local address is
+// a safe MCP import. This blocks the SSRF shapes (metadata IP, 127/8, RFC1918,
+// 169.254/16, and every IPv6 literal) for literal hosts. A hostname that resolves
+// to an internal address (DNS rebinding), or an https redirect from a public host
+// to an internal one, is a documented residual, since the MCP URL is config/env
+// only and is never taken from a client request.
+export function isSafeMcpUrl(raw: string): boolean {
+  let u: URL;
+  try {
+    u = new URL(raw);
+  } catch {
+    return false;
+  }
+  if (u.protocol !== "https:") return false;
+  const host = u.hostname.toLowerCase().replace(/^\[|\]$/g, "");
+  if (host === "localhost" || host.endsWith(".localhost")) return false;
+  if (host === "0.0.0.0") return false;
+  // Reject every IPv6 literal. A legitimate MCP server is reached by hostname or
+  // IPv4. IPv6 literals carry too many SSRF forms to enumerate safely: ::1 and ::
+  // loopback, fe80 link-local, fc/fd unique-local, and IPv4-mapped forms like
+  // ::ffff:169.254.169.254 that smuggle an internal IPv4 past a dotted-quad check.
+  if (host.includes(":")) return false;
+  const m = host.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+  if (m) {
+    const a = Number(m[1]);
+    const b = Number(m[2]);
+    if (a === 0 || a === 127 || a === 10) return false;
+    if (a === 169 && b === 254) return false; // link-local, incl. 169.254.169.254 metadata
+    if (a === 172 && b >= 16 && b <= 31) return false;
+    if (a === 192 && b === 168) return false;
+    if (a >= 224) return false; // multicast and reserved
+  }
+  return true;
+}
+
+export interface RawMcpTool {
+  name?: unknown;
+  description?: unknown;
+  inputSchema?: unknown;
+}
+
+// Clean one tool advertised by an MCP skill server before it is exposed to the
+// model. A name that is not a bounded plain identifier is rejected outright, the
+// description has control characters stripped and is length-bounded so it cannot
+// be an unbounded prompt-injection payload, and an oversized or non-object input
+// schema falls back to an empty object schema.
+export function sanitizeMcpTool(
+  raw: RawMcpTool,
+): { name: string; description: string; inputSchema: object } | null {
+  if (!raw || typeof raw !== "object") return null;
+  const name = typeof raw.name === "string" ? raw.name : "";
+  if (!/^[A-Za-z0-9_]{1,64}$/.test(name)) return null;
+  let description = typeof raw.description === "string" ? raw.description : `MCP skill: ${name}`;
+  description = description.replace(/[\u0000-\u001f\u007f]/g, " ").slice(0, MAX_MCP_DESC);
+  let inputSchema: object = { type: "object", properties: {} };
+  if (raw.inputSchema && typeof raw.inputSchema === "object") {
+    try {
+      if (JSON.stringify(raw.inputSchema).length <= MAX_MCP_SCHEMA_BYTES) {
+        inputSchema = raw.inputSchema as object;
+      }
+    } catch {
+      // Keep the empty schema when the advertised one will not serialize.
+    }
+  }
+  return { name, description, inputSchema };
+}
 
 // Minimal base58 decode so the keypair loader takes a Phantom-style secret with
 // no extra dependency.
@@ -139,12 +231,18 @@ export function solanaTools(connection: Connection, wallet: Keypair, usdcMint: P
             error: `transfer of ${amount} USDC exceeds the per-transfer cap of ${MAX_AGENT_TRANSFER_USDC} USDC`,
           };
         }
+        // Atomic check-and-reserve against the running process total. The reserve
+        // happens here, synchronously, before any await, so N concurrent transfers
+        // cannot each read the total at the same value and all pass the check. A
+        // transfer that fails to send rolls its reservation back.
         if (transferredThisProcess + amount > MAX_AGENT_TRANSFER_TOTAL_USDC) {
           return {
             ok: false,
             error: `transfer would exceed the per-process spend ceiling of ${MAX_AGENT_TRANSFER_TOTAL_USDC} USDC`,
           };
         }
+        transferredThisProcess += amount;
+        let reserved = true;
         try {
           const dest = new PublicKey(to);
           const raw = BigInt(Math.round(amount * 10 ** USDC_DECIMALS));
@@ -172,8 +270,8 @@ export function solanaTools(connection: Connection, wallet: Keypair, usdcMint: P
           tx.feePayer = wallet.publicKey;
           tx.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
           const signature = await connection.sendTransaction(tx, [wallet]);
-          // Count only a transfer that actually went out against the ceiling.
-          transferredThisProcess += amount;
+          // The transfer went out, so the reservation is now a real spend. Keep it.
+          reserved = false;
           return {
             ok: true,
             signature,
@@ -182,6 +280,8 @@ export function solanaTools(connection: Connection, wallet: Keypair, usdcMint: P
             to: dest.toBase58(),
           };
         } catch (err) {
+          // The send never happened, so give the reserved amount back.
+          if (reserved) transferredThisProcess -= amount;
           return { ok: false, error: errText(err) };
         }
       },
@@ -259,18 +359,31 @@ export function solanaTools(connection: Connection, wallet: Keypair, usdcMint: P
 // Connect to an MCP skill server over StreamableHTTP and expose its tools under
 // the mcp_ namespace. Returns a close function that tears the connection down.
 async function mcpTools(url: string): Promise<{ tools: ToolSet; close: () => Promise<void> }> {
+  if (!isSafeMcpUrl(url)) throw new Error("MCP skill URL is not an allowed https target");
   const client = new Client({ name: "bond-agent", version: "0.1.0" });
   const transport = new StreamableHTTPClientTransport(new URL(url));
-  await client.connect(transport);
-  const listed = await client.listTools();
+  // Bound the connect and list so a skill server that accepts the socket then
+  // stalls cannot hang the turn server side after the client has gone.
+  await withTimeout(client.connect(transport), MCP_IMPORT_TIMEOUT_MS, "MCP connect timed out");
+  const listed = await withTimeout(client.listTools(), MCP_IMPORT_TIMEOUT_MS, "MCP listTools timed out");
   const tools: ToolSet = {};
+  let count = 0;
   for (const t of listed.tools) {
-    tools[`mcp_${t.name}`] = tool({
-      description: t.description ?? `MCP skill: ${t.name}`,
-      inputSchema: jsonSchema((t.inputSchema ?? { type: "object", properties: {} }) as object),
+    if (count >= MAX_MCP_TOOLS) break;
+    // Sanitize the advertised name, description and schema before the model sees
+    // any of them. A tool that will not sanitize is skipped, not trusted.
+    const safe = sanitizeMcpTool(t as RawMcpTool);
+    if (!safe) continue;
+    count += 1;
+    tools[`mcp_${safe.name}`] = tool({
+      description: safe.description,
+      inputSchema: jsonSchema(safe.inputSchema),
       execute: async (args) => {
-        const result = await client.callTool({ name: t.name, arguments: args as Record<string, unknown> });
-        return result;
+        return withTimeout(
+          client.callTool({ name: safe.name, arguments: args as Record<string, unknown> }),
+          MCP_CALL_TIMEOUT_MS,
+          "MCP tool call timed out",
+        );
       },
     });
   }

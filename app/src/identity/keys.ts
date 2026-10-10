@@ -2,7 +2,7 @@
 // this runs unchanged on native, web and under Node for tests. See DESIGN.md sec 5.
 import * as ed from "@noble/ed25519";
 import { sha512 } from "@noble/hashes/sha2.js";
-import { base58 } from "@scure/base";
+import { base58, base64urlnopad } from "@scure/base";
 
 // noble-ed25519 v3 needs a synchronous SHA-512 configured for sync sign/verify.
 ed.hashes.sha512 = sha512;
@@ -37,8 +37,30 @@ export function generateKeypair(): RawKeypair {
 
 /** Reconstruct a keypair from a stored 32-byte secret seed. */
 export function keypairFromSecret(secretKey: Uint8Array): RawKeypair {
+  if (secretKey.length !== 32) {
+    throw new Error("ed25519 secret seed is not 32 bytes");
+  }
   const publicKey = ed.getPublicKey(secretKey);
   return { secretKey, publicKey, did: publicKeyToDid(publicKey) };
+}
+
+/** Reconstruct a keypair from a stored base64url secret, returning null on anything that is
+ *  not a valid 32-byte ed25519 seed. A corrupted or hostile stored value (bad encoding or
+ *  the wrong length) must not throw and crash identity load; the caller treats null as "no
+ *  usable stored identity". */
+export function keypairFromStoredSecret(encoded: string): RawKeypair | null {
+  let secretKey: Uint8Array;
+  try {
+    secretKey = base64urlnopad.decode(encoded);
+  } catch {
+    return null;
+  }
+  if (secretKey.length !== 32) return null;
+  try {
+    return keypairFromSecret(secretKey);
+  } catch {
+    return null;
+  }
 }
 
 /** 32-byte ed25519 public key -> did:key:z6Mk... */
@@ -58,7 +80,13 @@ export function didToPublicKey(did: string): Uint8Array {
   if (bytes[0] !== 0xed || bytes[1] !== 0x01) {
     throw new Error("did:key is not ed25519 (bad multicodec prefix)");
   }
-  return bytes.slice(2);
+  const key = bytes.slice(2);
+  // The multicodec prefix is not enough: a hostile did can carry a short or long body. An
+  // ed25519 key is exactly 32 bytes, the same check solanaAddressToPublicKey makes.
+  if (key.length !== 32) {
+    throw new Error("did:key ed25519 body is not 32 bytes");
+  }
+  return key;
 }
 
 /** 32-byte ed25519 public key -> base58 Solana address (the bare pubkey, no multicodec prefix). */

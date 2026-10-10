@@ -1,4 +1,4 @@
-import { parseInline, parseMarkdownLite } from "../markdown";
+import { MAX_LINE_CHARS, MAX_LINES, parseInline, parseMarkdownLite } from "../markdown";
 
 describe("markdown-lite", () => {
   it("splits bold and inline code out of plain text", () => {
@@ -22,6 +22,20 @@ describe("markdown-lite", () => {
 
   it("never interprets links or html", () => {
     expect(parseInline("[x](javascript:alert(1)) <b>")).toEqual([{ text: "[x](javascript:alert(1)) <b>" }]);
+    expect(parseInline("<img src=x onerror=alert(1)> <script>alert(1)</script>")).toEqual([
+      { text: "<img src=x onerror=alert(1)> <script>alert(1)</script>" },
+    ]);
+  });
+
+  it("caps the rendered line count on a huge body (F16 LOW)", () => {
+    const body = Array.from({ length: 5000 }, (_, i) => `line ${i}`).join("\n");
+    expect(parseMarkdownLite(body).length).toBeLessThanOrEqual(MAX_LINES + 1);
+  });
+
+  it("truncates an enormous single line (F16 LOW)", () => {
+    const [first] = parseMarkdownLite("a".repeat(100000));
+    const text = first.spans.map((s) => s.text).join("");
+    expect(text.length).toBeLessThanOrEqual(MAX_LINE_CHARS + 1);
   });
 });
 

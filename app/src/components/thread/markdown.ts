@@ -9,6 +9,14 @@ export type MdLine = { bullet: boolean; spans: InlineSpan[] };
 
 const TOKEN = /(\*\*[^*\n]+\*\*|`[^`\n]+`)/g;
 
+/** Render-side ceilings on an untrusted body. A node from the relay has no independent cap
+ *  at render, so a body with tens of thousands of lines, or one enormous line, is truncated
+ *  here before it becomes one View per line. Resource exhaustion, not injection: the parser
+ *  itself is linear and never interprets markup. */
+export const MAX_BODY_CHARS = 8000;
+export const MAX_LINES = 300;
+export const MAX_LINE_CHARS = 2000;
+
 export function parseInline(line: string): InlineSpan[] {
   const out: InlineSpan[] = [];
   let last = 0;
@@ -24,11 +32,19 @@ export function parseInline(line: string): InlineSpan[] {
   return out;
 }
 
-/** Split a reply into lines, marking "- " and "* " bullets, with leading and trailing blank lines dropped. */
+/** Split a reply into lines, marking "- " and "* " bullets, with leading and trailing blank
+ *  lines dropped. The body, the line count and each line length are capped first, with an
+ *  ellipsis marking a truncation, so an oversized node cannot jank or hang the thread. */
 export function parseMarkdownLite(body: string): MdLine[] {
-  const lines = body.replace(/\r\n/g, "\n").trim().split("\n");
-  return lines.map((raw) => {
-    const m = /^\s*[-*]\s+(.*)$/.exec(raw);
-    return m ? { bullet: true, spans: parseInline(m[1] ?? "") } : { bullet: false, spans: parseInline(raw) };
+  const capped = body.length > MAX_BODY_CHARS ? `${body.slice(0, MAX_BODY_CHARS)}…` : body;
+  const lines = capped.replace(/\r\n/g, "\n").trim().split("\n");
+  const truncatedLines = lines.length > MAX_LINES;
+  const kept = truncatedLines ? lines.slice(0, MAX_LINES) : lines;
+  const out = kept.map((raw) => {
+    const clipped = raw.length > MAX_LINE_CHARS ? `${raw.slice(0, MAX_LINE_CHARS)}…` : raw;
+    const m = /^\s*[-*]\s+(.*)$/.exec(clipped);
+    return m ? { bullet: true, spans: parseInline(m[1] ?? "") } : { bullet: false, spans: parseInline(clipped) };
   });
+  if (truncatedLines) out.push({ bullet: false, spans: [{ text: "…" }] });
+  return out;
 }

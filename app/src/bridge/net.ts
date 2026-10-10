@@ -37,3 +37,36 @@ export function getStreamingFetch(): FetchLike {
 export function joinUrl(base: string, path: string): string {
   return base.replace(/\/+$/, "") + "/" + path.replace(/^\/+/, "");
 }
+
+/**
+ * Whether it is safe to attach a bearer token to this base URL. Only over TLS (https/wss),
+ * or to a loopback host over plaintext (local dev). A remote http:// or ws:// endpoint would
+ * put the key on the wire in cleartext for any on-path observer, so the caller drops it.
+ * Parsed with a regex, not the URL class, because React Native's URL is only a partial polyfill.
+ */
+export function allowBearer(baseUrl: string): boolean {
+  const m = /^([a-z][a-z0-9+.-]*):\/\/([^/?#]*)/i.exec((baseUrl ?? "").trim());
+  if (!m) return false;
+  const scheme = m[1].toLowerCase();
+  let host = m[2].toLowerCase();
+  const at = host.lastIndexOf("@");
+  if (at !== -1) host = host.slice(at + 1); // strip userinfo
+  if (host.startsWith("[")) {
+    const rb = host.indexOf("]");
+    if (rb !== -1) host = host.slice(0, rb + 1); // keep the ipv6 brackets, drop any port
+  } else {
+    const c = host.indexOf(":");
+    if (c !== -1) host = host.slice(0, c); // drop the port
+  }
+  if (scheme === "https" || scheme === "wss") return true;
+  if (scheme === "http" || scheme === "ws") {
+    return (
+      host === "localhost" ||
+      host === "127.0.0.1" ||
+      host === "::1" ||
+      host === "[::1]" ||
+      host.endsWith(".localhost")
+    );
+  }
+  return false;
+}

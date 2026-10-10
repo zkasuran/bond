@@ -31,6 +31,50 @@ const ICON: Record<AdapterKind, keyof typeof Ionicons.glyphMap> = {
   openclaw: "hardware-chip",
 };
 
+/** Pull the host out of a URL authority, stripping any userinfo, port and IPv6 brackets. */
+function hostFromAuthority(authority: string): string {
+  const afterUser = authority.includes("@") ? authority.slice(authority.lastIndexOf("@") + 1) : authority;
+  if (afterUser.startsWith("[")) {
+    const end = afterUser.indexOf("]");
+    return end > 1 ? afterUser.slice(1, end).toLowerCase() : "";
+  }
+  const colon = afterUser.indexOf(":");
+  return (colon === -1 ? afterUser : afterUser.slice(0, colon)).toLowerCase();
+}
+
+/**
+ * Validate the bridge base URL before the API key is attached or the runtime is probed. The key
+ * is sent to this host, so a cleartext or hostile target would leak it. Rules follow the sync
+ * client's scheme handling: the scheme must be http or https, https is required for any non
+ * loopback host so the key never crosses the network in the clear. The cloud metadata address is
+ * refused outright. Parsed by string, like syncUrlFromGateway, because the app ships no URL
+ * polyfill. Returns the trimmed URL or a short reason to show inline.
+ */
+export function validateBridgeBaseUrl(
+  raw: string,
+): { ok: true; url: string } | { ok: false; reason: string } {
+  const url = raw.trim();
+  if (!url) return { ok: false, reason: "Enter a base URL." };
+  const sep = url.indexOf("://");
+  if (sep <= 0) {
+    return { ok: false, reason: "Base URL must start with https:// (http:// only for localhost)." };
+  }
+  const scheme = url.slice(0, sep).toLowerCase();
+  if (scheme !== "https" && scheme !== "http") {
+    return { ok: false, reason: "Base URL must start with https:// (http:// only for localhost)." };
+  }
+  const authority = url.slice(sep + 3).split(/[/?#]/)[0] ?? "";
+  const host = hostFromAuthority(authority);
+  if (!host) return { ok: false, reason: "Base URL is missing a host." };
+  if (host === "169.254.169.254") return { ok: false, reason: "That host is not allowed." };
+  const loopback =
+    host === "localhost" || host === "127.0.0.1" || host === "::1" || host.endsWith(".localhost");
+  if (scheme === "http" && !loopback) {
+    return { ok: false, reason: "Use https:// for a remote host so your API key is not sent in the clear." };
+  }
+  return { ok: true, url };
+}
+
 function Field({
   label,
   mono,
@@ -97,8 +141,13 @@ export default function ConnectBridgeScreen() {
         const existing = useBond.getState().bridges.find((b) => b.id === "bond");
         config = existing?.config ?? { baseUrl: baseUrl.trim() };
       } else {
+        const check = validateBridgeBaseUrl(baseUrl);
+        if (!check.ok) {
+          setError(check.reason);
+          return;
+        }
         config = {
-          baseUrl: baseUrl.trim(),
+          baseUrl: check.url,
           apiKey: apiKey.trim() || undefined,
           model: model.trim() || undefined,
         };
