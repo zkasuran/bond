@@ -3,7 +3,7 @@
 // useProtection is the store the settings screen and this gate both read, so the policy on
 // screen and the policy the gate enforces are the same object.
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { AppState, type AppStateStatus, View } from "react-native";
+import { AppState, type AppStateStatus, StyleSheet, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { create } from "zustand";
 import { Screen } from "@/components/ui/Screen";
@@ -243,9 +243,14 @@ export function LockGate({ children }: { children: ReactNode }) {
     />
   );
 
-  if (showLock) {
-    return (
-      <>
+  // The lock is an opaque overlay rendered ON TOP of children, not a replacement for them.
+  // Swapping the whole navigator out while the app routes (the onboarding redirect in the
+  // root layout fires router.replace at launch) left React Navigation reconciling a route
+  // against a navigator that was no longer mounted, which looped setState until the render
+  // depth tripped. Keeping children mounted under the cover ends that loop, and the solid
+  // full-screen panel still blocks sight and touch of the app behind it until auth passes.
+  const lockOverlay = showLock ? (
+      <View style={[StyleSheet.absoluteFill, styles.overlay, { backgroundColor: c.bg }]}>
         <Screen>
           <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: space[5], padding: space[6] }}>
             <View
@@ -296,17 +301,21 @@ export function LockGate({ children }: { children: ReactNode }) {
             ) : null}
           </View>
         </Screen>
-        {pinSheet}
-        {enrollSheet}
-      </>
-    );
-  }
+      </View>
+  ) : null;
 
   return (
     <>
       {children}
+      {lockOverlay}
       {pinSheet}
       {enrollSheet}
     </>
   );
 }
+
+const styles = StyleSheet.create({
+  // A high elevation and zIndex keep the lock above every mounted screen on native and web,
+  // so no late-mounting route can paint over it while the app is locked.
+  overlay: { zIndex: 1000, elevation: 1000 },
+});

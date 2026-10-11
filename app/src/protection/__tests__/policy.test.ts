@@ -40,7 +40,7 @@ describe("protection policy load and save", () => {
     const p = await loadProtectionPolicy();
     expect(p).toEqual(DEFAULT_POLICY);
     p.methods.openApp = "pin";
-    expect(DEFAULT_POLICY.methods.openApp).toBe("biometric");
+    expect(DEFAULT_POLICY.methods.openApp).toBe("none");
   });
 
   it("round-trips a saved policy", async () => {
@@ -90,19 +90,24 @@ describe("normalizePolicy", () => {
 });
 
 describe("fail-closed defaults", () => {
-  it("never defaults a sensitive trigger to off", () => {
-    expect(DEFAULT_POLICY.methods.openApp).not.toBe("none");
-    expect(DEFAULT_POLICY.methods.runSkill).not.toBe("none");
+  it("keeps the two fund triggers guarded and leaves the app and skills open for usability", () => {
+    // spend and unlockKey move value or touch the signing key, so they must never default off.
     expect(DEFAULT_POLICY.methods.spend).not.toBe("none");
     expect(DEFAULT_POLICY.methods.unlockKey).not.toBe("none");
+    // openApp and runSkill are access gates. They are off by default so a first run needs no PIN,
+    // and a user raises them in Protection settings.
+    expect(DEFAULT_POLICY.methods.openApp).toBe("none");
+    expect(DEFAULT_POLICY.methods.runSkill).toBe("none");
   });
 
-  it("loads a guarded policy, never an open one, when the stored value is corrupt", async () => {
+  it("loads the guarded default, never an attacker-chosen open policy, when the stored value is corrupt", async () => {
     await SecureStore.setItemAsync("bond.protection.policy", "{not json");
     const p = await loadProtectionPolicy();
-    expect(p.methods.openApp).not.toBe("none");
-    expect(p.methods.runSkill).not.toBe("none");
+    // A corrupt or forged store falls back to our known default, not to whatever was written, and
+    // the fund triggers stay guarded through that fallback.
+    expect(p).toEqual(DEFAULT_POLICY);
     expect(p.methods.spend).not.toBe("none");
+    expect(p.methods.unlockKey).not.toBe("none");
   });
 });
 

@@ -25,14 +25,18 @@ export interface ProtectionPolicy {
   reauthWindowSec: number;
 }
 
-// Secure by default: every sensitive action is guarded. biometric falls back to the app PIN
-// wherever a sensor is missing, so a device with no biometric prompts for a PIN rather than
-// opening wide, and a missing or corrupt stored policy loads this guarded shape rather than an
-// open one. A one minute grace window keeps a burst of guarded actions from prompting on every tap.
+// Default: the two actions that move value or touch the signing key are guarded, while the app
+// opens and skills run freely so a first run is usable without forcing a PIN. biometric falls
+// back to the app PIN wherever a sensor is missing, so a guarded trigger on a device with no
+// biometric prompts for a PIN rather than opening wide, and a missing or corrupt stored policy
+// loads this shape rather than an open one. A one minute grace window keeps a burst of guarded
+// actions from prompting on every tap. A user can raise openApp or runSkill to pin or biometric
+// in Protection settings; the lock screen is an overlay, so enabling openApp never unmounts the
+// navigator (see LockGate).
 export const DEFAULT_POLICY: ProtectionPolicy = {
   methods: {
-    openApp: "biometric",
-    runSkill: "biometric",
+    openApp: "none",
+    runSkill: "none",
     spend: "biometric",
     unlockKey: "biometric",
   },
