@@ -115,7 +115,9 @@ export function LockGate({ children }: { children: ReactNode }) {
       setNeedsPinSetup(true);
       setAttemptError("Set a PIN to unlock Bond. This device has no biometric fallback.");
     } else if (outcome === "locked_out") {
-      setAttemptError(note ? `Locked out. ${note}.` : "Too many attempts. Try again shortly.");
+      setAttemptError(
+        note ? `Locked out. ${note.charAt(0).toUpperCase()}${note.slice(1)}.` : "Too many attempts. Try again shortly.",
+      );
     } else {
       setAttemptError(
         outcome === "cancelled" ? "Authentication cancelled." : "Could not verify. Try again.",

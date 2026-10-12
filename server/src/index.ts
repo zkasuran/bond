@@ -11,6 +11,7 @@ import { agentRoutes } from "./agent/route.js";
 import { mountSync } from "./sync.js";
 import { buildCsp, hashesForDist } from "./csp.js";
 import { androidAssetLinks } from "./assetlinks.js";
+import { spaFileFor, spaRoutes } from "./spa.js";
 import {
   HTTP_RATE_BURST,
   HTTP_RATE_PER_SEC,
@@ -160,7 +161,22 @@ export async function buildApp(): Promise<FastifyInstance> {
       prefix: "/",
       setHeaders: setStaticHeaders,
     });
-    app.log.info(`serving web build from ${webDist}`);
+    // A reload or deep link on a dynamic route (/room/<id>) has no file of its own. Serve the
+    // export's HTML for that route, or its not-found page, instead of the API's JSON 404.
+    const routes = spaRoutes(webDist);
+    const hasNotFound = existsSync(path.join(webDist, "+not-found.html"));
+    app.setNotFoundHandler((request, reply) => {
+      const urlPath = (request.raw.url ?? "/").split("?")[0] ?? "/";
+      const file = request.method === "GET" || request.method === "HEAD"
+        ? spaFileFor(decodeURIComponent(urlPath), routes, hasNotFound)
+        : null;
+      if (!file) {
+        return reply.code(404).send({ message: `Route ${request.method}:${urlPath} not found`, error: "Not Found", statusCode: 404 });
+      }
+      setStaticHeaders(reply);
+      return reply.code(file === "+not-found.html" ? 404 : 200).sendFile(file);
+    });
+    app.log.info(`serving web build from ${webDist} with ${routes.length} dynamic routes`);
   } else {
     app.log.warn(`web build not found at ${webDist}, skipping static host`);
   }

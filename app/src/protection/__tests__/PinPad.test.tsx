@@ -52,3 +52,21 @@ it("reshuffles the digits after every submit", () => {
   expect(layouts).not.toContain("1234567890");
   TestRenderer.act(() => tree.unmount());
 });
+
+it("reshuffles when the sheet is closed and opened again without a submit", () => {
+  let tree!: TestRenderer.ReactTestRenderer;
+  const render = (visible: boolean) => (
+    <PinSheet visible={visible} title="Enter your PIN" onSubmit={() => {}} onCancel={() => {}} />
+  );
+  TestRenderer.act(() => {
+    tree = TestRenderer.create(render(true));
+  });
+  const layouts = new Set<string>();
+  for (let i = 0; i < 4; i++) {
+    layouts.add(digitOrder(tree.root).join(""));
+    TestRenderer.act(() => tree.update(render(false)));
+    TestRenderer.act(() => tree.update(render(true)));
+  }
+  expect(layouts.size).toBeGreaterThanOrEqual(3);
+  TestRenderer.act(() => tree.unmount());
+});

@@ -69,6 +69,7 @@ export default function RoomScreen() {
   const router = useRouter();
 
   const room = useBond((s) => s.rooms.find((r) => r.id === rid));
+  const ready = useBond((s) => s.ready);
   const nodes = useBond((s) => s.nodes[rid]) ?? EMPTY;
   const members = useBond((s) => s.members[rid]) ?? EMPTY;
   const streaming = useBond((s) => s.streaming);
@@ -127,6 +128,28 @@ export default function RoomScreen() {
     });
 
   const iconButton = { width: 38, height: 38, borderRadius: 19, alignItems: "center", justifyContent: "center", backgroundColor: c.surfaceAlt } as const;
+
+  // A link to a room this device does not have (removed, or a bad id) must not open an empty,
+  // writable room. Wait for the store to load, then say so, like room settings does.
+  if (ready && !room) {
+    return (
+      <Screen edges={["top", "bottom"]}>
+        <View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: space[6], gap: space[2] }}>
+          <Ionicons name="help-circle-outline" size={40} color={c.textFaint} />
+          <Txt variant="heading">Room not found</Txt>
+          <Txt variant="body" muted style={{ textAlign: "center" }}>
+            This room is not on this device. Go back and pick one of your rooms.
+          </Txt>
+          <Button
+            title="Back to rooms"
+            variant="secondary"
+            onPress={() => (router.canGoBack() ? router.back() : router.replace("/"))}
+            style={{ marginTop: space[2] }}
+          />
+        </View>
+      </Screen>
+    );
+  }
 
   return (
     <Screen edges={["top", "bottom"]}>

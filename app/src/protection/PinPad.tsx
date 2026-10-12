@@ -118,9 +118,15 @@ export function PinSheet({
 }) {
   const { c, space, radius } = useTokens();
   const [pin, setPinValue] = useState("");
-  // Bumped on every submit, so the next entry (the confirm step, a retry after a wrong PIN)
-  // gets a fresh digit layout. Reopening the sheet remounts the pad, which also reshuffles.
+  // Bumped on every submit (the confirm step, a retry after a wrong PIN) and every time the
+  // sheet opens, so each entry gets a fresh digit layout. The sheet stays mounted while hidden,
+  // so opening has to bump it too. Adjusted during render so the first frame is already new.
   const [layout, setLayout] = useState(0);
+  const [wasVisible, setWasVisible] = useState(visible);
+  if (visible !== wasVisible) {
+    setWasVisible(visible);
+    if (visible) setLayout((n) => n + 1);
+  }
 
   const submit = () => {
     if (pin.length < PIN_MIN_LENGTH) return;
