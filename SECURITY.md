@@ -95,6 +95,10 @@ An automated scan flagged places in `site/` where values are written as HTML. Ea
 | `site/assets/site.js`, tool-card placeholder | One constant string | False positive |
 | `site/assets/site.js`, terminal replay | A constant `lines` array | False positive |
 
+The same scan flagged two `generic-api-key` matches, `site/index.html:187` and `site/deck/index.html:210`. Both are false positives: each is a `did:key:z6Mk…` identifier, which is an Ed25519 *public* key and is shown on purpose as the identity on the demo card and in a screenshot's alt text. No credential exists in `site/`.
+
+The scan's low-severity notes that Bond imports `@solana/web3.js` v1 (in maintenance) are accurate. The move to `@solana/kit` is planned after the hackathon. It touches every wallet, payment and RPC call, and v1 still receives security fixes.
+
 Defence in depth: neither page reads URL parameters, `postMessage` or the network into the DOM. The deck reads `location.hash` only through `/^#\/(\d+)$/` and `/^#(s\d\d)$/` to pick a slide number. Both pages ship a CSP meta tag with `default-src 'none'`, `connect-src 'none'` and `script-src 'self'` (the site adds one sha256 hash), so injected markup could not run inline script or send data out.
 
 ## Known limits
@@ -119,7 +123,11 @@ Stated plainly, because an unlabelled gap is worse than a named one.
 
 - **Fixed:** `GHSA-3gc7-fjrx-p6mg` (CVE-2025-3194) in `bigint-buffer@1.1.5`, pulled by `@solana/spl-token` through `@solana/buffer-layout-utils`. It has no patched upstream release, so both workspaces replace it via npm `overrides` with [`vendor/bigint-buffer-safe`](vendor/bigint-buffer-safe/index.js). That is about 60 lines of pure JS with no native binding, and it implements only the four functions `buffer-layout-utils` calls. It rejects non-buffer, non-bigint, negative and over-width input with an error, where the original overflowed or silently truncated. It was checked to give identical output to the original on 15,000 random u8 to u256 round trips. `npm ls bigint-buffer` now resolves to `1.1.5-bond.1` in both lockfiles, and the advisory is no longer allowlisted.
 
-Two upstream-unfixable advisories remain allowlisted, both build-time only:
+- **Fixed:** `stream-json@1.9.1` (GHSA-528h-pc64-c93x, GHSA-hqr4-qq8f-hg3x, GHSA-mjw6-4jj6-33hc) and `uuid@8.3.2` (GHSA-w5hq-g745-h8pq). Both came only through `jayson@4`, the JSON-RPC client inside `@solana/web3.js`. Both workspaces override `jayson` to `5.0.0`, which depends on neither: it generates request ids with `crypto.randomUUID` or `getRandomValues`, which `polyfill.js` provides on device. web3.js loads only `jayson/lib/client/browser`, whose interface is unchanged. Checked with real devnet calls: `getSlot`, `getBalance`, `getParsedTransaction` on the recorded purchase, a batched `getParsedTransactions`, and an RPC error that surfaces correctly.
+- **Fixed:** `uuid@7.0.3` (GHSA-w5hq-g745-h8pq) in the app, which `xcode` pulls in through Expo config plugins at prebuild time. It is overridden to `11.1.1`; `xcode` only calls `v4()`.
+- **Fixed:** `decode-uri-component@0.2.2` (GHSA-vcc3-ghjq-m6fr, exponential decoding), which `query-string@7` pulls in through `expo-router`. The fixed upstream release is ESM-only and `query-string@7` loads it with `require()`, so the app overrides it with [`vendor/decode-uri-component-safe`](vendor/decode-uri-component-safe/index.js). It is the same API with a linear-time fallback. A crafted 2,000-token input takes about 28 ms, against about 98 s in the original. Its output matches the original on 14 of 15 edge cases. The one difference is a lone malformed `%C2`, which it keeps as written instead of turning into `U+FFFD`.
+
+`npm audit` reports 0 vulnerabilities in the server. Two upstream-unfixable advisories remain allowlisted in the app, both build-time only:
 
 - `GHSA-86w9-cpqp-85rv` in `node-forge` (all versions up to 1.4.0, the latest, no patched release). Pulled only by Expo's CLI code-signing tooling at build time. It is not bundled into the APK or the web export.
 - `GHSA-vfj7-8cjw-p6xm` in `braces` (all versions up to 3.0.3, the latest, no patched release). A glob-pattern DoS reachable only through Metro and Jest file matching at build and test time, with developer-controlled patterns. It is not bundled into the APK or the web export.

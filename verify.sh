@@ -49,6 +49,7 @@ say "server: tests (unit + adversarial)"
 #    node-forge (Expo CLI build tooling) and braces (Metro/Jest file matching).
 #    Remove each the moment a fix ships. bigint-buffer is no longer allowlisted:
 #    it is replaced by the vendored, input-validating vendor/bigint-buffer-safe.
+#    decode-uri-component, uuid and stream-json are fixed by overrides too.
 # ---------------------------------------------------------------------------
 say "supply chain: audit (high and critical fail)"
 for d in app server; do

@@ -1,0 +1,8 @@
+{
+  "name": "decode-uri-component",
+  "version": "0.2.2-bond.1",
+  "description": "Linear-time CJS drop-in for decode-uri-component@0.2.2 (GHSA-vcc3-ghjq-m6fr). Vendored by Bond.",
+  "main": "index.js",
+  "license": "MIT",
+  "files": ["index.js"]
+}
