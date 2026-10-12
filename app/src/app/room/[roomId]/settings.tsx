@@ -20,7 +20,17 @@ import { useTokens } from "@/theme";
 import { useBond, type Bridge } from "@/state/store";
 import { ROLE_LABEL, type Membership, type Role } from "@/rooms/roles";
 import { ADAPTER_LIST } from "@/bridge/registry";
-import { MAX_AGENT_JOB_CHARS, MAX_AGENT_NAME_CHARS, uniqueAgentName } from "@/rooms/agents";
+import {
+  MAX_AGENT_JOB_CHARS,
+  MAX_AGENT_NAME_CHARS,
+  MAX_AGENT_PERSONA_CHARS,
+  MAX_HANDLE_CHARS,
+  handleProblem,
+  normalizeHandle,
+  suggestHandle,
+  uniqueAgentName,
+  type AgentProfile,
+} from "@/rooms/agents";
 import { useAndroidKeyboardInset } from "@/hooks/use-keyboard-inset";
 
 function roleTone(role: Role): "neutral" | "brand" | "agent" {
@@ -54,13 +64,22 @@ export default function RoomSettingsScreen() {
   const room = useBond((s) => s.rooms.find((r) => r.id === roomId));
   const members = useBond((s) => s.members[roomId]) ?? NO_MEMBERS;
   const bridges = useBond((s) => s.bridges);
+  const agentDirectory = useBond((s) => s.agents);
 
   const keyboardInset = useAndroidKeyboardInset();
   const [pickerOpen, setPickerOpen] = useState(false);
   // The bridge picked in the add flow; while set, the name and job form shows.
   const [draftBridge, setDraftBridge] = useState<Bridge | null>(null);
   const [draftName, setDraftName] = useState("");
+  const [draftHandle, setDraftHandle] = useState("");
+  // Set once the user edits the handle, so typing the name stops re-suggesting it.
+  const [handleTouched, setHandleTouched] = useState(false);
+  const [draftPersona, setDraftPersona] = useState("");
   const [draftJob, setDraftJob] = useState("");
+  const [addError, setAddError] = useState<string | null>(null);
+  // "Bring in one of your agents" by @handle.
+  const [importHandle, setImportHandle] = useState("");
+  const [importError, setImportError] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const [justAdded, setJustAdded] = useState<string | null>(null);
   // The agent whose job is being edited in the member list.
@@ -85,6 +104,26 @@ export default function RoomSettingsScreen() {
     [members],
   );
 
+  const allHandles = useMemo(
+    () => Object.values(agentDirectory).map((a) => a.handle),
+    [agentDirectory],
+  );
+  // Your agents that are not in this room yet: the ones you can bring in by @handle.
+  const importable = useMemo(
+    () =>
+      Object.values(agentDirectory)
+        .filter((a) => !members.some((m) => m.did === a.did))
+        .sort((a, b) => a.handle.localeCompare(b.handle)),
+    [agentDirectory, members],
+  );
+  const importMatches = useMemo(() => {
+    const q = normalizeHandle(importHandle);
+    return importable.filter(
+      (a) => !q || a.handle.startsWith(q) || a.displayName.toLowerCase().startsWith(q),
+    );
+  }, [importable, importHandle]);
+  const draftHandleProblem = draftHandle ? handleProblem(draftHandle, allHandles) : null;
+
   const blurbFor = (kind: Bridge["kind"]) =>
     ADAPTER_LIST.find((a) => a.kind === kind)?.blurb ?? "Connected agent bridge.";
 
@@ -92,34 +131,71 @@ export default function RoomSettingsScreen() {
     setPickerOpen(false);
     setDraftBridge(null);
     setDraftName("");
+    setDraftHandle("");
+    setHandleTouched(false);
+    setDraftPersona("");
     setDraftJob("");
+    setAddError(null);
+    setImportHandle("");
+    setImportError(null);
   };
 
   const pickBridge = (bridge: Bridge) => {
     setDraftBridge(bridge);
     // "Bond gateway" names the transport; the agent itself is "Bond" (then "Bond 2", ...).
     const base = bridge.displayName.replace(/\s+(gateway|bridge)$/i, "") || bridge.displayName;
-    setDraftName(uniqueAgentName(base, members));
+    const name = uniqueAgentName(base, members);
+    setDraftName(name);
+    setDraftHandle(suggestHandle(name, allHandles));
+    setHandleTouched(false);
+    setDraftPersona("");
     setDraftJob("");
+    setAddError(null);
     setJustAdded(null);
+  };
+
+  const onDraftName = (name: string) => {
+    setDraftName(name);
+    if (!handleTouched) setDraftHandle(suggestHandle(name || "agent", allHandles));
   };
 
   const handleAddAgent = async () => {
     if (!draftBridge || adding) return;
     setAdding(true);
     try {
-      const mem = await useBond
-        .getState()
-        .addAgentToRoom(roomId, draftBridge, draftName || draftBridge.displayName, draftJob);
-      setJustAdded(mem.displayName);
+      const mem = await useBond.getState().createAgent(roomId, draftBridge, {
+        displayName: draftName || draftBridge.displayName,
+        handle: draftHandle,
+        persona: draftPersona,
+        job: draftJob,
+      });
+      setJustAdded(`${mem.displayName} (@${mem.handle})`);
       closePicker();
+    } catch (e) {
+      setAddError(String((e as Error)?.message ?? e));
     } finally {
       setAdding(false);
     }
   };
 
-  const saveJob = async (did: string, job: string) => {
+  const handleImport = async (handle: string) => {
+    if (adding) return;
+    setAdding(true);
+    setImportError(null);
+    try {
+      const mem = await useBond.getState().importAgent(roomId, handle);
+      setJustAdded(`${mem.displayName} (@${mem.handle})`);
+      closePicker();
+    } catch (e) {
+      setImportError(String((e as Error)?.message ?? e));
+    } finally {
+      setAdding(false);
+    }
+  };
+
+  const saveAgent = async (did: string, job: string, persona: string | null) => {
     await useBond.getState().updateAgentJob(roomId, did, job);
+    if (persona !== null) await useBond.getState().updateAgentPersona(did, persona);
     setEditingDid(null);
   };
 
@@ -254,7 +330,8 @@ export default function RoomSettingsScreen() {
                     ? () => setEditingDid((d) => (d === m.did ? null : m.did))
                     : undefined
                 }
-                onSaveJob={(job) => saveJob(m.did, job)}
+                profile={agentDirectory[m.did]}
+                onSave={(job, persona) => saveAgent(m.did, job, persona)}
                 bridgeName={bridges.find((b) => b.id === m.bridgeId)?.displayName}
                 bridgeConnected={
                   m.kind === "agent" && !!m.bridgeId
@@ -290,7 +367,7 @@ export default function RoomSettingsScreen() {
             <View style={{ flexDirection: "row", alignItems: "center", gap: space[1] }}>
               <Ionicons name="checkmark-circle" size={16} color={c.verified} />
               <Txt variant="caption" color={c.verified} style={{ flex: 1 }}>
-                {justAdded} joined this room. Mention it with its @ chip in the thread.
+                {justAdded} joined this room. Type its @username in the thread to talk to it.
               </Txt>
             </View>
           )}
@@ -305,10 +382,38 @@ export default function RoomSettingsScreen() {
               <Field
                 label="Name"
                 value={draftName}
-                onChangeText={setDraftName}
+                onChangeText={onDraftName}
                 maxLength={MAX_AGENT_NAME_CHARS}
                 autoCapitalize="words"
                 accessibilityLabel="Agent name"
+              />
+              <Field
+                label="Username"
+                value={draftHandle ? `@${draftHandle}` : ""}
+                onChangeText={(t) => {
+                  setHandleTouched(true);
+                  setDraftHandle(normalizeHandle(t));
+                }}
+                maxLength={MAX_HANDLE_CHARS + 1}
+                autoCapitalize="none"
+                autoCorrect={false}
+                placeholder="@payments_watcher"
+                accessibilityLabel="Agent username"
+                hint={
+                  draftHandleProblem ??
+                  `Type @${draftHandle || "username"} in any room to talk to it, or bring it into another room.`
+                }
+                hintTone={draftHandleProblem ? "error" : undefined}
+              />
+              <Field
+                label="Persona (optional)"
+                value={draftPersona}
+                onChangeText={setDraftPersona}
+                maxLength={MAX_AGENT_PERSONA_CHARS}
+                multiline
+                placeholder="Who it is and how it talks. For example: a calm treasury analyst who answers in three bullets."
+                accessibilityLabel="Agent persona"
+                hint={`${draftPersona.length}/${MAX_AGENT_PERSONA_CHARS}. Kept in every room it joins.`}
               />
               <Field
                 label="Job (optional)"
@@ -318,8 +423,13 @@ export default function RoomSettingsScreen() {
                 multiline
                 placeholder="For example: watch this room's payments and post a short summary when one lands."
                 accessibilityLabel="Agent job"
-                hint={`${draftJob.length}/${MAX_AGENT_JOB_CHARS}. Sent with every turn. Spend caps still apply.`}
+                hint={`${draftJob.length}/${MAX_AGENT_JOB_CHARS}. Only for this room. Spend caps still apply.`}
               />
+              {addError ? (
+                <Txt variant="caption" color={c.tampered}>
+                  {addError}
+                </Txt>
+              ) : null}
               <View style={{ flexDirection: "row", gap: space[2] }}>
                 <Button
                   title="Back"
@@ -330,7 +440,7 @@ export default function RoomSettingsScreen() {
                 <Button
                   title={adding ? "Adding…" : "Add agent"}
                   onPress={() => void handleAddAgent()}
-                  disabled={adding || !draftName.trim()}
+                  disabled={adding || !draftName.trim() || !!draftHandleProblem || !draftHandle}
                   style={{ flex: 1 }}
                 />
               </View>
@@ -341,9 +451,44 @@ export default function RoomSettingsScreen() {
               <View style={{ gap: space[1] }}>
                 <Txt variant="callout">Connected bridges</Txt>
                 <Txt variant="caption" muted>
-                  Pick a bridge, then give its agent a job. A bridge can be added more than once.
+                  Create a new agent on a bridge, or bring in one you already made.
                 </Txt>
               </View>
+              {Object.keys(agentDirectory).length > 0 ? (
+                <View style={{ gap: space[2] }}>
+                  <Field
+                    label="Bring in one of your agents"
+                    value={importHandle}
+                    onChangeText={(t) => {
+                      setImportHandle(t);
+                      setImportError(null);
+                    }}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    placeholder="@username"
+                    accessibilityLabel="Agent username to bring in"
+                    onSubmitEditing={() => void handleImport(importHandle)}
+                    returnKeyType="done"
+                  />
+                  {importError ? (
+                    <Txt variant="caption" color={c.tampered}>
+                      {importError}
+                    </Txt>
+                  ) : null}
+                  {importable.length === 0 ? (
+                    <Txt variant="caption" faint>
+                      All your agents are already in this room.
+                    </Txt>
+                  ) : (
+                    importMatches.slice(0, 5).map((a) => (
+                      <ImportRow key={a.did} agent={a} onPress={() => void handleImport(a.handle)} />
+                    ))
+                  )}
+                  <Txt variant="caption" faint style={{ marginTop: space[1] }}>
+                    Or create a new one:
+                  </Txt>
+                </View>
+              ) : null}
               {connectedBridges.length === 0 ? (
                 <View style={{ gap: space[3], alignItems: "flex-start" }}>
                   <Txt variant="body" muted>
@@ -383,24 +528,30 @@ function MemberRow({
   bridgeConnected,
   editing,
   onToggleEdit,
-  onSaveJob,
+  profile,
+  onSave,
 }: {
   member: Membership;
   first: boolean;
   bridgeName?: string;
   bridgeConnected: boolean;
   editing: boolean;
-  /** Set for agent members: toggles the job editor. */
+  /** Set for agent members: toggles the job and persona editor. */
   onToggleEdit?: () => void;
-  onSaveJob: (job: string) => void | Promise<void>;
+  /** The agent's profile when it is one of yours; its persona is editable here. */
+  profile?: AgentProfile;
+  /** Save the job for this room and, when the agent has a profile, its persona (null: keep). */
+  onSave: (job: string, persona: string | null) => void | Promise<void>;
 }) {
   const { c, space } = useTokens();
   const isAgent = member.kind === "agent";
   const showBridge = isAgent && !!bridgeName;
   const [draft, setDraft] = useState(member.job ?? "");
+  const [personaDraft, setPersonaDraft] = useState(profile?.persona ?? "");
   const toggle = onToggleEdit
     ? () => {
         setDraft(member.job ?? "");
+        setPersonaDraft(profile?.persona ?? "");
         onToggleEdit();
       }
     : undefined;
@@ -439,8 +590,15 @@ function MemberRow({
             {isAgent && <PresenceDot color={bridgeConnected ? c.online : c.textFaint} size={7} />}
           </View>
           <Txt variant={showBridge ? "caption" : "mono"} faint numberOfLines={1}>
-            {showBridge ? `via ${bridgeName}` : shortDid(member.did)}
+            {showBridge
+              ? `${member.handle ? `@${member.handle} · ` : ""}via ${bridgeName}`
+              : shortDid(member.did)}
           </Txt>
+          {isAgent && profile?.persona ? (
+            <Txt variant="caption" muted numberOfLines={editing ? undefined : 1}>
+              Persona: {profile.persona}
+            </Txt>
+          ) : null}
           {isAgent && (
             <Txt
               variant="caption"
@@ -456,20 +614,35 @@ function MemberRow({
       </Pressable>
       {editing && (
         <View style={{ gap: space[2], paddingHorizontal: space[4], paddingBottom: space[3] }}>
+          {profile ? (
+            <Field
+              label={`Persona of ${member.displayName} (every room)`}
+              value={personaDraft}
+              onChangeText={setPersonaDraft}
+              maxLength={MAX_AGENT_PERSONA_CHARS}
+              multiline
+              placeholder="Who it is and how it talks."
+              accessibilityLabel={`Persona for ${member.displayName}`}
+              hint={`${personaDraft.length}/${MAX_AGENT_PERSONA_CHARS}. Leave empty for none.`}
+            />
+          ) : null}
           <Field
             label={`What should ${member.displayName} pursue in this room?`}
             value={draft}
             onChangeText={setDraft}
             maxLength={MAX_AGENT_JOB_CHARS}
             multiline
-            autoFocus
             placeholder="For example: track devnet USDC sent in this room and flag anything over 5 USDC."
             accessibilityLabel={`Job for ${member.displayName}`}
             hint={`${draft.length}/${MAX_AGENT_JOB_CHARS}. Leave empty to clear the job.`}
           />
           <View style={{ flexDirection: "row", gap: space[2] }}>
             <Button title="Cancel" variant="secondary" onPress={toggle} style={{ flex: 1 }} />
-            <Button title="Save job" onPress={() => void onSaveJob(draft)} style={{ flex: 1 }} />
+            <Button
+            title="Save"
+            onPress={() => void onSave(draft, profile ? personaDraft : null)}
+            style={{ flex: 1 }}
+          />
           </View>
         </View>
       )}
@@ -480,9 +653,10 @@ function MemberRow({
 function Field({
   label,
   hint,
+  hintTone,
   multiline,
   ...props
-}: TextInputProps & { label: string; hint?: string }) {
+}: TextInputProps & { label: string; hint?: string; hintTone?: "error" }) {
   const { c, radius, space, font } = useTokens();
   return (
     <View style={{ gap: space[1] }}>
@@ -508,9 +682,15 @@ function Field({
         }}
       />
       {hint ? (
-        <Txt variant="caption" faint>
-          {hint}
-        </Txt>
+        hintTone === "error" ? (
+          <Txt variant="caption" color={c.tampered}>
+            {hint}
+          </Txt>
+        ) : (
+          <Txt variant="caption" faint>
+            {hint}
+          </Txt>
+        )
       ) : null}
     </View>
   );
@@ -569,6 +749,40 @@ function BridgeRow({
         </Txt>
       </View>
       <Ionicons name="add-circle" size={22} color={c.brand} />
+    </Pressable>
+  );
+}
+
+/** One of your agents that can be brought into this room. */
+function ImportRow({ agent, onPress }: { agent: AgentProfile; onPress: () => void }) {
+  const { c, space, radius } = useTokens();
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={`Bring in @${agent.handle}, ${agent.displayName}`}
+      style={({ pressed }) => ({
+        flexDirection: "row",
+        alignItems: "center",
+        gap: space[3],
+        padding: space[3],
+        borderRadius: radius.md,
+        borderWidth: 1,
+        borderColor: c.border,
+        backgroundColor: c.surface,
+        opacity: pressed ? 0.85 : 1,
+      })}
+    >
+      <Avatar did={agent.did} name={agent.displayName} kind="agent" size={34} />
+      <View style={{ flex: 1, gap: 2 }}>
+        <Txt variant="callout" numberOfLines={1}>
+          {agent.displayName} <Txt variant="caption" faint>@{agent.handle}</Txt>
+        </Txt>
+        <Txt variant="caption" muted numberOfLines={1}>
+          {agent.persona ? agent.persona : "No persona set"}
+        </Txt>
+      </View>
+      <Ionicons name="enter-outline" size={20} color={c.brand} />
     </Pressable>
   );
 }

@@ -130,6 +130,9 @@ export class BondOwnGatewayAdapter extends GenericOpenAIAdapter {
     if (this.config.model) body.model = this.config.model;
     if (input.skills?.length) body.skills = input.skills;
     if (input.job) body.job = input.job;
+    if (input.persona) body.persona = input.persona;
+    if (input.agentName) body.agentName = input.agentName;
+    if (input.agentHandle) body.agentHandle = input.agentHandle;
 
     let res: Response;
     try {

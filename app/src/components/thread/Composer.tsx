@@ -16,6 +16,7 @@ import { useTokens } from "@/theme";
 import { spring } from "@/theme/motion";
 import { Txt } from "@/components/ui/Text";
 import { PressableScale } from "@/components/motion/PressableScale";
+import { completeMention, mentionQuery, suggestAgents, typedMentions } from "@/rooms/agents";
 
 /** The send button wakes up when there is something to send: it grows, turns mint and the
  *  arrow lifts. Empty, it rests small and quiet. */
@@ -79,6 +80,12 @@ export function Composer({
   };
 
   const hasText = text.trim().length > 0;
+  // Agents named in the text (@handle or @Name) light up like a tapped chip, so it is clear
+  // who will answer. Typing "@" opens suggestions; picking one inserts "@handle ".
+  const typed = typedMentions(text, agents);
+  const addressed = new Set([...mentions, ...typed]);
+  const query = mentionQuery(text);
+  const suggestions = query === null ? [] : suggestAgents(query, agents).slice(0, 5);
 
   return (
     <View
@@ -118,16 +125,59 @@ export function Composer({
         </Animated.View>
       ) : null}
 
+      {suggestions.length > 0 ? (
+        <View
+          accessibilityRole="menu"
+          accessibilityLabel="Agent suggestions"
+          style={{
+            backgroundColor: c.surfaceAlt,
+            borderRadius: radius.md,
+            borderWidth: 1,
+            borderColor: c.border,
+            overflow: "hidden",
+          }}
+        >
+          {suggestions.map((a, i) => (
+            <Pressable
+              key={a.did}
+              onPress={() => setText((t) => completeMention(t, a.handle ?? a.displayName))}
+              accessibilityRole="menuitem"
+              accessibilityLabel={`Address ${a.displayName}${a.handle ? `, @${a.handle}` : ""}`}
+              style={({ pressed }) => ({
+                flexDirection: "row",
+                alignItems: "center",
+                gap: space[2],
+                paddingHorizontal: space[3],
+                paddingVertical: space[2],
+                borderTopWidth: i === 0 ? 0 : 1,
+                borderTopColor: c.border,
+                backgroundColor: pressed ? c.surfaceSunken : "transparent",
+              })}
+            >
+              <Ionicons name="sparkles" size={14} color={c.agent} />
+              <Txt variant="callout" numberOfLines={1} style={{ flexShrink: 1 }}>
+                {a.displayName}
+              </Txt>
+              {a.handle ? (
+                <Txt variant="caption" faint numberOfLines={1}>
+                  @{a.handle}
+                </Txt>
+              ) : null}
+            </Pressable>
+          ))}
+        </View>
+      ) : null}
+
       {agents.length > 0 ? (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: space[2] }} keyboardShouldPersistTaps="handled">
           {agents.map((a) => {
-            const on = mentions.includes(a.did);
+            const on = addressed.has(a.did);
             return (
               <PressableScale
                 key={a.did}
                 onPress={() => toggle(a.did)}
                 accessibilityRole="button"
-                accessibilityState={{ selected: on }}
+                accessibilityState={{ selected: on, checked: on }}
                 accessibilityLabel={`Mention ${a.displayName}`}
                 pressedScale={0.92}
                 style={{
@@ -179,7 +229,9 @@ export function Composer({
           onChangeText={setText}
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
-          placeholder={mentions.length ? "Message your agent…" : "Message"}
+          placeholder={
+            addressed.size ? "Message your agent…" : agents.length > 1 ? "Message, or @ an agent" : "Message"
+          }
           placeholderTextColor={c.textFaint}
           multiline
           // react-native-web renders a two-row textarea by default; one row matches native.

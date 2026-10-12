@@ -72,6 +72,11 @@ export interface SendTurnInput {
   /** The standing job the room owner gave this agent. The Bond runtime quotes it into its
    *  fixed system prompt; other adapters get it through the transcript's system message. */
   job?: string;
+  /** The agent's persona (same in every room), name and @handle. The Bond runtime adds them to
+   *  its fixed system prompt; other adapters get them through the transcript's system message. */
+  persona?: string;
+  agentName?: string;
+  agentHandle?: string;
 }
 
 export interface GatewayAdapter {

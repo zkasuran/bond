@@ -19,7 +19,19 @@ import { makeNode } from "../model/factory";
 import { nextLamport } from "../model/thread";
 import { branchToLeaf, createSignedNode, maxLamport } from "./engine";
 import { agentMentions, threadToChatMessages } from "../rooms/routing";
-import { newAgentDid, normalizeJob, systemPromptWithJob, uniqueAgentName } from "../rooms/agents";
+import {
+  BOND_AGENT_DID,
+  BOND_AGENT_HANDLE,
+  agentDidForHandle,
+  handleProblem,
+  normalizeHandle,
+  normalizeJob,
+  normalizePersona,
+  systemPromptFor,
+  typedMentions,
+  uniqueAgentName,
+  type AgentProfile,
+} from "../rooms/agents";
 import type { SyncClient } from "../sync/client";
 import { useSkills } from "../skills/registry";
 import { signBytes } from "../identity/keys";
@@ -28,13 +40,13 @@ import { invalidateSession, sessionToken } from "../bridge/session";
 import { useWallet } from "../solana/store";
 import type { WalletBinding } from "../solana/binding";
 
-const BOND_AGENT_DID = "did:bond:assistant";
 const SYSTEM_PROMPT =
   "You are an agent inside Bond, a messaging app where humans and agents share a room. " +
   "You are replying within a thread. Be concise, direct and useful.";
 
 const KEY_ROOMS = "bond.rooms";
 const KEY_MEMBERS = "bond.members";
+const KEY_AGENTS = "bond.agents";
 const KEY_BRIDGES = "bond.bridges";
 const KEY_RUNS = "bond.monthlyRuns";
 
@@ -192,6 +204,9 @@ export interface BondState {
   members: Record<string, Membership[]>;
   nodes: Record<string, BondNode[]>;
   bridges: Bridge[];
+  /** The agents you have created, by did. Each has a unique @handle and a persona and can be
+   *  brought into any room. The built-in Bond assistant is listed here too. */
+  agents: Record<string, AgentProfile>;
   /** nodeId -> true while an agent reply is still streaming into it. */
   streaming: Record<string, boolean>;
   monthlyRuns: number;
@@ -213,15 +228,19 @@ export interface BondState {
     config: GatewayConfig,
     displayName?: string,
   ) => Promise<Bridge>;
-  /** Add an agent from a bridge as a new member. The same bridge can be added more than once;
-   *  each gets its own did, a name unique in the room and an optional standing job. */
-  addAgentToRoom: (
+  /** Create a new agent on a bridge, with a unique @handle and an optional persona, and add it
+   *  to a room with an optional job there. Throws with a readable reason on a bad handle. */
+  createAgent: (
     roomId: string,
     bridge: Bridge,
-    displayName: string,
-    job?: string,
+    input: { displayName: string; handle: string; persona?: string; job?: string },
   ) => Promise<Membership>;
-  /** Set or clear an agent member's standing job. */
+  /** Bring one of your agents into another room by its @handle. Same did, name and persona;
+   *  the job is per room. Throws when the handle is unknown or the agent is already there. */
+  importAgent: (roomId: string, handle: string, job?: string) => Promise<Membership>;
+  /** Set or clear an agent's persona. It applies in every room the agent is in. */
+  updateAgentPersona: (did: string, persona: string) => Promise<void>;
+  /** Set or clear an agent member's standing job in one room. */
   updateAgentJob: (roomId: string, did: string, job: string) => Promise<void>;
   runAgentTurn: (roomId: string, mentionNodeId: string, agent: Membership) => Promise<void>;
   sendPayment: (
@@ -260,7 +279,45 @@ function bondAgentMembership(bridgeId: string): Membership {
     role: "agent",
     joinedAt: new Date().toISOString(),
     bridgeId,
+    handle: BOND_AGENT_HANDLE,
   };
+}
+
+function bondAgentProfile(): AgentProfile {
+  return {
+    did: BOND_AGENT_DID,
+    handle: BOND_AGENT_HANDLE,
+    displayName: "Bond",
+    bridgeId: "bond",
+    createdAt: new Date(0).toISOString(),
+  };
+}
+
+/** A room membership for one of your agents. */
+function membershipFor(profile: AgentProfile, displayName: string, job?: string): Membership {
+  const mem: Membership = {
+    did: profile.did,
+    displayName,
+    kind: "agent",
+    role: "agent",
+    joinedAt: new Date().toISOString(),
+    bridgeId: profile.bridgeId,
+    handle: profile.handle,
+  };
+  const j = normalizeJob(job);
+  if (j) mem.job = j;
+  return mem;
+}
+
+/** Older rooms stored the built-in agent without a handle. Give it @bond so it can be typed. */
+function withBondHandle(members: Record<string, Membership[]>): Record<string, Membership[]> {
+  const out: Record<string, Membership[]> = {};
+  for (const [room, list] of Object.entries(members)) {
+    out[room] = list.map((m) =>
+      m.did === BOND_AGENT_DID && !m.handle ? { ...m, handle: BOND_AGENT_HANDLE } : m,
+    );
+  }
+  return out;
 }
 export const useBond = create<BondState>((set, get) => ({
   ready: false,
@@ -272,6 +329,7 @@ export const useBond = create<BondState>((set, get) => ({
   members: {},
   nodes: {},
   bridges: [],
+  agents: {},
   streaming: {},
   monthlyRuns: 0,
   onboarded: false,
@@ -282,7 +340,13 @@ export const useBond = create<BondState>((set, get) => ({
     const stored = await loadOrCreateIdentity();
     const storage = createStorage();
     const rooms = (await storage.getItem<Room[]>(KEY_ROOMS)) ?? [];
-    const members = (await storage.getItem<Record<string, Membership[]>>(KEY_MEMBERS)) ?? {};
+    const members = withBondHandle(
+      (await storage.getItem<Record<string, Membership[]>>(KEY_MEMBERS)) ?? {},
+    );
+    const agents = {
+      [BOND_AGENT_DID]: bondAgentProfile(),
+      ...((await storage.getItem<Record<string, AgentProfile>>(KEY_AGENTS)) ?? {}),
+    };
     const monthlyRuns = (await storage.getItem<number>(KEY_RUNS)) ?? 0;
     const onboarded = (await storage.getItem<boolean>("bond.onboarded")) ?? false;
     const nodes: Record<string, BondNode[]> = {};
@@ -305,6 +369,7 @@ export const useBond = create<BondState>((set, get) => ({
       storage,
       rooms,
       members,
+      agents,
       nodes,
       monthlyRuns,
       onboarded,
@@ -356,14 +421,25 @@ export const useBond = create<BondState>((set, get) => ({
     if (!identity || !secretKey || !storage) throw new Error("Bond is not ready");
     const roomNodes = get().nodes[roomId] ?? [];
     const lamport = nextLamport(maxLamport(roomNodes));
+    // Agents addressed by chip or by typing @handle / @Name. Folded into the signed node so every
+    // device sees who was addressed, and only those agents reply.
+    const roomMembers = get().members[roomId] ?? [];
+    const merged = [...new Set([...(mentions ?? []), ...typedMentions(body, roomMembers)])];
     const node = createSignedNode(
-      { roomId, parentId, author: identity, type: "text", payload: { body, mentions }, lamport },
+      {
+        roomId,
+        parentId,
+        author: identity,
+        type: "text",
+        payload: { body, mentions: merged.length ? merged : mentions },
+        lamport,
+      },
       secretKey,
     );
     await storage.append(node);
     set((s) => ({ nodes: { ...s.nodes, [roomId]: [...(s.nodes[roomId] ?? []), node] } }));
     broadcastNode(roomId, node);
-    const agents = agentMentions(node, get().members[roomId] ?? []);
+    const agents = agentMentions(node, roomMembers);
     await Promise.all(agents.map((a) => get().runAgentTurn(roomId, node.id, a)));
     return node;
   },
@@ -406,22 +482,59 @@ export const useBond = create<BondState>((set, get) => ({
     return get().bridges.find((b) => b.id === id) as Bridge;
   },
 
-  addAgentToRoom: async (roomId, bridge, displayName, job) => {
+  createAgent: async (roomId, bridge, input) => {
     const storage = get().storage;
+    const handle = normalizeHandle(input.handle);
+    const problem = handleProblem(
+      handle,
+      Object.values(get().agents).map((a) => a.handle),
+    );
+    if (problem) throw new Error(problem);
     const current = get().members[roomId] ?? [];
-    const mem: Membership = {
-      did: newAgentDid(bridge.id, current, () => ulid().toLowerCase()),
-      displayName: uniqueAgentName(displayName, current),
-      kind: "agent",
-      role: "agent",
-      joinedAt: new Date().toISOString(),
+    const displayName = uniqueAgentName(input.displayName, current);
+    const profile: AgentProfile = {
+      did: agentDidForHandle(handle),
+      handle,
+      displayName,
       bridgeId: bridge.id,
+      createdAt: new Date().toISOString(),
     };
-    const normalized = normalizeJob(job);
-    if (normalized) mem.job = normalized;
+    const persona = normalizePersona(input.persona);
+    if (persona) profile.persona = persona;
+    const mem = membershipFor(profile, displayName, input.job);
+    set((s) => ({
+      agents: { ...s.agents, [profile.did]: profile },
+      members: { ...s.members, [roomId]: [...(s.members[roomId] ?? []), mem] },
+    }));
+    if (storage) {
+      await storage.setItem(KEY_AGENTS, get().agents);
+      await storage.setItem(KEY_MEMBERS, get().members);
+    }
+    return mem;
+  },
+  importAgent: async (roomId, handleInput, job) => {
+    const storage = get().storage;
+    const handle = normalizeHandle(handleInput);
+    const profile = Object.values(get().agents).find((a) => a.handle === handle);
+    if (!profile) throw new Error(`You have no agent called @${handle || "?"}.`);
+    const current = get().members[roomId] ?? [];
+    if (current.some((m) => m.did === profile.did)) {
+      throw new Error(`@${handle} is already in this room.`);
+    }
+    const mem = membershipFor(profile, uniqueAgentName(profile.displayName, current), job);
     set((s) => ({ members: { ...s.members, [roomId]: [...(s.members[roomId] ?? []), mem] } }));
     if (storage) await storage.setItem(KEY_MEMBERS, get().members);
     return mem;
+  },
+  updateAgentPersona: async (did, persona) => {
+    const storage = get().storage;
+    const profile = get().agents[did];
+    if (!profile) return;
+    const { persona: _old, ...rest } = profile;
+    const p = normalizePersona(persona);
+    const next: AgentProfile = p ? { ...rest, persona: p } : rest;
+    set((s) => ({ agents: { ...s.agents, [did]: next } }));
+    if (storage) await storage.setItem(KEY_AGENTS, get().agents);
   },
   updateAgentJob: async (roomId, did, job) => {
     const storage = get().storage;
@@ -453,7 +566,17 @@ export const useBond = create<BondState>((set, get) => ({
       get().bridges.find((b) => b.id === "bond");
     const roomNodes = get().nodes[roomId] ?? [];
     const branch = branchToLeaf(roomNodes, mentionNodeId);
-    const messages = threadToChatMessages(branch, systemPromptWithJob(SYSTEM_PROMPT, agent.job));
+    const persona = get().agents[agent.did]?.persona;
+    const messages = threadToChatMessages(
+      branch,
+      systemPromptFor(SYSTEM_PROMPT, {
+        name: agent.displayName,
+        handle: agent.handle,
+        persona,
+        job: agent.job,
+      }),
+      agent.did,
+    );
 
     const author: Identity = { did: agent.did, displayName: agent.displayName, kind: "agent" };
     const lamport = nextLamport(maxLamport(roomNodes));
@@ -528,6 +651,9 @@ export const useBond = create<BondState>((set, get) => ({
           signal: controller.signal,
           skills: skillClaims,
           job: agent.job,
+          persona,
+          agentName: agent.displayName,
+          agentHandle: agent.handle,
         })) {
           armInactivity(); // every event resets the inactivity window
           if (ev.kind === "text") {

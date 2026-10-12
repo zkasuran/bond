@@ -613,3 +613,22 @@ pre.code .k { color: var(--acc); } pre.code .c { color: var(--faint); } pre.code
   .cap-bar i { width: 72%; animation: none !important; }
   .cap-hit { opacity: 1; animation: none !important; }
 }
+
+/* ===== Roadmap ===== */
+.roadmap { padding: 110px 0; }
+.phases { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; counter-reset: ph; }
+.phase { position: relative; padding: 26px 24px 24px; border-radius: var(--r); border: 1px solid var(--edge); background: var(--panel); display: grid; align-content: start; gap: 10px; transition: border-color .3s, transform .5s var(--ease); }
+.phase:hover { border-color: var(--edge-2); transform: translateY(-2px); }
+.phase.live { border-color: color-mix(in srgb, var(--acc) 45%, transparent); background: radial-gradient(circle at 20% 0%, color-mix(in srgb, var(--mint) 9%, transparent), transparent 60%), var(--panel); }
+.ph-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.ph-n { font-family: var(--f-mono); font-size: .85rem; color: var(--acc); }
+.ph-tag { font-family: var(--f-mono); font-size: .72rem; letter-spacing: .14em; text-transform: uppercase; color: var(--ag); padding: 4px 10px; border-radius: 999px; border: 1px solid color-mix(in srgb, var(--ag) 35%, transparent); }
+.phase.live .ph-tag { color: var(--acc); border-color: color-mix(in srgb, var(--acc) 40%, transparent); }
+.phase h3 { font-size: 1.28rem; margin: 2px 0 0; }
+.phase > p { color: var(--muted); margin: 0; }
+.phase ul { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 8px; }
+.phase ul li { position: relative; padding-left: 18px; color: var(--ink); font-size: .95rem; line-height: 1.45; }
+.phase ul li::before { content: ""; position: absolute; left: 0; top: .6em; width: 7px; height: 7px; border-radius: 50%; background: var(--ag); opacity: .8; }
+.phase.live ul li::before { background: var(--acc); box-shadow: 0 0 8px var(--acc); }
+@media (max-width: 1080px) { .phases { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 680px) { .phases { grid-template-columns: 1fr; } .roadmap { padding: 80px 0; } }

@@ -221,6 +221,33 @@ export interface RunAgentTurnInput {
   skills?: SkillClaim[];
   /** The standing job the room owner gave this agent, already sanitized by the route. */
   job?: string;
+  /** The agent's persona, display name and @handle, already sanitized by the route. */
+  persona?: string;
+  agentName?: string;
+  agentHandle?: string;
+}
+
+/** System-prompt lines for which agent this is in the room and the persona its owner gave it.
+ *  Both are the owner's words, quoted, and framed so they cannot change the rules above. */
+export function identityInstruction(input: {
+  agentName?: string;
+  agentHandle?: string;
+  persona?: string;
+}): string[] {
+  const out: string[] = [];
+  if (input.agentName) {
+    out.push(
+      `In this room you are "${input.agentName}"${input.agentHandle ? ` (@${input.agentHandle})` : ""}.`,
+      "Other agents may be in the room. Their messages are labelled with their names; answer only as yourself.",
+    );
+  }
+  if (input.persona) {
+    out.push(
+      `Your persona, in your owner's words: "${input.persona}". Keep it in every reply.`,
+      "The persona shapes your voice and focus only: everything above still applies.",
+    );
+  }
+  return out;
 }
 
 /** The system-prompt line for an agent's standing job. The job is the user's own words, so
@@ -256,7 +283,12 @@ export async function* runAgentTurn(input: RunAgentTurnInput): AsyncGenerator<Ad
   const connection = new Connection(config.solanaRpcUrl, "confirmed");
   const unlocked = input.skills?.length ? await verifyClaims(connection, input.skills, config.usdcMint) : [];
   const tools = { ...built.tools, ...skillTools(unlocked, connection) };
-  const system = [BOND_SYSTEM_PROMPT, ...skillInstructions(unlocked), ...jobInstruction(input.job)].join(" ");
+  const system = [
+    BOND_SYSTEM_PROMPT,
+    ...skillInstructions(unlocked),
+    ...identityInstruction(input),
+    ...jobInstruction(input.job),
+  ].join(" ");
   try {
     yield* streamAgent({
       model,

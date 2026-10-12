@@ -36,3 +36,26 @@ test("jobInstruction quotes the job and keeps the rules above it", () => {
   assert.match(lines, /in their own words: "Summarize every payment in this room"\./);
   assert.match(lines, /not a rule change/);
 });
+
+import { identityInstruction } from "./loop.js";
+import { sanitizeHandle, sanitizePersona, sanitizeAgentName, MAX_AGENT_PERSONA_CHARS } from "./route.js";
+
+test("sanitizeHandle accepts only a valid handle", () => {
+  assert.equal(sanitizeHandle("pay_watch"), "pay_watch");
+  for (const v of ["ab", "1abc", "Abc", "a b", "a\"b", "a".repeat(21), 5, undefined]) assert.equal(sanitizeHandle(v), undefined);
+});
+
+test("sanitizePersona and sanitizeAgentName fold and cap", () => {
+  assert.equal(sanitizePersona("A dry\nwit \"always\""), "A dry wit 'always'");
+  assert.equal(sanitizePersona("p".repeat(2000))!.length, MAX_AGENT_PERSONA_CHARS);
+  assert.equal(sanitizeAgentName("n".repeat(100))!.length, 40);
+});
+
+test("identityInstruction names the agent and quotes the persona", () => {
+  assert.deepEqual(identityInstruction({}), []);
+  const s = identityInstruction({ agentName: "Scout", agentHandle: "scout", persona: "terse pirate" }).join(" ");
+  assert.match(s, /you are "Scout" \(@scout\)/);
+  assert.match(s, /answer only as yourself/);
+  assert.match(s, /persona, in your owner's words: "terse pirate"/);
+  assert.match(s, /everything above still applies/);
+});

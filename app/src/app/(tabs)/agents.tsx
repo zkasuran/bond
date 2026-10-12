@@ -1,6 +1,8 @@
-// The Agents tab. Bond's universal bridge surface: every connected runtime shows here
-// as a card with its live status and the capabilities it actually reported. One primary
-// action, connect another bridge, routes to the connect modal. See DESIGN.md sec 4.
+// The Agents tab. Your agents first: everyone you created, with the @handle that brings them
+// into any room and the persona they keep there. Then Bond's universal bridge surface: every
+// connected runtime as a card with its live status and the capabilities it actually reported.
+// One primary action, connect another bridge, routes to the connect modal. See DESIGN.md sec 4.
+import { useMemo } from "react";
 import { ScrollView, View } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -121,6 +123,15 @@ export default function AgentsScreen() {
   const { c, space } = useTokens();
   const router = useRouter();
   const bridges = useBond((s) => s.bridges);
+  const directory = useBond((s) => s.agents);
+  const members = useBond((s) => s.members);
+  const yours = useMemo(() => {
+    const roomsOf = (did: string) =>
+      Object.values(members).filter((list) => list.some((m) => m.did === did)).length;
+    return Object.values(directory)
+      .map((a) => ({ ...a, rooms: roomsOf(a.did) }))
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  }, [directory, members]);
   const liveCount = bridges.filter((b) => b.status === "connected").length;
 
   return (
@@ -143,6 +154,33 @@ export default function AgentsScreen() {
           onPress={() => router.push("/bridge/connect")}
           left={<Ionicons name="add" size={18} color={c.onBrand} />}
         />
+
+        <View style={{ gap: space[3] }}>
+          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+            <Txt variant="heading">Your agents</Txt>
+            <Pill label={String(yours.length)} tone="agent" />
+          </View>
+          <Txt variant="caption" muted>
+            {"Create one in a room's settings. Type its @username in any room to talk to it, or bring it into another room from that room's settings. Its persona goes with it."}
+          </Txt>
+          {yours.map((a) => (
+            <Card key={a.did} style={{ flexDirection: "row", alignItems: "center", gap: space[3] }}>
+              <Avatar did={a.did} name={a.displayName} kind="agent" size={40} />
+              <View style={{ flex: 1, gap: 2 }}>
+                <Txt variant="callout" numberOfLines={1}>
+                  {a.displayName}
+                </Txt>
+                <Txt variant="caption" color={c.agent} numberOfLines={1}>
+                  @{a.handle}
+                </Txt>
+                <Txt variant="caption" muted numberOfLines={2}>
+                  {a.persona ? a.persona : "No persona set"}
+                </Txt>
+              </View>
+              <Pill label={a.rooms === 1 ? "1 room" : `${a.rooms} rooms`} tone="neutral" />
+            </Card>
+          ))}
+        </View>
 
         <View style={{ gap: space[3] }}>
           <View

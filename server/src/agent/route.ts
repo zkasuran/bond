@@ -43,14 +43,16 @@ export function toModelMessages(raw: unknown): ModelMessage[] {
   return out;
 }
 
-// Ceiling on an agent's standing job. Must match MAX_AGENT_JOB_CHARS in app/src/rooms/agents.ts.
+// Ceilings on an agent's standing job, persona and name. Must match app/src/rooms/agents.ts.
 export const MAX_AGENT_JOB_CHARS = 600;
+export const MAX_AGENT_PERSONA_CHARS = 600;
+export const MAX_AGENT_NAME_CHARS = 40;
 
 // The agent's standing job from the request body: a string, with control characters and line
 // breaks folded to single spaces (it is quoted inside the system prompt, so it cannot open a
 // new line there), double quotes swapped for single so it cannot close that quote, trimmed and
 // capped. Anything else, or an empty result, means no job.
-export function sanitizeJob(raw: unknown): string | undefined {
+export function sanitizeJob(raw: unknown, max: number = MAX_AGENT_JOB_CHARS): string | undefined {
   if (typeof raw !== "string") return undefined;
   const clean = raw
     // eslint-disable-next-line no-control-regex
@@ -58,9 +60,19 @@ export function sanitizeJob(raw: unknown): string | undefined {
     .replace(/"/g, "'")
     .replace(/\s+/g, " ")
     .trim()
-    .slice(0, MAX_AGENT_JOB_CHARS)
+    .slice(0, max)
     .trim();
   return clean || undefined;
+}
+
+/** The agent's persona: the same folding as a job, with its own cap. */
+export const sanitizePersona = (raw: unknown) => sanitizeJob(raw, MAX_AGENT_PERSONA_CHARS);
+/** The agent's display name: one quoted-safe line, 40 chars. */
+export const sanitizeAgentName = (raw: unknown) => sanitizeJob(raw, MAX_AGENT_NAME_CHARS);
+/** The agent's @handle: 3 to 20 of a-z, 0-9 and _, starting with a letter; anything else is dropped. */
+export function sanitizeHandle(raw: unknown): string | undefined {
+  if (typeof raw !== "string") return undefined;
+  return /^[a-z][a-z0-9_]{2,19}$/.test(raw) ? raw : undefined;
 }
 
 export async function agentRoutes(app: FastifyInstance): Promise<void> {
@@ -89,6 +101,10 @@ export async function agentRoutes(app: FastifyInstance): Promise<void> {
     // The room owner's standing job for this agent. Quoted into the system prompt as a user
     // request; the fixed rules and the code-enforced caps still apply.
     const job = sanitizeJob(body.job);
+    // The agent's identity in a multi-agent room and its persona (who it is, how it talks).
+    const persona = sanitizePersona(body.persona);
+    const agentName = sanitizeAgentName(body.agentName);
+    const agentHandle = sanitizeHandle(body.agentHandle);
     // The step count is clamped to the hard ceiling. A client that asks for more
     // (or a non-number) gets MAX_AGENT_STEPS, never an unbounded loop. The system
     // prompt is fixed on the server and is not read from the body.
@@ -126,6 +142,9 @@ export async function agentRoutes(app: FastifyInstance): Promise<void> {
         runId,
         skills,
         job,
+        persona,
+        agentName,
+        agentHandle,
       })) {
         reply.raw.write(sseFor(event));
       }

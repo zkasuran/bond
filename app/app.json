@@ -2,7 +2,7 @@
   "expo": {
     "name": "Bond",
     "slug": "bond",
-    "version": "1.3.3",
+    "version": "1.3.4",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "bond",
@@ -20,7 +20,7 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "versionCode": 9
+      "versionCode": 10
     },
     "web": {
       "output": "static",

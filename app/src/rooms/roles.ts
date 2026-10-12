@@ -14,6 +14,8 @@ export interface Membership {
   bridgeId?: string;
   /** for agent members, the standing job the room owner gave it (what to pursue here). */
   job?: string;
+  /** for agent members created with a profile, its @handle (no @). */
+  handle?: string;
 }
 
 export type Capability =

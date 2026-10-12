@@ -18,6 +18,10 @@ export function agentMentions(node: BondNode, members: Membership[]): Membership
 export function threadToChatMessages(
   nodes: BondNode[],
   systemPrompt?: string,
+  /** The agent this transcript is for. Its own messages are "assistant"; another agent's are
+   *  passed as "user" turns labelled with that agent's name, so in a room with several agents
+   *  each one knows which replies were its own. Omitted, every agent message is "assistant". */
+  selfDid?: string,
 ): ChatMessage[] {
   const msgs: ChatMessage[] = [];
   if (systemPrompt) msgs.push({ role: "system", content: systemPrompt });
@@ -25,7 +29,13 @@ export function threadToChatMessages(
     if (!isType(n, "text")) continue;
     const body = n.payload.body.trim();
     if (!body) continue;
-    msgs.push({ role: n.author.kind === "agent" ? "assistant" : "user", content: body });
+    if (n.author.kind !== "agent") {
+      msgs.push({ role: "user", content: body });
+    } else if (selfDid === undefined || n.author.did === selfDid) {
+      msgs.push({ role: "assistant", content: body });
+    } else {
+      msgs.push({ role: "user", content: `[${n.author.displayName}, another agent]: ${body}` });
+    }
   }
   return msgs;
 }

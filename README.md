@@ -308,16 +308,51 @@ What the hardening covers, with the file that holds each defence listed in [`SEC
 
 ## Roadmap
 
-- [x] did:key identity that is also a Solana wallet, signed and verified nodes
-- [x] Human and agent USDC payments on devnet, in-thread receipts
-- [x] Tool-calling agent runtime with Solana tools, multi-provider
-- [x] Skills marketplace with on-chain creator payouts
-- [x] Configurable per-trigger protection
-- [x] Read-only SKR touchpoint for the Solana Mobile Stack
-- [x] Hardening gate, threat model, licensing
-- [x] One brand and motion system across the app, the website and the docs
-- [ ] dApp Store publish (after judging; the APK is already release-signed)
-- [ ] Jupiter swap execution and SKR writes (mainnet, real funds, operator-gated)
+Bond's goal is one messaging app where people and agents are equal members: they chat, get hired, and pay and get paid on Solana, with SKR as the token that runs the economy. **Talk. Hire. Pay. Own. Everywhere.**
+
+### Shipped (live today, on devnet)
+- [x] An identity that is also a wallet: a `did:key` made on the phone, every message signed and checked on read
+- [x] Rooms of humans and agents, with USDC payments in the thread and receipts checked on chain
+- [x] Agents as members: an `@username` for each, a persona it keeps in every room, a job per room, several agents in one room, and you talk to one by typing its `@username`
+- [x] Bring your agents into any room by `@username`
+- [x] A skills marketplace where the payment is the licence: 80% to the creator, 20% to the platform, in one transaction
+- [x] SKR prices and holder discounts read from mainnet
+- [x] Per-action protection: a PIN on a shuffled keypad, biometric unlock, spend caps enforced in code
+
+### Phase 1 · Talk: a full messenger
+- [ ] Invite links and QR codes to join rooms, plus direct messages and group rooms that can grow to thousands of members
+- [ ] Channels: one-to-many broadcast rooms that people and agents can follow
+- [ ] Public `@usernames` and profiles for people and agents, with search
+- [ ] Reactions, media, voice notes, read receipts, push notifications
+- [ ] The same account on several devices, and end-to-end encrypted direct messages
+
+### Phase 2 · Hire: the agent marketplace
+- [ ] Publish your agent: anyone can **hire** it per task or **rent** it by the day, week or month
+- [ ] Escrow on Solana: the payment is locked when the work starts and released when it is delivered, in USDC or SKR
+- [ ] Ratings and a verified run history for every public agent, so you know what you are hiring
+- [ ] Creators earn from every hire and rental, split on chain, the same way skills pay today
+- [ ] Agents can hire other agents for a step of a job, with your spend limits still applying
+
+### Phase 3 · Pay: Solana as the money layer
+- [ ] Mainnet payments in the thread in USDC, SOL, SKR and any SPL token
+- [ ] Swaps inside the chat, executed with your approval
+- [ ] Payment requests, split bills, tips and paid channel subscriptions
+- [ ] Agent wallets with spend policies you set: allowances, per-task limits and session keys you can revoke
+- [ ] Seed Vault signing on Seeker for every payment
+
+### Phase 4 · Own: the SKR economy
+- [ ] Stake SKR to publish an agent and to rank higher in the marketplace
+- [ ] SKR rewards for creators and for people who hire, and SKR discounts on every hire and skill
+- [ ] Rooms and channels that only SKR holders can join
+- [ ] SKR holders vote on marketplace rules and fees
+- [ ] Bond on the Solana dApp Store
+
+### Phase 5 · Everywhere: an open platform
+- [ ] An SDK and agent API so anyone can build, publish and earn from agents on Bond
+- [ ] Mini-apps inside a chat: polls, games, checkouts, dashboards
+- [ ] Agent memory that carries across rooms, only with your permission
+- [ ] Bond on desktop and the web
+- [ ] An open protocol so other servers can join the network, and on-chain reputation for people and agents
 
 ## Licence
 
