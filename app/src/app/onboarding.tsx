@@ -1,6 +1,7 @@
-// Bond onboarding. A four step, single-file flow using local step state, no extra routes.
-// It opens on the mark bonding into place, learns a little about you, then makes the core
-// idea concrete by showing your real device key as both a did:key and a Solana address.
+// Bond onboarding. A five step, single-file flow using local step state, no extra routes.
+// It opens on the mark bonding into place, learns a little about you, makes the core idea
+// concrete by showing your real device key as both a did:key and a Solana address, then asks
+// how Bond should be unlocked: nothing, a PIN, or the phone's biometric unlock.
 // Steps glide in the direction you travel; everything honours reduced motion.
 import { useEffect, useState, type ComponentProps } from "react";
 import { Platform, Pressable, View } from "react-native";
@@ -31,10 +32,21 @@ import { AmbientGlow } from "@/components/motion/Ambient";
 import { PressableScale } from "@/components/motion/PressableScale";
 import { didToSolanaAddress } from "@/identity/keys";
 import { useBond } from "@/state/store";
+import { PinSheet } from "@/protection/PinPad";
+import { useProtection } from "@/protection/LockGate";
+import {
+  getBiometricStatus,
+  hasPin,
+  markPinEnrolledInSession,
+  requireAuth,
+  setPin,
+} from "@/protection/gate";
+import type { ProtectionMethod } from "@/protection/policy";
 import { useTokens } from "@/theme";
 import { AMBIENT_CYCLES, enter, spring } from "@/theme/motion";
 
-const STEP_COUNT = 4;
+const STEP_COUNT = 5;
+const LOCK_STEP = 3;
 type IconName = ComponentProps<typeof Ionicons>["name"];
 
 /** Shorten a long identifier so both ends stay readable, keeping the value concrete. */
@@ -159,6 +171,73 @@ function FeatureRow({ icon, tint, soft, title, body, index }: { icon: IconName; 
   );
 }
 
+/** One app-lock choice on the protection step. */
+function LockOption({
+  icon,
+  title,
+  body,
+  selected,
+  disabled,
+  onPress,
+}: {
+  icon: IconName;
+  title: string;
+  body: string;
+  selected: boolean;
+  disabled?: boolean;
+  onPress: () => void;
+}) {
+  const { c, radius, space } = useTokens();
+  return (
+    <PressableScale
+      onPress={() => {
+        if (disabled) return;
+        tap();
+        onPress();
+      }}
+      disabled={disabled}
+      accessibilityRole="radio"
+      accessibilityState={{ selected, disabled: !!disabled }}
+      accessibilityLabel={`${title}. ${body}`}
+      style={{
+        flexDirection: "row",
+        alignItems: "center",
+        gap: space[3],
+        padding: space[4],
+        borderRadius: radius.lg,
+        borderWidth: 1.5,
+        borderColor: selected ? c.brand : c.border,
+        backgroundColor: selected ? c.brandSoft : c.surface,
+        opacity: disabled ? 0.5 : 1,
+      }}
+    >
+      <View
+        style={{
+          width: 40,
+          height: 40,
+          borderRadius: radius.md,
+          backgroundColor: selected ? c.brand : c.surfaceAlt,
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <Ionicons name={icon} size={20} color={selected ? c.onBrand : c.textMuted} />
+      </View>
+      <View style={{ flex: 1, gap: 2 }}>
+        <Txt variant="heading">{title}</Txt>
+        <Txt variant="caption" muted style={{ lineHeight: 18 }}>
+          {body}
+        </Txt>
+      </View>
+      <Ionicons
+        name={selected ? "radio-button-on" : "radio-button-off"}
+        size={22}
+        color={selected ? c.brand : c.textFaint}
+      />
+    </PressableScale>
+  );
+}
+
 type Who = "solo" | "team";
 type Connect = "assistant" | "own";
 
@@ -172,6 +251,17 @@ export default function Onboarding() {
   const [who, setWho] = useState<Who | null>(null);
   const [connect, setConnect] = useState<Connect | null>(null);
   const [busy, setBusy] = useState(false);
+  // The app-lock step. Nothing is chosen up front: the user has to pick one to continue.
+  const [lock, setLock] = useState<ProtectionMethod | null>(null);
+  const [lockError, setLockError] = useState<string | null>(null);
+  const [bioReady, setBioReady] = useState(false);
+  const [enroll, setEnroll] = useState<null | { step: "choose" | "confirm"; first: string }>(null);
+  const [enrollError, setEnrollError] = useState<string | null>(null);
+  const setMethod = useProtection((s) => s.setMethod);
+
+  useEffect(() => {
+    void getBiometricStatus().then((b) => setBioReady(b.hasHardware && b.isEnrolled));
+  }, []);
 
   const go = (next: number) => {
     tap();
@@ -188,6 +278,68 @@ export default function Onboarding() {
       setBusy(false);
     }
   };
+  // Save the chosen app lock, then move on. A PIN is enrolled first (choose, then confirm);
+  // biometric is tried once so a broken sensor is caught here, not at the next launch.
+  const applyLock = async () => {
+    if (!lock) return;
+    setLockError(null);
+    if (lock === "pin" && !(await hasPin())) {
+      setEnrollError(null);
+      setEnroll({ step: "choose", first: "" });
+      return;
+    }
+    if (lock === "biometric") {
+      const probe = await requireAuth("openApp", {
+        force: true,
+        reason: "turn on biometric unlock for Bond",
+        policy: {
+          ...useProtection.getState().policy,
+          methods: { ...useProtection.getState().policy.methods, openApp: "biometric" },
+        },
+      });
+      if (!probe.ok) {
+        setLockError("Biometric check did not go through. Try again or pick another option.");
+        return;
+      }
+    }
+    await saveLockAndContinue(lock);
+  };
+
+  const saveLockAndContinue = async (method: ProtectionMethod) => {
+    const ok = await setMethod("openApp", method);
+    if (!ok) {
+      setLockError("Could not save that choice. Try again.");
+      return;
+    }
+    go(LOCK_STEP + 1);
+  };
+
+  const onEnrollSubmit = async (pin: string) => {
+    if (!enroll) return;
+    if (enroll.step === "choose") {
+      setEnrollError(null);
+      setEnroll({ step: "confirm", first: pin });
+      return;
+    }
+    if (pin !== enroll.first) {
+      setEnrollError("PINs did not match. Try again.");
+      setEnroll({ step: "choose", first: "" });
+      return;
+    }
+    try {
+      await setPin(pin);
+      // Enrolled with no prior factor, so it must not later approve a protection downgrade in
+      // this same session (the same rule as the lock-screen bootstrap).
+      markPinEnrolledInSession();
+    } catch (e) {
+      setEnrollError(String((e as Error)?.message ?? e));
+      setEnroll({ step: "choose", first: "" });
+      return;
+    }
+    setEnroll(null);
+    await saveLockAndContinue("pin");
+  };
+
   const did = identity?.did ?? "";
   const address = safeAddress(did);
   const isLast = step === STEP_COUNT - 1;
@@ -228,7 +380,7 @@ export default function Onboarding() {
           <View style={{ flex: 1, justifyContent: "center", gap: space[6] }}>
             <View style={{ gap: space[2] }}>
               <Txt variant="label" color={c.brand}>
-                Step 2 of 4
+                Step 2 of 5
               </Txt>
               <Txt variant="display">A little about you</Txt>
               <Txt variant="body" muted>
@@ -270,7 +422,7 @@ export default function Onboarding() {
           <View style={{ flex: 1, justifyContent: "center", gap: space[6] }}>
             <View style={{ gap: space[2] }}>
               <Txt variant="label" color={c.brand}>
-                Step 3 of 4
+                Step 3 of 5
               </Txt>
               <Txt variant="display">Your key is your wallet</Txt>
               <Txt variant="body" muted>
@@ -302,6 +454,53 @@ export default function Onboarding() {
               Connect a Seeker wallet later and Seed Vault becomes the payer, bound to this key with
               one signed challenge.
             </Txt>
+          </View>
+        );
+      case LOCK_STEP:
+        return (
+          <View style={{ flex: 1, justifyContent: "center", gap: space[6] }}>
+            <View style={{ gap: space[2] }}>
+              <Txt variant="label" color={c.brand}>
+                Step 4 of 5
+              </Txt>
+              <Txt variant="display">Protect Bond</Txt>
+              <Txt variant="body" muted>
+                How should Bond unlock when you open it? Change this any time in Protection.
+              </Txt>
+            </View>
+            <View style={{ gap: space[3] }} accessibilityRole="radiogroup">
+              <LockOption
+                icon="lock-open-outline"
+                title="Nothing"
+                body="Bond opens straight away. Payments still ask before they are sent."
+                selected={lock === "none"}
+                onPress={() => setLock("none")}
+              />
+              <LockOption
+                icon="keypad-outline"
+                title="PIN"
+                body="4 to 6 digits on a pad that is shuffled every time, so taps do not give it away."
+                selected={lock === "pin"}
+                onPress={() => setLock("pin")}
+              />
+              <LockOption
+                icon="finger-print"
+                title="Fingerprint or face"
+                body={
+                  bioReady
+                    ? "Your phone's biometric unlock, with its screen lock as the fallback."
+                    : "Not available here. Set up a fingerprint or face in your phone's settings first."
+                }
+                selected={lock === "biometric"}
+                disabled={!bioReady}
+                onPress={() => setLock("biometric")}
+              />
+            </View>
+            {lockError ? (
+              <Txt variant="caption" color={c.tampered}>
+                {lockError}
+              </Txt>
+            ) : null}
           </View>
         );
       default:
@@ -375,11 +574,28 @@ export default function Onboarding() {
           <Button
             title={isLast ? "Enter Bond" : step === 0 ? "Get started" : "Continue"}
             variant="primary"
-            onPress={isLast ? finish : () => go(step + 1)}
+            onPress={isLast ? finish : step === LOCK_STEP ? () => void applyLock() : () => go(step + 1)}
+            disabled={step === LOCK_STEP && !lock}
             loading={isLast ? busy : false}
           />
         </View>
       </View>
+      <PinSheet
+        visible={enroll !== null}
+        title={enroll?.step === "confirm" ? "Confirm your PIN" : "Choose a PIN"}
+        subtitle={
+          enroll?.step === "confirm"
+            ? "Enter it again to confirm."
+            : "4 to 6 digits. The keys move every time, for privacy."
+        }
+        error={enrollError}
+        submitLabel={enroll?.step === "confirm" ? "Save PIN" : "Next"}
+        onSubmit={(pin) => void onEnrollSubmit(pin)}
+        onCancel={() => {
+          setEnroll(null);
+          setEnrollError(null);
+        }}
+      />
     </Screen>
   );
 }

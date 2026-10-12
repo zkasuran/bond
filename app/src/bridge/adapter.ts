@@ -69,6 +69,9 @@ export interface SendTurnInput {
   /** Purchase proofs for installed skills. The Bond runtime verifies each signature on
    *  chain before the skill's tools join the turn; other adapters ignore it. */
   skills?: { id: string; signature: string }[];
+  /** The standing job the room owner gave this agent. The Bond runtime quotes it into its
+   *  fixed system prompt; other adapters get it through the transcript's system message. */
+  job?: string;
 }
 
 export interface GatewayAdapter {

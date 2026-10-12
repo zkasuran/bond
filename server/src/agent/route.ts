@@ -43,6 +43,26 @@ export function toModelMessages(raw: unknown): ModelMessage[] {
   return out;
 }
 
+// Ceiling on an agent's standing job. Must match MAX_AGENT_JOB_CHARS in app/src/rooms/agents.ts.
+export const MAX_AGENT_JOB_CHARS = 600;
+
+// The agent's standing job from the request body: a string, with control characters and line
+// breaks folded to single spaces (it is quoted inside the system prompt, so it cannot open a
+// new line there), double quotes swapped for single so it cannot close that quote, trimmed and
+// capped. Anything else, or an empty result, means no job.
+export function sanitizeJob(raw: unknown): string | undefined {
+  if (typeof raw !== "string") return undefined;
+  const clean = raw
+    // eslint-disable-next-line no-control-regex
+    .replace(/[\u0000-\u001f\u007f\u2028\u2029]+/g, " ")
+    .replace(/"/g, "'")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, MAX_AGENT_JOB_CHARS)
+    .trim();
+  return clean || undefined;
+}
+
 export async function agentRoutes(app: FastifyInstance): Promise<void> {
   // A short-lived, stateless freshness challenge for skill-claim proofs (F14 HIGH). The app
   // echoes it inside the wallet-ownership proof it signs, so a captured claim bundle cannot be
@@ -66,6 +86,9 @@ export async function agentRoutes(app: FastifyInstance): Promise<void> {
     const runId = typeof body.runId === "string" ? body.runId : undefined;
     // Purchase signatures the app holds. Each is verified on chain before its skill unlocks.
     const skills = parseClaims(body.skills);
+    // The room owner's standing job for this agent. Quoted into the system prompt as a user
+    // request; the fixed rules and the code-enforced caps still apply.
+    const job = sanitizeJob(body.job);
     // The step count is clamped to the hard ceiling. A client that asks for more
     // (or a non-number) gets MAX_AGENT_STEPS, never an unbounded loop. The system
     // prompt is fixed on the server and is not read from the body.
@@ -102,6 +125,7 @@ export async function agentRoutes(app: FastifyInstance): Promise<void> {
         signal: ac.signal,
         runId,
         skills,
+        job,
       })) {
         reply.raw.write(sseFor(event));
       }

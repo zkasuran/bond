@@ -19,6 +19,7 @@ import { makeNode } from "../model/factory";
 import { nextLamport } from "../model/thread";
 import { branchToLeaf, createSignedNode, maxLamport } from "./engine";
 import { agentMentions, threadToChatMessages } from "../rooms/routing";
+import { newAgentDid, normalizeJob, systemPromptWithJob, uniqueAgentName } from "../rooms/agents";
 import type { SyncClient } from "../sync/client";
 import { useSkills } from "../skills/registry";
 import { signBytes } from "../identity/keys";
@@ -212,7 +213,16 @@ export interface BondState {
     config: GatewayConfig,
     displayName?: string,
   ) => Promise<Bridge>;
-  addAgentToRoom: (roomId: string, bridge: Bridge, displayName: string) => Promise<void>;
+  /** Add an agent from a bridge as a new member. The same bridge can be added more than once;
+   *  each gets its own did, a name unique in the room and an optional standing job. */
+  addAgentToRoom: (
+    roomId: string,
+    bridge: Bridge,
+    displayName: string,
+    job?: string,
+  ) => Promise<Membership>;
+  /** Set or clear an agent member's standing job. */
+  updateAgentJob: (roomId: string, did: string, job: string) => Promise<void>;
   runAgentTurn: (roomId: string, mentionNodeId: string, agent: Membership) => Promise<void>;
   sendPayment: (
     roomId: string,
@@ -396,17 +406,36 @@ export const useBond = create<BondState>((set, get) => ({
     return get().bridges.find((b) => b.id === id) as Bridge;
   },
 
-  addAgentToRoom: async (roomId, bridge, displayName) => {
+  addAgentToRoom: async (roomId, bridge, displayName, job) => {
     const storage = get().storage;
+    const current = get().members[roomId] ?? [];
     const mem: Membership = {
-      did: `did:bond:agent:${bridge.id}`,
-      displayName,
+      did: newAgentDid(bridge.id, current, () => ulid().toLowerCase()),
+      displayName: uniqueAgentName(displayName, current),
       kind: "agent",
       role: "agent",
       joinedAt: new Date().toISOString(),
       bridgeId: bridge.id,
     };
+    const normalized = normalizeJob(job);
+    if (normalized) mem.job = normalized;
     set((s) => ({ members: { ...s.members, [roomId]: [...(s.members[roomId] ?? []), mem] } }));
+    if (storage) await storage.setItem(KEY_MEMBERS, get().members);
+    return mem;
+  },
+  updateAgentJob: async (roomId, did, job) => {
+    const storage = get().storage;
+    const normalized = normalizeJob(job);
+    set((s) => ({
+      members: {
+        ...s.members,
+        [roomId]: (s.members[roomId] ?? []).map((m) => {
+          if (m.did !== did || m.kind !== "agent") return m;
+          const { job: _old, ...rest } = m;
+          return normalized ? { ...rest, job: normalized } : rest;
+        }),
+      },
+    }));
     if (storage) await storage.setItem(KEY_MEMBERS, get().members);
   },
 
@@ -424,7 +453,7 @@ export const useBond = create<BondState>((set, get) => ({
       get().bridges.find((b) => b.id === "bond");
     const roomNodes = get().nodes[roomId] ?? [];
     const branch = branchToLeaf(roomNodes, mentionNodeId);
-    const messages = threadToChatMessages(branch, SYSTEM_PROMPT);
+    const messages = threadToChatMessages(branch, systemPromptWithJob(SYSTEM_PROMPT, agent.job));
 
     const author: Identity = { did: agent.did, displayName: agent.displayName, kind: "agent" };
     const lamport = nextLamport(maxLamport(roomNodes));
@@ -498,6 +527,7 @@ export const useBond = create<BondState>((set, get) => ({
           messages,
           signal: controller.signal,
           skills: skillClaims,
+          job: agent.job,
         })) {
           armInactivity(); // every event resets the inactivity window
           if (ev.kind === "text") {

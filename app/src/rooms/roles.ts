@@ -12,6 +12,8 @@ export interface Membership {
   joinedAt: string;
   /** for agent members, the bridge this agent is reached through. */
   bridgeId?: string;
+  /** for agent members, the standing job the room owner gave it (what to pursue here). */
+  job?: string;
 }
 
 export type Capability =

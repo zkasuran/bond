@@ -90,6 +90,9 @@ export function LockGate({ children }: { children: ReactNode }) {
   const [pinReq, setPinReq] = useState<PinReq | null>(null);
   const [pinError, setPinError] = useState<string | null>(null);
   const busyRef = useRef(false);
+  // The openApp method the gate last saw once the stored policy was loaded. Null until then, so
+  // the policy read at launch never counts as a change and a guarded app always prompts at start.
+  const [seenMethod, setSeenMethod] = useState<ProtectionMethod | null>(null);
 
   useEffect(() => {
     void hydrate();
@@ -182,6 +185,15 @@ export function LockGate({ children }: { children: ReactNode }) {
   // The lock is derived, not stored, so the effect below never sets state synchronously: it
   // only kicks off the async prompt when the app is ready, openApp is guarded and we are not
   // already unlocked. On success unlock() flips unlocked; a failure leaves the retry button.
+  // Turning the app lock on from inside the app (onboarding or Protection settings) happens in a
+  // session the owner is already using, so it arms the lock for the next open instead of locking
+  // them out on the spot. Only a change from "none" seen after load counts; launch never does.
+  // Adjusted during render (React's "state from a changed prop" pattern), so the lock overlay
+  // never flashes for a frame before the session is marked unlocked.
+  if (ready && seenMethod !== openAppMethod) {
+    if (seenMethod === "none" && openAppMethod !== "none") setUnlocked(true);
+    setSeenMethod(openAppMethod);
+  }
   const showLock = !ready || (openAppMethod !== "none" && !unlocked);
 
   useEffect(() => {

@@ -1,14 +1,17 @@
 // A themed numeric PIN pad and the modal sheet that wraps it. Both the app lock and any
 // PIN guarded action (a spend, a key unlock) surface the same sheet. The settings screen
-// reuses the pad to enroll or change a PIN.
+// reuses the pad to enroll or change a PIN. The digits are shuffled every time the pad is
+// shown (see shuffle.ts), so the position of a tap does not give the PIN away.
 import { useState } from "react";
 import { Modal, Pressable, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Txt } from "@/components/ui/Text";
 import { Button } from "@/components/ui/Button";
 import { useTokens } from "@/theme";
+import { padKeys, shuffledDigits, type Digit } from "./shuffle";
 
-const KEYS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "", "0", "del"] as const;
+type Key = Digit | "" | "del";
+const KEY_W = 72;
 export const PIN_MAX_LENGTH = 6;
 export const PIN_MIN_LENGTH = 4;
 
@@ -22,7 +25,10 @@ export function PinPad({
   maxLength?: number;
 }) {
   const { c, space, radius } = useTokens();
-  const press = (k: (typeof KEYS)[number]) => {
+  // One layout per showing: drawn when the pad mounts and kept while the user types, so keys
+  // do not move under a finger mid-entry. A new showing (or a new key prop) draws a new one.
+  const [keys] = useState<Key[]>(() => padKeys(shuffledDigits()));
+  const press = (k: Key) => {
     if (k === "") return;
     if (k === "del") {
       onChange(value.slice(0, -1));
@@ -51,10 +57,19 @@ export function PinPad({
           );
         })}
       </View>
+      {/* Exactly three keys per row, like a phone keypad, so the blank and delete stay in the
+          bottom corners whatever the screen width. */}
       <View
-        style={{ flexDirection: "row", flexWrap: "wrap", justifyContent: "center", gap: space[3] }}
+        style={{
+          flexDirection: "row",
+          flexWrap: "wrap",
+          justifyContent: "center",
+          gap: space[3],
+          width: KEY_W * 3 + space[3] * 2,
+          alignSelf: "center",
+        }}
       >
-        {KEYS.map((k, i) => (
+        {keys.map((k, i) => (
           <Pressable
             key={i}
             onPress={() => press(k)}
@@ -62,7 +77,7 @@ export function PinPad({
             accessibilityRole={k === "" ? "none" : "button"}
             accessibilityLabel={k === "del" ? "Delete" : k === "" ? undefined : `Digit ${k}`}
             style={({ pressed }) => ({
-              width: 72,
+              width: KEY_W,
               height: 64,
               borderRadius: radius.lg,
               alignItems: "center",
@@ -103,11 +118,15 @@ export function PinSheet({
 }) {
   const { c, space, radius } = useTokens();
   const [pin, setPinValue] = useState("");
+  // Bumped on every submit, so the next entry (the confirm step, a retry after a wrong PIN)
+  // gets a fresh digit layout. Reopening the sheet remounts the pad, which also reshuffles.
+  const [layout, setLayout] = useState(0);
 
   const submit = () => {
     if (pin.length < PIN_MIN_LENGTH) return;
     onSubmit(pin);
     setPinValue("");
+    setLayout((n) => n + 1);
   };
   const cancel = () => {
     setPinValue("");
@@ -162,7 +181,7 @@ export function PinSheet({
             ) : null}
           </View>
 
-          <PinPad value={pin} onChange={setPinValue} />
+          <PinPad key={layout} value={pin} onChange={setPinValue} />
 
           <View style={{ gap: space[2] }}>
             <Button
