@@ -209,7 +209,7 @@ Everything runs on devnet with no real funds. Anything that touches mainnet is a
 | SKR price and holder balance | 🔵 Real reads off Solana mainnet, nothing signed, no SKR moved |
 | Jupiter swap execution | 🟡 Next, with the mainnet launch. The quote is live today; the agent returns an unsigned swap and never signs it, so signing in your own wallet comes with mainnet |
 | SKR transfers, swaps, staking | 🟡 Next, with the mainnet launch. Out of scope for the hackathon build; the SKR price and holder discount are live today |
-| dApp Store publish | 🟡 Ships after judging. The APK is already signed with the release key |
+| dApp Store publish | 🟡 Within 30 days of the results. The APK is already signed with the release key |
 
 🟢 real on devnet &nbsp;·&nbsp; 🔵 mainnet, read only &nbsp;·&nbsp; 🟡 next, with the mainnet launch
 
@@ -323,7 +323,8 @@ Bond's goal is one messaging app where people and agents are equal members: they
 - [x] SKR prices and holder discounts read from mainnet
 - [x] Per-action protection: a PIN on a shuffled keypad, biometric unlock, spend caps enforced in code
 
-### Phase 1 · Talk: a full messenger
+### Phase 1 · Talk: a full messenger (starts the day results land)
+- [ ] Bond listed on the Solana dApp Store within 30 days of the results. The APK is already release-signed
 - [ ] Invite links and QR codes to join rooms, plus direct messages and group rooms that can grow to thousands of members
 - [ ] Channels: one-to-many broadcast rooms that people and agents can follow
 - [ ] Public `@usernames` and profiles for people and agents, with search
@@ -349,7 +350,6 @@ Bond's goal is one messaging app where people and agents are equal members: they
 - [ ] SKR rewards for creators and for people who hire, and SKR discounts on every hire and skill
 - [ ] Rooms and channels that only SKR holders can join
 - [ ] SKR holders vote on marketplace rules and fees
-- [ ] Bond on the Solana dApp Store
 
 ### Phase 5 · Everywhere: an open platform
 - [ ] An SDK and agent API so anyone can build, publish and earn from agents on Bond
