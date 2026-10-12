@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Bond: pitch deck, CLOCK IN Solana Mobile Hackathon</title>
+<meta name="description" content="Bond is a Seeker group chat where people and AI agents are the same kind of member. Every member's did:key is also a Solana wallet, so anyone can pay anyone in USDC, in-thread. The motion pitch deck.">
+<meta name="author" content="zkasuran">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#06080B">
+<meta name="referrer" content="no-referrer">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'none'; manifest-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'">
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="preload" href="fonts/Geist-SemiBold.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/Geist-Regular.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/GeistMono-Regular.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="deck.css">
+<script src="deck.js" defer></script>
+</head>
+<body>
+<!-- Bond pitch deck. One page, one stylesheet, one script, no dependencies.
+     Every slide is laid out on a fixed 1920x1080 stage and scaled to the window.
+     Print it (or run docs/submission/export-deck.mjs) and each slide becomes one PDF page,
+     in its settled final frame. Motion is CSS-first and stands still under reduced motion. -->
+
+<div class="sky" aria-hidden="true"><i class="o1"></i><i class="o2"></i><i class="o3"></i><b class="grid"></b></div>
+
+<main class="deck" id="deck" aria-label="Bond pitch deck" aria-roledescription="slide deck">
+<div class="stage" id="stage">
+
+<!-- ============================== 01 COVER ============================== -->
+<section class="slide" id="s01" data-scene="cover" data-title="Bond" data-dur="9" aria-label="Slide 1: Bond, humans and AI agents as paid peers">
+  <div class="pbg" aria-hidden="true"></div>
+  <div class="cv-top rv f" style="--d:.05">
+    <span class="chip live"><i class="pulse"></i>CLOCK IN <span class="sep"></span> Solana Mobile Hackathon 2026</span>
+  </div>
+  <div class="cv-meta mono rv f" style="--d:.15">Pitch deck · zkasuran · October 2026</div>
+
+  <div class="cv-lock">
+    <svg class="bmark big" viewBox="180 300 664 424" aria-hidden="true">
+      <circle class="bm-h" cx="391" cy="512" r="196" fill="url(#mk-h)"/>
+      <rect class="bm-a" x="437" y="316" width="392" height="392" rx="118" fill="url(#mk-a)"/>
+      <g clip-path="url(#mk-c)"><rect class="bm-l" x="437" y="316" width="392" height="392" rx="118" fill="#F4FFF9"/></g>
+    </svg>
+    <h1 class="cv-word split" style="--d:.35">Bond</h1>
+  </div>
+
+  <p class="cv-h split" style="--d:.7">Humans and AI agents, <span class="br"></span>as <em class="shine">paid peers.</em></p>
+  <p class="cv-lead rv" style="--d:1.15">A Seeker group chat where every member, human or agent, holds a key that is also a Solana wallet. Talk, delegate and pay in USDC, right in the thread.</p>
+  <ul class="cv-proof" aria-label="Proof points">
+    <li class="rv" style="--d:1.35"><i class="dot m"></i>Live on devnet · signed APK 1.3.1</li>
+    <li class="rv" style="--d:1.45"><i class="dot m"></i><span><b>337 + 74</b> tests · ALL GREEN</span></li>
+    <li class="rv" style="--d:1.55"><i class="dot v"></i>MWA · Seed Vault · SKR</li>
+  </ul>
+
+  <svg class="net rv s" style="--d:.45" viewBox="0 0 820 820" role="img" aria-label="One Bond room drawn as a network. Humans are circles, the agent is a square. You pay Maya 5 USDC, you mention the agent, the agent calls a Solana devnet tool and pays Maya 1 USDC, and your skill purchase pays the creator Pixel Forge 1.60 USDC.">
+    <defs>
+      <linearGradient id="n-h" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#8AF3F5"/><stop offset="1" stop-color="#2ED3C7"/></linearGradient>
+      <linearGradient id="n-a" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#C39BFF"/><stop offset="1" stop-color="#7B2FF7"/></linearGradient>
+      <radialGradient id="n-glow"><stop offset="0" stop-color="#9945FF" stop-opacity=".55"/><stop offset="1" stop-color="#9945FF" stop-opacity="0"/></radialGradient>
+      <radialGradient id="n-glow-m"><stop offset="0" stop-color="#14F195" stop-opacity=".35"/><stop offset="1" stop-color="#14F195" stop-opacity="0"/></radialGradient>
+    </defs>
+    <rect class="room" x="22" y="22" width="776" height="776" rx="64"/>
+    <text class="room-l" x="62" y="76">ROOM · SEEKER BUILDERS</text>
+    <text class="room-r" x="758" y="76" text-anchor="end">3 humans · 1 agent</text>
+    <circle cx="420" cy="230" r="230" fill="url(#n-glow)"/>
+    <circle cx="170" cy="420" r="170" fill="url(#n-glow-m)"/>
+    <g class="edges">
+      <path class="edge m draw" pathLength="1" d="M170 420 Q 430 470 680 360"/>
+      <path class="edge v draw" pathLength="1" d="M170 420 Q 250 260 420 230"/>
+      <path class="edge v draw" pathLength="1" d="M420 230 Q 300 110 150 140"/>
+      <path class="edge m draw" pathLength="1" d="M170 420 Q 300 640 560 660"/>
+      <path class="edge m draw" pathLength="1" d="M420 230 Q 600 220 680 360"/>
+    </g>
+    <g class="pulses-static">
+      <g><circle class="halo m" cx="453" cy="426.6" r="15"/><circle class="pz m" cx="453" cy="426.6" r="6.5"/></g>
+      <g><circle class="halo v" cx="285.2" cy="283.3" r="15"/><circle class="pz v" cx="285.2" cy="283.3" r="6.5"/></g>
+      <g><circle class="halo v" cx="278.9" cy="143.4" r="15"/><circle class="pz v" cx="278.9" cy="143.4" r="6.5"/></g>
+      <g><circle class="halo m" cx="352.3" cy="601.5" r="15"/><circle class="pz m" cx="352.3" cy="601.5" r="6.5"/></g>
+      <g><circle class="halo m" cx="587.8" cy="264.4" r="15"/><circle class="pz m" cx="587.8" cy="264.4" r="6.5"/></g>
+    </g>
+    <g class="pulses-anim">
+      <g><circle class="halo m" r="15"/><circle class="pz m" r="6.5"/><animateMotion dur="2.8s" begin="indefinite" repeatCount="3" fill="remove" calcMode="spline" keyTimes="0;1" keySplines=".65 0 .35 1" path="M170 420 Q 430 470 680 360"/></g>
+      <g><circle class="halo v" r="15"/><circle class="pz v" r="6.5"/><animateMotion dur="2.2s" begin="indefinite" repeatCount="3" fill="remove" calcMode="spline" keyTimes="0;1" keySplines=".65 0 .35 1" path="M170 420 Q 250 260 420 230"/></g>
+      <g><circle class="halo v" r="15"/><circle class="pz v" r="6.5"/><animateMotion dur="2.2s" begin="indefinite" repeatCount="3" fill="remove" calcMode="spline" keyTimes="0;1" keySplines=".65 0 .35 1" path="M420 230 Q 300 110 150 140"/></g>
+      <g><circle class="halo m" r="15"/><circle class="pz m" r="6.5"/><animateMotion dur="3s" begin="indefinite" repeatCount="3" fill="remove" calcMode="spline" keyTimes="0;1" keySplines=".65 0 .35 1" path="M170 420 Q 300 640 560 660"/></g>
+      <g><circle class="halo m" r="15"/><circle class="pz m" r="6.5"/><animateMotion dur="2.4s" begin="indefinite" repeatCount="3" fill="remove" calcMode="spline" keyTimes="0;1" keySplines=".65 0 .35 1" path="M420 230 Q 600 220 680 360"/></g>
+    </g>
+    <g class="tags">
+      <g transform="translate(392 452)"><rect class="tag m" width="128" height="36" rx="18"/><text class="tag-t" x="64" y="24" text-anchor="middle">5.00 USDC</text></g>
+      <g transform="translate(118 280)"><rect class="tag v" width="100" height="36" rx="18"/><text class="tag-t" x="50" y="24" text-anchor="middle">@Bond</text></g>
+      <g transform="translate(176 180)"><rect class="tag v" width="132" height="36" rx="18"/><text class="tag-t" x="66" y="24" text-anchor="middle">tool_call</text></g>
+      <g transform="translate(250 632)"><rect class="tag m" width="196" height="36" rx="18"/><text class="tag-t" x="98" y="24" text-anchor="middle">+1.60 to creator</text></g>
+      <g transform="translate(546 196)"><rect class="tag m" width="176" height="36" rx="18"/><text class="tag-t" x="88" y="24" text-anchor="middle">agent pays 1.00</text></g>
+    </g>
+    <g class="nodes">
+      <g transform="translate(150 140)"><g class="nd" style="--i:0"><rect class="chain" x="-78" y="-28" width="156" height="56" rx="16"/><text class="chain-t" y="8" text-anchor="middle">Solana devnet</text></g></g>
+      <g transform="translate(420 230)"><g class="nd" style="--i:1"><rect x="-70" y="-70" width="140" height="140" rx="42" fill="url(#n-a)"/><text class="nt light" y="14" text-anchor="middle">BO</text><g transform="translate(0 100)"><rect class="ag-chip" x="-46" y="-16" width="92" height="30" rx="15"/><text class="ag-t" y="5" text-anchor="middle">AGENT</text></g></g></g>
+      <g transform="translate(170 420)"><g class="nd" style="--i:2"><circle r="62" fill="url(#n-h)"/><text class="nt" y="14" text-anchor="middle">YO</text><g transform="translate(46 -46)"><circle class="vbadge" r="17"/><path class="vtick" d="M-7 0l5 5 9-10"/></g><text class="nn" y="98" text-anchor="middle">You</text></g></g>
+      <g transform="translate(680 360)"><g class="nd" style="--i:3"><circle r="54" fill="url(#n-h)"/><text class="nt" y="12" text-anchor="middle">MA</text><g transform="translate(40 -40)"><circle class="vbadge" r="16"/><path class="vtick" d="M-6.5 0l4.5 4.5 8.5-9.5"/></g><text class="nn" y="90" text-anchor="middle">Maya</text></g></g>
+      <g transform="translate(560 660)"><g class="nd" style="--i:4"><circle r="54" fill="url(#n-h)"/><text class="nt" y="12" text-anchor="middle">PF</text><g transform="translate(40 -40)"><circle class="vbadge" r="16"/><path class="vtick" d="M-6.5 0l4.5 4.5 8.5-9.5"/></g><text class="nn" y="90" text-anchor="middle">Pixel Forge · creator</text></g></g>
+    </g>
+  </svg>
+  <aside class="sn" hidden>Bond is a group chat for Seeker where people and AI agents are the same kind of member. Every member holds a key that is also a Solana wallet, so anyone in a thread can pay anyone else. The drawing is one room: payments in mint, agent work in violet.</aside>
+</section>
+
+<!-- ============================== 02 THE GAP ============================== -->
+<section class="slide" id="s02" data-scene="gap" data-title="The gap" data-dur="8" aria-label="Slide 2: The gap">
+  <div class="pbg" aria-hidden="true"></div>
+  <p class="ey a rv f" style="--d:0">01 · The gap</p>
+  <h2 class="t1 split" style="--d:.1"><span class="dim">Seeker put a wallet in every pocket.</span> <span class="br"></span>Nobody gave it a room.</h2>
+
+  <div class="gap-cards">
+    <article class="gcard rv" style="--d:.7">
+      <svg class="gill" viewBox="0 0 480 150" aria-hidden="true">
+        <rect class="gi-box" x="40" y="35" width="110" height="80" rx="18"/><path class="gi-ln" d="M40 60h110"/><rect class="gi-dot" x="118" y="78" width="18" height="10" rx="5"/>
+        <path class="gi-dash broken" d="M170 75 H 250"/><path class="gi-dash broken" d="M282 75 H 330"/>
+        <g class="gi-x" transform="translate(266 75)"><circle r="16"/><path d="M-6 -6l12 12M6 -6l-12 12"/></g>
+        <path class="gi-bub" d="M350 42h80a16 16 0 0 1 16 16v38a16 16 0 0 1-16 16h-46l-22 18v-18h-12a16 16 0 0 1-16-16V58a16 16 0 0 1 16-16z"/>
+        <path class="gi-ln2" d="M362 66h64M362 84h40"/>
+      </svg>
+      <h3>A wallet with no room</h3>
+      <p>Seeker ships a self-custody wallet in the phone. There is nowhere to use it with other people, inside a conversation.</p>
+    </article>
+    <article class="gcard rv" style="--d:.85">
+      <svg class="gill" viewBox="0 0 480 150" aria-hidden="true">
+        <rect class="gi-room" x="150" y="20" width="180" height="110" rx="26"/>
+        <circle class="gi-h" cx="205" cy="75" r="26"/><rect class="gi-a" x="250" y="49" width="52" height="52" rx="16"/>
+        <circle class="gi-out" cx="70" cy="50" r="18"/><circle class="gi-out" cx="96" cy="108" r="18"/><circle class="gi-out" cx="400" cy="46" r="18"/><circle class="gi-out" cx="420" cy="104" r="18"/>
+        <path class="gi-dash" d="M92 56 L148 66 M116 102 L148 88 M332 62 L380 50 M332 90 L400 102"/>
+      </svg>
+      <h3>Agents are single-player</h3>
+      <p>Phone AI agents are bots for one person. They cannot hold value, pay anyone or work inside a group as a peer.</p>
+    </article>
+    <article class="gcard rv" style="--d:1.0">
+      <svg class="gill" viewBox="0 0 480 150" aria-hidden="true">
+        <rect class="gi-card" x="60" y="26" width="220" height="98" rx="20"/>
+        <rect class="gi-sk" x="80" y="46" width="34" height="34" rx="10"/><path class="gi-ln2" d="M128 54h120M128 72h80"/>
+        <text class="gi-price" x="80" y="110">$0.00</text>
+        <path class="gi-dash" d="M290 75 H 350"/>
+        <circle class="gi-cr" cx="392" cy="75" r="30"/><text class="gi-cr-t" x="392" y="82" text-anchor="middle">0</text>
+      </svg>
+      <h3>Builders are paid nothing</h3>
+      <p>Agent skill catalogs are free, so the builders behind the skills earn nothing when their work gets used.</p>
+    </article>
+  </div>
+
+  <div class="gap-answer rv" style="--d:1.35">
+    <svg class="mk" viewBox="0 0 664 424" aria-hidden="true"><use href="#mark"/></svg>
+    <p><b>Bond</b> puts people, agents and the wallet in <em class="mint">one thread</em>, where anyone can pay anyone.</p>
+  </div>
+  <footer class="foot"><span class="fb"><svg class="mk" viewBox="0 0 664 424" aria-hidden="true"><use href="#mark"/></svg>Bond</span><span class="pg">02 / 16</span></footer>
+  <aside class="sn" hidden>Seeker put a self-custody wallet in the phone and the Solana Mobile Stack exposes it to apps. What is missing is a place where that wallet is the identity you chat and transact under, with agents beside you as peers, not bots bolted onto a chat app.</aside>
+</section>
+
+<!-- ============================== 03 ONE KEY ============================== -->
+<section class="slide" id="s03" data-scene="key" data-title="One key" data-dur="9" aria-label="Slide 3: The insight, one key">
+  <div class="pbg" aria-hidden="true"></div>
+  <p class="ey rv f" style="--d:0">02 · The insight</p>
+  <h2 class="t1 split" style="--d:.1">The key that signs your messages <span class="br"></span><span class="dim">is already a</span> Solana wallet.</h2>
+
+  <div class="key-src card rv l" style="--d:.55">
+    <p class="lab">Ed25519 public key <span class="sep"></span> 32 bytes</p>
+    <div class="bytes mono" role="img" aria-label="Public key bytes in hex: 93 37 e1 3a c8 c9 1b c8 81 ae c0 ee 4c 4d 2d 2e ca 7d fc 25 fc bc 0f ee 04 45 44 09 83 3b 99 3b">
+      <span>93</span><span>37</span><span>e1</span><span>3a</span><span>c8</span><span>c9</span><span>1b</span><span>c8</span>
+      <span>81</span><span>ae</span><span>c0</span><span>ee</span><span>4c</span><span>4d</span><span>2d</span><span>2e</span>
+      <span>ca</span><span>7d</span><span>fc</span><span>25</span><span>fc</span><span>bc</span><span>0f</span><span>ee</span>
+      <span>04</span><span>45</span><span>44</span><span>09</span><span>83</span><span>3b</span><span>99</span><span>3b</span>
+    </div>
+    <p class="key-note"><svg class="ic" aria-hidden="true"><use href="#i-lock"/></svg>Made on the device. The private half is kept in its secure store.</p>
+  </div>
+
+  <svg class="key-wires" viewBox="0 0 220 520" aria-hidden="true">
+    <path class="wire c draw" pathLength="1" style="--d:1.1" d="M0 260 C 110 260 90 96 220 96"/>
+    <path class="wire m draw" pathLength="1" style="--d:1.3" d="M0 260 C 110 260 90 424 220 424"/>
+    <circle class="wire-dot" cx="0" cy="260" r="7"/>
+  </svg>
+
+  <div class="key-out o1 card rv r" style="--d:1.25">
+    <p class="lab c">As a did:key <span class="sep"></span> your chat identity</p>
+    <p class="kv mono dec" data-alpha="b58">did:key:z6MkpMwQ1DLaXxcFu9ako3q4JYcsDV6V8mQHki9XzPavARoQ</p>
+    <p class="kr"><span class="mono recipe">multibase(base58btc, 0xed01 || key)</span> Signs every message you send: Ed25519 over RFC 8785 canonical JSON, re-verified on every read.</p>
+  </div>
+  <div class="key-out o2 card rv r" style="--d:1.45">
+    <p class="lab m">As a Solana address <span class="sep"></span> your wallet</p>
+    <p class="kv mono dec big" data-alpha="b58">AugMQy69CR7nnek47UsDTT4sPupdit9w4hEcA7cuFD22</p>
+    <p class="kr"><span class="mono recipe">base58(key)</span> Anyone in the room, human or agent, can pay it in USDC.</p>
+  </div>
+
+  <div class="key-same rv s" style="--d:2.9"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>Decode both: the same 32 bytes. Real values from the device on the next slide.</div>
+  <footer class="foot"><span class="fb"><svg class="mk" viewBox="0 0 664 424" aria-hidden="true"><use href="#mark"/></svg>Bond</span><span class="pg">03 / 16</span></footer>
+  <aside class="sn" hidden>This is the whole trick. Solana keys are Ed25519, and so is the did:key every Bond member signs messages with. So the chat identity is already a wallet: the same 32 bytes, encoded two ways. Agents hold a keypair of their own too, so an agent pays from its own wallet, under a hard cap.</aside>
+</section>
+
+<!-- ============================== 04 SEEKER BINDING ============================== -->
+<section class="slide" id="s04" data-scene="seeker" data-title="Seeker wallet" data-dur="9" aria-label="Slide 4: Connect a Seeker wallet">
+  <div class="pbg" aria-hidden="true"></div>
+  <p class="ey rv f" style="--d:0">03 · Solana Mobile Stack</p>
+  <h2 class="t1 split" style="--d:.1">Connect a Seeker wallet. <span class="br"></span><span class="dim">One signature binds it.</span></h2>
+
+  <ol class="steps">
+    <li class="rv" style="--d:.6"><i>1</i><div><h3>A key made on the phone</h3><p>Your Ed25519 <code>did:key</code> is generated on the device and kept in its secure store. It is never uploaded.</p></div></li>
+    <li class="rv" style="--d:.75"><i>2</i><div><h3>Mobile Wallet Adapter</h3><p>The wallet checks Bond's Digital Asset Links against the release signing key and shows Bond as verified.</p></div></li>
+    <li class="rv" style="--d:.9"><i>3</i><div><h3>One signed challenge</h3><p>Wallet and <code>did:key</code> both sign the binding. It is re-verified on every load and version-checked.</p></div></li>
+    <li class="rv" style="--d:1.05"><i>4</i><div><h3>Seed Vault signs value</h3><p>The device key signs chat, the wallet signs payments. Bond never sees the wallet's key.</p></div></li>
+  </ol>
+
+  <div class="glow g-m" style="left:1020px;top:180px;width:640px;height:760px" aria-hidden="true"></div>
+  <figure class="phone rv u" style="--d:.35;--pw:372px;left:1080px;top:96px">
+    <img src="img/you-identity.jpg" width="864" height="1920" alt="The You tab on a real device: Bond identity card with a Verified badge, the decentralized identifier did:key:z6MkpMwQ1DLaXxcFu9ako3q4JYcsDV6V8mQHki9XzPavARoQ and, below it, the same key as a Solana address.">
+    <i class="rg rv f" style="--d:1.5;--x:40;--y:780;--w:1000;--h:440" aria-hidden="true"></i>
+  </figure>
+  <div class="zoom rv s" style="--d:1.65;--k:.5;--x:40;--y:780;--zw:500px;--zh:220px;left:1330px;top:316px">
+    <img src="img/you-identity.jpg" width="864" height="1920" alt="">
+  </div>
+  <div class="zlabel rv f" style="--d:1.9;right:90px;top:280px"><svg class="ic" aria-hidden="true"><use href="#i-key"/></svg>One Ed25519 key, two encodings</div>
+  <div class="shot rv r" style="--d:1.2;--k:.36;left:1440px;top:592px;width:389px;height:379px">
+    <img src="img/wallet-verified.jpg" width="1080" height="1052" alt="Solana Mobile's reference test wallet asking to authorize Bond at https://bond.zkasuran.dev on devnet, with Status: Verification successful.">
+  </div>
+  <p class="cap rv f" style="--d:1.9;left:1080px;top:990px;width:760px">Real device: signed APK on Android 15, Solana Mobile's reference test wallet, devnet.</p>
+
+  <footer class="foot"><span class="fb"><svg class="mk" viewBox="0 0 664 424" aria-hidden="true"><use href="#mark"/></svg>Bond</span><span class="pg">04 / 16</span></footer>
+  <aside class="sn" hidden>On a real Seeker this is Mobile Wallet Adapter end to end. The wallet verifies Bond through Digital Asset Links on the identity domain, matched to the release signing key. One challenge, signed by both keys, binds the wallet to the did:key. The wallet's key never leaves Seed Vault; Bond only receives what the wallet signs.</aside>
+</section>
+
+<!-- ============================== 05 THE PRODUCT ============================== -->
+<section class="slide" id="s05" data-scene="thread" data-title="The product" data-dur="12" aria-label="Slide 5: One thread is the social surface and the economy">
+  <div class="pbg" aria-hidden="true"></div>
+  <p class="ey rv f" style="--d:0">04 · The product</p>
+  <h2 class="t1 narrow split" style="--d:.1">One thread is <span class="br"></span>the social surface <span class="br"></span><span class="dim">and the economy.</span></h2>
+
+  <ul class="feats">
+    <li class="rv" style="--d:.6"><i class="fi c"><svg aria-hidden="true"><use href="#i-chat"/></svg></i><div><h3>Same kind of member</h3><p>People and agents share one room. Each carries a signed identity, and each can be paid.</p></div></li>
+    <li class="rv" style="--d:.75"><i class="fi v"><svg aria-hidden="true"><use href="#i-agent"/></svg></i><div><h3>Agents work in the open</h3><p>A mention starts a real tool-calling turn. Every tool call and result lands as its own node.</p></div></li>
+    <li class="rv" style="--d:.9"><i class="fi m"><svg aria-hidden="true"><use href="#i-coin"/></svg></i><div><h3>Pay without leaving</h3><p>USDC over Mobile Wallet Adapter, landing as a receipt that is re-checked on chain.</p></div></li>
+  </ul>
+
+  <div class="glow g-v" style="left:1000px;top:120px;width:640px;height:860px" aria-hidden="true"></div>
+  <div class="hp rv u" style="--d:.3" role="img" aria-label="A Bond room on a phone. Maya asks to split a 5 USDC RPC bill. You ask the Bond agent for your devnet USDC balance. The agent calls solana_get_balance, gets 12.40 USDC back and answers. You pay Maya 5.00 USDC with your PIN and a confirmed receipt lands in the thread.">
+    <div class="hp-scr" aria-hidden="true">
+      <div class="hp-sb"><span>9:41</span><span class="sbi"><i></i><i></i><i></i></span></div>
+      <div class="hp-hd">
+        <span class="hp-bk">‹</span>
+        <div class="hp-tt"><b>Seeker builders</b><small><i class="dt"></i><span data-status>2 humans · 1 agent</span></small></div>
+        <div class="hp-avs"><span class="av c">MA</span><span class="av v">YO</span><span class="av ag">BO</span></div>
+      </div>
+      <div class="hp-th" data-thread>
+        <div class="hm" data-k="1"><span class="av c">MA</span><div class="mb"><p class="mh"><b>Maya</b><span class="vb"><svg aria-hidden="true"><use href="#i-shield"/></svg>Verified</span><time>23:18</time></p><p class="mt">RPC bill came in. 5 USDC each?</p></div></div>
+        <div class="hm" data-k="2"><span class="av v">YO</span><div class="mb"><p class="mh"><b>You</b><span class="vb"><svg aria-hidden="true"><use href="#i-shield"/></svg>Verified</span><time>23:19</time></p><p class="mt"><span class="men">@Bond</span> how much USDC do I have on devnet?</p></div></div>
+        <div class="hm ag" data-k="3"><span class="av ag">BO</span><div class="mb"><p class="mh"><b class="agn">Bond</b><span class="agc">AGENT</span><time>23:19</time></p><div class="tc call"><p><svg aria-hidden="true"><use href="#i-bolt"/></svg><b>called</b><code>solana_get_balance</code></p><p class="tca">owner: AugM…FD22 · mint: USDC</p></div></div></div>
+        <div class="hm ag" data-k="4"><span class="av ag">BO</span><div class="mb"><div class="tc ret"><p><svg aria-hidden="true"><use href="#i-check"/></svg><b>returned</b></p><p class="tca">uiAmount: 12.4 · cluster: devnet</p></div></div></div>
+        <div class="hm ag" data-k="5"><span class="av ag">BO</span><div class="mb"><p class="mt">You hold <b>12.40 USDC</b> on devnet. Enough to cover Maya.</p></div></div>
+        <div class="hm ag typing" data-typing><span class="av ag">BO</span><div class="mb"><p class="dots"><i></i><i></i><i></i></p></div></div>
+        <div class="hm" data-k="6"><span class="av v">YO</span><div class="mb"><p class="mh"><b>You</b><span class="vb"><svg aria-hidden="true"><use href="#i-shield"/></svg>Verified</span><time>23:20</time></p>
+          <div class="rc" data-rc><p class="rc-top"><span class="rc-l"><svg aria-hidden="true"><use href="#i-up"/></svg>PAYMENT</span><span class="rc-st" data-receipt><svg aria-hidden="true"><use href="#i-check"/></svg><span class="st-c">Confirmed</span><span class="st-p">Settling</span></span></p><p class="rc-amt"><b>5.00</b><span>USDC</span><em>devnet</em></p><p class="rc-row"><span>To</span><span>Maya · 7xKX…9fQ2</span></p><p class="rc-ex"><svg aria-hidden="true"><use href="#i-ext"/></svg>Re-checked on chain · Explorer</p></div>
+        </div></div>
+      </div>
+      <div class="hp-cp">
+        <span class="men-chip">@ Bond</span>
+        <div class="hp-row"><span class="pay" data-pay>$</span><span class="inp"><span class="ph" data-ph>Message</span><span class="ty" data-typed></span><i class="caret"></i></span><span class="snd" data-send>↑</span></div>
+      </div>
+      <div class="hp-sheet" data-sheet>
+        <span class="grab"></span>
+        <p class="sh-hd"><span class="sh-ic">$</span><span><b>Send USDC</b><small>Settles on Solana devnet</small></span></p>
+        <p class="sh-f"><small>TO</small><span>Maya · 7xKX…9fQ2</span></p>
+        <p class="sh-amt"><b data-amt>5.00</b><small>USDC</small></p>
+        <p class="sh-pin"><span class="pin-dots" data-pin><i></i><i></i><i></i><i></i><i></i><i></i></span><span>Over your limit: PIN first</span></p>
+      </div>
+    </div>
+  </div>
+
+  <div class="co" data-co="1" style="left:1580px;top:349px"><i></i><span><b>Signed node</b>Ed25519 · jcs-v1</span></div>
+  <div class="co" data-co="2" style="left:1580px;top:482px"><i></i><span><b>tool_call</b>→ Solana devnet</span></div>
+  <div class="co" data-co="3" style="left:1580px;top:762px"><i></i><span><b>transferChecked</b>re-checked on chain</span></div>
+  <p class="cap rv f" style="--d:1.6;left:1016px;top:1020px;width:600px;text-align:center">Scripted replay of the real flow, built in HTML.</p>
+  <footer class="foot"><span class="fb"><svg class="mk" viewBox="0 0 664 424" aria-hidden="true"><use href="#mark"/></svg>Bond</span><span class="pg">05 / 16</span></footer>
+  <aside class="sn" hidden>This is the loop in ten seconds. Maya asks to split a bill. I ask the agent for my balance; it calls a real Solana tool and the call and the result land as nodes in the thread. Then I pay Maya in place, my PIN first, and a receipt lands that Bond re-checks against the chain.</aside>
+</section>
+
+<!-- ============================== 06 AGENTS ============================== -->
+<section class="slide" id="s06" data-scene="agents" data-title="Agents" data-dur="9" aria-label="Slide 6: Agents that act">
+  <div class="pbg" aria-hidden="true"></div>
+  <p class="ey v rv f" style="--d:0">05 · Agents</p>
+  <h2 class="t1 narrow split" style="--d:.1">Mention @Bond. <span class="br"></span><span class="dim">It runs real tools, <span class="br"></span>in the open.</span></h2>
+
+  <div class="lane-wrap rv" style="--d:.55">
+    <p class="lab">Streamed into the thread as server-sent events</p>
+    <ol class="lane mono">
+      <li style="--i:0">turn_start</li><li style="--i:1">text</li><li class="v" style="--i:2">tool_call</li><li class="m" style="--i:3">tool_result</li><li style="--i:4">text</li><li style="--i:5">turn_end</li><li class="m" style="--i:6">done</li>
+    </ol>
+  </div>
+
+  <ul class="tools">
+    <li class="rv" style="--d:.8"><code>solana_get_balance</code><span>devnet read</span></li>
+    <li class="rv" style="--d:.85"><code>solana_transfer_usdc</code><span>devnet, capped</span></li>
+    <li class="rv" style="--d:.9"><code>solana_price</code><span>Jupiter, mainnet read</span></li>
+    <li class="rv" style="--d:.95"><code>solana_swap_quote</code><span>quotes, never signs</span></li>
+    <li class="rv" style="--d:1.0"><code>skill tools</code><span>unlocked on chain</span></li>
+    <li class="rv" style="--d:1.05"><code>mcp_*</code><span>imported, private hosts refused</span></li>
+  </ul>
+
+  <div class="caps">
+    <div class="cap1 rv" style="--d:1.2"><b class="mono count" data-to="100">100</b><span>USDC per transfer</span></div>
+    <div class="cap1 rv" style="--d:1.3"><b class="mono count" data-to="500">500</b><span>USDC per process</span></div>
+    <div class="cap1 rv" style="--d:1.4"><b class="mono count" data-to="8">8</b><span>tool steps per turn</span></div>
+  </div>
+  <p class="caps-note rv" style="--d:1.55">The caps live in server code and are reserved atomically, never in a prompt. The system prompt is fixed on the server.</p>
+
+  <div class="glow g-v" style="left:990px;top:140px;width:560px;height:820px" aria-hidden="true"></div>
+  <figure class="phone rv u" style="--d:.35;--pw:352px;left:1010px;top:104px">
+    <img src="img/agent-quote.jpg" width="864" height="1920" alt="A real Bond room: the agent answers a Jupiter quote request, notes that the unsigned transaction is never signed or submitted, and shows collapsed tool cards: called solana_swap_quote and returned.">
+    <i class="rg v rv f" style="--d:1.5;--x:100;--y:1290;--w:980;--h:710" aria-hidden="true"></i>
+  </figure>
+  <div class="zoom rv s" style="--d:1.65;--k:.52;--x:100;--y:1290;--zw:510px;--zh:346px;left:1300px;top:500px">
+    <img src="img/agent-quote.jpg" width="864" height="1920" alt="">
+  </div>
+  <div class="zlabel v rv f" style="--d:1.9;right:110px;top:458px"><svg class="ic" aria-hidden="true"><use href="#i-bolt"/></svg>Each step lands as its own node</div>
+  <p class="cap rv f" style="--d:1.9;left:1010px;top:990px;width:800px">Model-agnostic: MiniMax today, any OpenAI-compatible API. Adapters for Hermes and OpenClaw.</p>
+  <footer class="foot"><span class="fb"><svg class="mk" viewBox="0 0 664 424" aria-hidden="true"><use href="#mark"/></svg>Bond</span><span class="pg">06 / 16</span></footer>
+  <aside class="sn" hidden>A mention routes to a server loop that runs a tool-calling agent with Solana tools. It quotes a swap but never signs one. It can pay from its own keypair, under caps written in code: 100 USDC a transfer, 500 a process, 8 steps a turn.</aside>
+</section>
+
+<!-- ============================== 07 PAYMENT IS THE LICENSE ============================== -->
+<section class="slide" id="s07" data-scene="license" data-title="The payment is the license" data-dur="11" aria-label="Slide 7: The payment is the license">
+  <div class="pbg" aria-hidden="true"></div>
+  <p class="ey rv f" style="--d:0">06 · The core idea</p>
+  <h2 class="t1 xl split" style="--d:.1">The payment is <em class="shine">the license.</em></h2>
+  <p class="lead rv" style="--d:.55;left:120px;top:282px">No accounts, no license server, no NFT mint. The chain is the database.</p>
+
+  <div class="pipe">
+    <div class="rail" aria-hidden="true"><i class="rail-fill"></i><i class="packet"></i><b style="left:0"></b><b style="left:33.333%"></b><b style="left:66.666%"></b><b style="left:100%"></b></div>
+    <article class="pcard rv" style="--d:.7">
+      <p class="pn">01 · Buy</p>
+      <h3>Unlock, then the wallet</h3>
+      <div class="pv pin"><span class="pin-dots on"><i></i><i></i><i></i><i></i><i></i><i></i></span><svg class="arr" aria-hidden="true"><use href="#i-arrow"/></svg><span class="pw"><svg aria-hidden="true"><use href="#i-wallet"/></svg>MWA</span></div>
+      <p>Bond asks for your biometric or PIN before the wallet sees anything. The wallet signs over Mobile Wallet Adapter.</p>
+    </article>
+    <article class="pcard rv" style="--d:1.0">
+      <p class="pn">02 · One transaction</p>
+      <h3>An atomic 80/20 split</h3>
+      <div class="pv splitbar"><span class="sb-c"><b>1.60</b>creator 80%</span><span class="sb-p"><b>0.40</b>20%</span></div>
+      <p>2.00 USDC in one transaction. Both legs settle, or neither does.</p>
+    </article>
+    <article class="pcard rv" style="--d:1.3">
+      <p class="pn">03 · Agent turn</p>
+      <h3>The server re-reads it</h3>
+      <ul class="checks">
+        <li style="--i:0"><svg aria-hidden="true"><use href="#i-check"/></svg>Transaction succeeded</li>
+        <li style="--i:1"><svg aria-hidden="true"><use href="#i-check"/></svg>The buyer's USDC went down</li>
+        <li style="--i:2"><svg aria-hidden="true"><use href="#i-check"/></svg>Creator paid their cut</li>
+        <li style="--i:3"><svg aria-hidden="true"><use href="#i-check"/></svg>Platform paid its fee</li>
+        <li style="--i:4"><svg aria-hidden="true"><use href="#i-check"/></svg>Buyer proved the wallet</li>
+      </ul>
+    </article>
+    <article class="pcard hot rv" style="--d:1.6">
+      <p class="pn">04 · Unlocked</p>
+      <h3>The skill joins the turn</h3>
+      <div class="pv unlock"><svg class="lk" viewBox="0 0 64 64" aria-hidden="true"><rect x="12" y="28" width="40" height="28" rx="8"/><path class="shackle" d="M21 28V20a11 11 0 0 1 21-4.6"/><circle cx="32" cy="42" r="4"/></svg></div>
+      <p>Its tools join the agent's turn, for this skill and this buyer only.</p>
+    </article>
+  </div>
+
+  <div class="attacks">
+    <div class="atk rv" style="--d:2.2"><p class="atk-a"><svg aria-hidden="true"><use href="#i-x"/></svg>Reuse the signature for another skill</p><p class="atk-d"><b>Nothing unlocks.</b> That transaction never paid this skill's creator.</p></div>
+    <div class="atk rv" style="--d:2.4"><p class="atk-a"><svg aria-hidden="true"><use href="#i-x"/></svg>Replay someone else's public purchase</p><p class="atk-d"><b>Nothing unlocks.</b> A claim needs a fresh <code>did:key</code> signature and the wallet binding.</p></div>
+  </div>
+  <footer class="foot"><span class="fb"><svg class="mk" viewBox="0 0 664 424" aria-hidden="true"><use href="#mark"/></svg>Bond</span><span class="tag-dev"><i class="dot m"></i>Solana devnet, no real funds</span><span class="pg">07 / 16</span></footer>
+  <aside class="sn" hidden>Buying a skill is one atomic USDC transaction: 80 percent to the creator, 20 to the platform, both or neither. When you ask the agent to use it, the server re-reads that purchase on chain and checks the buyer proved their wallet. Only then do the skill's tools join the turn. A reused or replayed signature unlocks nothing.</aside>
+</section>
+
+<!-- ============================== 08 WATCH IT WORK ============================== -->
+<section class="slide" id="s08" data-scene="explain" data-title="Watch it work" data-dur="9" aria-label="Slide 8: The agent uses the skill on the transaction that bought it">
+  <div class="pbg" aria-hidden="true"></div>
+  <p class="ey rv f" style="--d:0">07 · Live on devnet</p>
+  <h2 class="t1 narrow split" style="--d:.1">The agent uses the skill <span class="br"></span><span class="dim">on the transaction <span class="br"></span>that bought it.</span></h2>
+
+  <div class="txcard card rv l" style="--d:.55">
+    <p class="lab">Devnet transaction <span class="mono m">3DqUdGZt…JAksTzdK</span></p>
+    <p class="txmeta mono">slot 507,807,070 · 2026-10-05 17:29:04 UTC</p>
+    <dl class="txrows">
+      <div class="rv" style="--d:.8"><dt>Buyer paid</dt><dd><b>2.00</b> USDC<span class="mono">4L91…MFK4</span></dd></div>
+      <div class="rv" style="--d:.9"><dt>Creator, Pixel Forge · 80%</dt><dd class="m"><b>1.60</b> USDC<span class="mono">6jRF…9fQS</span></dd></div>
+      <div class="rv" style="--d:1.0"><dt>Platform fee · 20%</dt><dd class="v"><b>0.40</b> USDC<span class="mono">E523…uwL</span></dd></div>
+      <div class="rv" style="--d:1.1"><dt>Network fee</dt><dd>0.000005 SOL</dd></div>
+      <div class="rv" style="--d:1.2"><dt>Result</dt><dd>succeeded, one atomic transaction</dd></div>
+    </dl>
+  </div>
+  <div class="shot rv l" style="--d:1.35;--k:.56;left:120px;top:832px;width:585px;height:164px">
+    <img src="img/skill-installed.jpg" width="1044" height="292" alt="Installed. Your agent can call this skill. Proof of purchase: 3DqUdGZt…JAksTzdK. View on Solana Explorer (devnet).">
+  </div>
+  <p class="cap rv f" style="--d:1.5;left:730px;top:868px;width:220px">The purchase signature is the proof of purchase.</p>
+
+  <div class="glow g-m" style="left:960px;top:140px;width:600px;height:820px" aria-hidden="true"></div>
+  <figure class="phone rv u" style="--d:.35;--pw:352px;left:990px;top:104px">
+    <img src="img/skill-explain.jpg" width="864" height="1920" alt="A real Bond room named Skill check: you ask the agent to use your Tx Explainer skill on the transaction that bought it, and the agent decodes the purchase: buyer, skill, creator Pixel Forge, total 2 USDC, creator share 1.6 USDC, platform fee 0.4 USDC, network fee, time and result.">
+    <i class="rg rv f" style="--d:1.5;--x:60;--y:730;--w:1020;--h:1180" aria-hidden="true"></i>
+  </figure>
+  <div class="zoom rv s" style="--d:1.65;--k:.47;--x:60;--y:730;--zw:480px;--zh:538px;left:1328px;top:300px">
+    <img src="img/skill-explain.jpg" width="864" height="1920" alt="">
+  </div>
+  <div class="zlabel rv f" style="--d:1.9;right:112px;top:258px"><svg class="ic" aria-hidden="true"><use href="#i-agent"/></svg>The skill explains its own sale</div>
+  <p class="cap rv f" style="--d:1.9;left:990px;top:990px;width:820px">Real device and live server. Tx Explainer is a seeded sample listing; the payment is real.</p>
+  <footer class="foot"><span class="fb"><svg class="mk" viewBox="0 0 664 424" aria-hidden="true"><use href="#mark"/></svg>Bond</span><span class="pg">08 / 16</span></footer>
+  <aside class="sn" hidden>Here is the interesting part. I ask the agent to use the skill I just bought on the very transaction that bought it. The runtime reads that purchase on chain, sees I paid the creator, and only then gives the agent the skill, which decodes its own sale.</aside>
+</section>
+
+<!-- ============================== 09 SKR ============================== -->
+<section class="slide" id="s09" data-scene="skr" data-title="SKR" data-dur="8" aria-label="Slide 9: SKR, built into every listing">
+  <div class="pbg" aria-hidden="true"></div>
+  <p class="ey c rv f" style="--d:0">08 · SKR</p>
+  <h2 class="t1 split" style="--d:.1">SKR, built into <span class="br"></span><span class="dim">every listing.</span></h2>
+
+  <ul class="feats skr-rows">
+    <li class="rv" style="--d:.55"><i class="fi c"><svg aria-hidden="true"><use href="#i-coin"/></svg></i><div><h3>Priced in SKR, live</h3><p>Every listing shows its SKR equivalent from a live Jupiter quote on Solana mainnet.</p></div></li>
+    <li class="rv" style="--d:.7"><i class="fi m"><svg aria-hidden="true"><use href="#i-shield"/></svg></i><div><h3>Holders pay less</h3><p>Hold SKR and get the creator's discount: 10% by default, hard-capped at 25%, read from your real mainnet balance.</p></div></li>
+    <li class="rv" style="--d:.85"><i class="fi a"><svg aria-hidden="true"><use href="#i-lock"/></svg></i><div><h3>Read-only, on purpose</h3><p>Nothing is signed and no SKR moves in this build. The sale itself settles in USDC on devnet.</p></div></li>
+  </ul>
+  <p class="next rv" style="--d:1.0;left:120px;top:906px"><span class="mono">Next, with mainnet</span>Pay in SKR · SKR-staked creator listings</p>
+
+  <div class="glow g-c" style="left:1040px;top:120px;width:720px;height:720px" aria-hidden="true"></div>
+  <div class="shot light rv r" style="--d:.4;--k:.58;left:1110px;top:150px;width:601px;height:554px">
+    <img src="img/skr-price.jpg" width="1036" height="956" alt="The Tx Explainer price card from the signed APK: price 2.00 USDC, SKR equivalent about 111.58 SKR, creator 80 percent 1.6 USDC, platform fee 20 percent 0.4 USDC, delivered by the Bond runtime.">
+    <i class="hl rv f" style="--d:1.2;left:14px;top:76px;width:574px;height:58px" aria-hidden="true"></i>
+  </div>
+  <p class="cap rv f" style="--d:1.2;left:1110px;top:716px;width:601px">Tx Explainer price card, signed 1.2.x APK. The SKR equivalent is a live mainnet quote; the listing is a seeded sample.</p>
+
+  <div class="gauge rv" style="--d:1.1">
+    <p class="lab">SKR holder discount</p>
+    <div class="g-track"><i class="g-fill"></i><i class="g-def"></i><i class="g-cap"></i></div>
+    <div class="g-ticks mono"><span style="left:0">0%</span><span class="m" style="left:40%">10% default</span><span class="w" style="left:100%">25% hard cap</span></div>
+  </div>
+  <p class="addr mono rv f" style="--d:1.4">SKR mint <a href="https://explorer.solana.com/address/SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3">SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3</a> · mainnet, read only</p>
+  <footer class="foot"><span class="fb"><svg class="mk" viewBox="0 0 664 424" aria-hidden="true"><use href="#mark"/></svg>Bond</span><span class="pg">09 / 16</span></footer>
+  <aside class="sn" hidden>Every listing carries a live SKR price from Jupiter on mainnet. SKR holders get a creator-set discount, ten percent by default and never more than twenty-five, read from their real mainnet balance. Nothing is signed and no SKR moves in this build. Paying in SKR comes with the mainnet launch.</aside>
+</section>
+
+<!-- ============================== 10 PROTECTION ============================== -->
+<section class="slide" id="s10" data-scene="protect" data-title="Protection" data-dur="8" aria-label="Slide 10: Protection you choose, failing closed">
+  <div class="pbg" aria-hidden="true"></div>
+  <p class="ey rv f" style="--d:0">09 · Protection</p>
+  <h2 class="t1 split" style="--d:.1">Protection you choose. <span class="br"></span><span class="dim">It fails closed.</span></h2>
+
+  <table class="ptab rv" style="--d:.55">
+    <thead><tr><th>When</th><th>Default factor</th></tr></thead>
+    <tbody>
+      <tr><td>Spend 1 USDC or more</td><td><span class="pill m"><svg aria-hidden="true"><use href="#i-lock"/></svg>Biometric</span></td></tr>
+      <tr><td>Use the signing key</td><td><span class="pill m"><svg aria-hidden="true"><use href="#i-lock"/></svg>Biometric</span></td></tr>
+      <tr><td>Run a skill</td><td><span class="pill">Off, raise it any time</span></td></tr>
+      <tr><td>Open the app</td><td><span class="pill">Off, raise it any time</span></td></tr>
+    </tbody>
+  </table>
+  <ul class="pbul">
+    <li class="rv" style="--d:.8"><svg aria-hidden="true"><use href="#i-shield"/></svg><span>A wrong PIN <b>never reaches the wallet.</b></span></li>
+    <li class="rv" style="--d:.9"><svg aria-hidden="true"><use href="#i-shield"/></svg><span>No factor available means <b>no spend.</b></span></li>
+    <li class="rv" style="--d:1.0"><svg aria-hidden="true"><use href="#i-shield"/></svg><span>Five wrong PINs lock for 30 s, doubling to 15 min, on a monotonic clock a date change cannot rewind.</span></li>
+    <li class="rv" style="--d:1.1"><svg aria-hidden="true"><use href="#i-shield"/></svg><span>Weakening a guard needs a factor that existed before the request.</span></li>
+  </ul>
+
+  <div class="glow g-m" style="left:980px;top:140px;width:600px;height:820px" aria-hidden="true"></div>
+  <figure class="phone rv u" style="--d:.35;--pw:352px;left:1010px;top:104px">
+    <img src="img/pin-gate.jpg" width="864" height="1920" alt="A real device: buying the Tx Explainer skill. A PIN pad reads Enter your PIN to buy Tx Explainer, over the price card, before any wallet prompt.">
+    <i class="rg rv f" style="--d:1.4;--x:40;--y:1180;--w:1000;--h:180" aria-hidden="true"></i>
+  </figure>
+  <div class="zoom rv s" style="--d:1.6;--k:.48;--x:20;--y:1290;--zw:509px;--zh:322px;left:1300px;top:610px">
+    <img src="img/receipt.jpg" width="864" height="1920" alt="A confirmed payment receipt in a Bond room: 1.5 USDC on devnet, PIN-gated, with a View on Solana Explorer link.">
+  </div>
+  <div class="zlabel rv f" style="--d:1.85;right:111px;top:568px"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>Then a confirmed receipt</div>
+  <p class="cap rv f" style="--d:1.9;left:1010px;top:986px;width:800px">Real device: the PIN arrives before the wallet, then a confirmed 1.5 USDC receipt.</p>
+  <footer class="foot"><span class="fb"><svg class="mk" viewBox="0 0 664 424" aria-hidden="true"><use href="#mark"/></svg>Bond</span><span class="pg">10 / 16</span></footer>
+  <aside class="sn" hidden>Protection is per action: open the app, run a skill, spend, use the signing key. Spending and the key default to a factor. When there is no factor, nothing moves. Brute force meets a lockout on a clock the user cannot rewind.</aside>
+</section>
+
+<!-- ============================== 11 DESIGN ============================== -->
+<section class="slide" id="s11" data-scene="design" data-title="Design" data-dur="9" aria-label="Slide 11: Designed as one material">
+  <div class="pbg" aria-hidden="true"></div>
+  <p class="ey rv f" style="--d:0">10 · Design</p>
+  <h2 class="t1 split" style="--d:.1">Designed as <span class="dim">one material.</span></h2>
+  <p class="lead rv" style="--d:.45;left:120px;top:234px;width:1100px">One system runs through the app, the website and this deck.</p>
+
+  <div class="tokens">
+    <p class="lab rv f" style="--d:.6">Colour with meaning</p>
+    <ul class="sw">
+      <li class="rv" style="--d:.65"><i style="background:#14F195"></i><b>Mint</b><span>action and trust</span></li>
+      <li class="rv" style="--d:.72"><i style="background:#B48CFF"></i><b>Violet</b><span>agents</span></li>
+      <li class="rv" style="--d:.79"><i style="background:#5CE1E6"></i><b>Cyan</b><span>humans</span></li>
+      <li class="rv" style="--d:.86"><i class="ink"></i><b>Ink</b><span>the ground</span></li>
+    </ul>
+    <p class="lab rv f" style="--d:.95">Type</p>
+    <p class="type rv" style="--d:1.0"><span class="aa">Aa</span><span><b>Geist</b> and <b class="mono">Geist Mono</b><small>SIL OFL 1.1, one family per weight</small></span></p>
+    <p class="lab rv f" style="--d:1.1">One physics: Reanimated springs</p>
+    <svg class="springs rv f" style="--d:1.15" viewBox="-12 0 480 168" aria-label="Spring response curves for the three motion tokens: snappy overshoots about 7 percent and settles in a third of a second, gentle barely overshoots, bouncy overshoots about 25 percent.">
+      <path class="sg-axis" d="M0 150 H 452 M0 40 H 452"/>
+      <text class="sg-l" x="456" y="44">1.0</text><text class="sg-l" x="456" y="154">0</text>
+      <path class="sg v draw" style="--d:1.3" pathLength="1" d="M0 150.0 L13 142.6 L25 124.3 L38 100.3 L50 75.1 L63 52.4 L75 34.2 L88 21.7 L101 14.8 L113 13.0 L126 15.1 L138 19.7 L151 25.7 L163 31.9 L176 37.4 L189 41.7 L201 44.7 L214 46.3 L226 46.6 L239 46.0 L251 44.9 L264 43.4 L277 41.9 L289 40.5 L302 39.5 L314 38.8 L327 38.4 L339 38.4 L352 38.5 L365 38.8 L377 39.2 L390 39.6 L402 39.9 L415 40.1 L427 40.3 L440 40.4"/>
+      <path class="sg m draw" style="--d:1.45" pathLength="1" d="M0 150.0 L13 140.3 L25 119.2 L38 95.1 L50 73.2 L63 56.0 L75 44.0 L88 36.8 L101 33.4 L113 32.6 L126 33.3 L138 34.7 L151 36.4 L163 37.8 L176 39.0 L189 39.8 L201 40.2 L214 40.5 L226 40.5 L239 40.5 L251 40.4 L264 40.2 L277 40.1 L289 40.1 L302 40.0 L314 40.0 L327 40.0 L339 40.0 L352 40.0 L365 40.0 L377 40.0 L390 40.0 L402 40.0 L415 40.0 L427 40.0 L440 40.0"/>
+      <path class="sg c draw" style="--d:1.6" pathLength="1" d="M0 150.0 L13 146.2 L25 136.9 L38 124.7 L50 111.5 L63 98.4 L75 86.2 L88 75.5 L101 66.3 L113 58.8 L126 52.7 L138 48.0 L151 44.5 L163 42.0 L176 40.2 L189 39.1 L201 38.4 L214 38.1 L226 38.0 L239 38.1 L251 38.2 L264 38.5 L277 38.7 L289 38.9 L302 39.2 L314 39.4 L327 39.5 L339 39.7 L352 39.8 L365 39.9 L377 39.9 L390 40.0 L402 40.0 L415 40.0 L427 40.0 L440 40.0"/>
+    </svg>
+    <ul class="sp-legend mono rv f" style="--d:1.7"><li class="m">snappy 18/320</li><li class="c">gentle 20/180</li><li class="v">bouncy 11/260</li></ul>
+    <p class="sp-note rv f" style="--d:1.8">Damping and stiffness per token. Reduce-motion is honoured everywhere, and ambient loops settle after three cycles.</p>
+  </div>
+
+  <figure class="design-shot rv r" style="--d:.5">
+    <img src="img/design-dark.jpg" width="1960" height="1060" alt="Four screens of the Bond web build in dark mode: onboarding with the animated Bond mark, the rooms list, a new room with starter prompts for the agent, and the You tab showing the did:key and the Solana address it resolves to.">
+    <figcaption class="mono">The web build: same React Native code as the APK.</figcaption>
+  </figure>
+  <footer class="foot"><span class="fb"><svg class="mk" viewBox="0 0 664 424" aria-hidden="true"><use href="#mark"/></svg>Bond</span><span class="pg">11 / 16</span></footer>
+  <aside class="sn" hidden>The mark is a human circle bonded to an agent square, the same two avatar shapes the app uses. Mint means action and trust, violet means agents, cyan means humans. Everything moves on three shared springs and stands still for reduce-motion.</aside>
+</section>
+
+<!-- ============================== 12 PROOF ============================== -->
+<section class="slide" id="s12" data-scene="proof" data-title="Proof" data-dur="9" aria-label="Slide 12: It is live, and it is real">
+  <div class="pbg" aria-hidden="true"></div>
+  <p class="ey rv f" style="--d:0">11 · Proof</p>
+  <h2 class="t1 split" style="--d:.1">It is live, <span class="dim">and it is real.</span></h2>
+
+  <div class="txt card rv l" style="--d:.5">
+    <p class="lab">Real Solana devnet transactions <span class="sep"></span> recorded demo run, 5 Oct 2026 UTC</p>
+    <table class="txs">
+      <thead><tr><th>What</th><th>Signature</th><th>Slot</th></tr></thead>
+      <tbody>
+        <tr class="rv" style="--d:.7"><td><b>Skill purchase</b> · Tx Explainer<small>2.00 USDC: 1.60 to the creator, 0.40 platform</small></td><td class="mono sig">4Zb9eFr6…wHdkqZuP</td><td class="mono">507,897,796</td></tr>
+        <tr class="rv" style="--d:.8"><td><b>Human payment</b> · PIN-gated<small>1.50 USDC, signed over Mobile Wallet Adapter</small></td><td class="mono sig">yWEKn9us…EoAp4CGH</td><td class="mono">507,898,608</td></tr>
+        <tr class="rv" style="--d:.9"><td><b>Agent-initiated refund</b><small>1.00 USDC from the agent's own keypair</small></td><td class="mono sig">62UKC2ZM…RA9u7EDA</td><td class="mono">507,898,816</td></tr>
+      </tbody>
+    </table>
+    <p class="txfoot">Each signature re-read from devnet RPC on 12 Oct 2026: succeeded, amounts as shown. Full signatures with Explorer links are in the <a href="https://github.com/zkasuran/bond#for-judges">README, For judges</a>. Platform fee wallet: <a class="mono" href="https://explorer.solana.com/address/E523zpkuVLybriL6E2djVCkUG4MHsS3TtT15DGfbiuwL?cluster=devnet">E523zpku…GfbiuwL</a></p>
+  </div>
+
+  <div class="term rv r" style="--d:.6">
+    <p class="term-bar"><i></i><i></i><i></i><span class="mono">zkasuran/bond · HEAD · summarised</span></p>
+    <div class="term-body mono">
+      <p class="tl" style="--i:0"><span class="pr">$</span> ./verify.sh</p>
+      <p class="tl" style="--i:1"><i class="ok"></i><span class="k">app</span>tsc --noEmit, strict</p>
+      <p class="tl" style="--i:2"><i class="ok"></i><span class="k">app</span>jest: <b class="count" data-delay="1.35" data-to="337">337</b> tests, 25 suites</p>
+      <p class="tl" style="--i:3"><i class="ok"></i><span class="k">app</span>lint</p>
+      <p class="tl" style="--i:4"><i class="ok"></i><span class="k">app</span>expo export -p web: 16 routes</p>
+      <p class="tl" style="--i:5"><i class="ok"></i><span class="k">server</span>typecheck</p>
+      <p class="tl" style="--i:6"><i class="ok"></i><span class="k">server</span>tests: <b class="count" data-delay="2.0" data-to="74">74</b> pass, 0 fail</p>
+      <p class="tl" style="--i:7"><i class="ok"></i><span class="k">supply</span>audit: high and critical fail the gate</p>
+      <p class="tl all" style="--i:8">ALL GREEN</p>
+    </div>
+  </div>
+  <p class="rel mono rv f" style="--d:1.6">Bond 1.3.1 · versionCode 7 · APK Signature Scheme v2 · SHA-256 340dca05…4a58266c</p>
+
+  <ul class="links">
+    <li class="rv" style="--d:1.2"><a href="https://github.com/zkasuran/bond/releases/latest"><span class="mono">APK</span>github.com/zkasuran/bond/releases</a></li>
+    <li class="rv" style="--d:1.27"><a href="https://bond.zkasuran.dev"><span class="mono">Web app</span>bond.zkasuran.dev</a></li>
+    <li class="rv" style="--d:1.34"><a href="https://getbond.zkasuran.dev"><span class="mono">Site</span>getbond.zkasuran.dev</a></li>
+    <li class="rv" style="--d:1.41"><a href="https://github.com/zkasuran/bond"><span class="mono">Code</span>github.com/zkasuran/bond</a></li>
+    <li class="rv" style="--d:1.48"><a href="https://youtu.be/ye3Se6gQOLQ"><span class="mono">Demo</span>2:42 on YouTube</a></li>
+  </ul>
+  <footer class="foot"><span class="fb"><svg class="mk" viewBox="0 0 664 424" aria-hidden="true"><use href="#mark"/></svg>Bond</span><span class="tag-dev"><i class="dot m"></i>Solana devnet, no real funds</span><span class="pg">12 / 16</span></footer>
+  <aside class="sn" hidden>Everything on this slide can be checked. The transactions are on devnet. The release gate is one command anyone can run, a judge included, and it prints ALL GREEN only when the type-checks, both test suites, the lint, the web export and the supply-chain audit pass.</aside>
+</section>
+
+<!-- ============================== 13 SECURITY ============================== -->
+<section class="slide" id="s13" data-scene="security" data-title="Security" data-dur="9" aria-label="Slide 13: Built to be attacked">
+  <div class="pbg" aria-hidden="true"></div>
+  <p class="ey a rv f" style="--d:0">12 · Security</p>
+  <h2 class="t1 split" style="--d:.1">Built to be attacked.</h2>
+  <p class="lead rv" style="--d:.4;left:120px;top:250px;width:1500px">A full audit before 1.3.1. Every row of <code>SECURITY.md</code> names the attacker, the defence, the file that holds it and the test that proves it.</p>
+
+  <div class="threats">
+    <article class="th rv" style="--d:.6"><p class="th-a"><span class="mono">Attack</span>A relay forges or relabels a node</p><p class="th-d"><span class="mono">Defence</span>Name, kind and every structural edge are signed. Verified on ingest and on read; a tampered node never renders.</p><p class="th-f mono">app/src/identity/sign.ts</p></article>
+    <article class="th rv" style="--d:.7"><p class="th-a"><span class="mono">Attack</span>A peer fakes a payment receipt</p><p class="th-d"><span class="mono">Defence</span>It renders as an unverified claim until re-checked on chain: amount, mint, sender and recipient must match.</p><p class="th-f mono">app/src/solana/confirm.ts</p></article>
+    <article class="th rv" style="--d:.8"><p class="th-a"><span class="mono">Attack</span>Someone talks the agent into draining funds</p><p class="th-d"><span class="mono">Defence</span>Per-transfer and per-process caps, checked and reserved in one synchronous step. Fixed system prompt.</p><p class="th-f mono">server/src/limits.ts</p></article>
+    <article class="th rv" style="--d:.9"><p class="th-a"><span class="mono">Attack</span>A public purchase is replayed by someone else</p><p class="th-d"><span class="mono">Defence</span>The entitlement is bound to the buyer by a wallet-ownership proof over a fresh, expiring challenge.</p><p class="th-f mono">server/src/agent/skills.ts</p></article>
+    <article class="th rv" style="--d:1.0"><p class="th-a"><span class="mono">Attack</span>A stolen phone grinds the PIN or weakens the policy</p><p class="th-d"><span class="mono">Defence</span>Monotonic lockout, an HMAC-tagged policy, and a downgrade needs a factor that existed before the request.</p><p class="th-f mono">app/src/protection/gate.ts</p></article>
+    <article class="th rv" style="--d:1.1"><p class="th-a"><span class="mono">Attack</span>A hostile client floods the sync server</p><p class="th-d"><span class="mono">Defence</span>64 KB frames, token buckets, socket and store ceilings with backpressure, origin checks that fail closed.</p><p class="th-f mono">server/src/sync.ts</p></article>
+  </div>
+  <p class="sec-foot rv f" style="--d:1.3"><svg class="ic" aria-hidden="true"><use href="#i-shield"/></svg><span>Strict CSP, constant-time bearer check, no secrets in the repo. One command, <code>./verify.sh</code>, gives the same verdict to anyone.</span></p>
+  <footer class="foot"><span class="fb"><svg class="mk" viewBox="0 0 664 424" aria-hidden="true"><use href="#mark"/></svg>Bond</span><span class="pg">13 / 16</span></footer>
+  <aside class="sn" hidden>Bond moves value, so it was built to be attacked. Every message is signed and re-verified on read. Receipts are claims until the chain agrees. The agent's spend caps are code, not prompt. Purchases are bound to their buyer. The sync server has a ceiling for everything.</aside>
+</section>
+
+<!-- ============================== 14 WHY IT STICKS ============================== -->
+<section class="slide" id="s14" data-scene="loop" data-title="Why it sticks" data-dur="9" aria-label="Slide 14: Why it sticks">
+  <div class="pbg" aria-hidden="true"></div>
+  <p class="ey rv f" style="--d:0">13 · Why it sticks</p>
+  <h2 class="t1 split" style="--d:.1">Every action makes the room <span class="br"></span><span class="dim">worth coming back to.</span></h2>
+
+  <ul class="feats stick">
+    <li class="rv" style="--d:.55"><i class="fi c"><svg aria-hidden="true"><use href="#i-phone"/></svg></i><div><h3>Who it is for</h3><p>Seeker owners who hold USDC and want to split a cost, pay a collaborator or hand a bounded task to an agent, without leaving the chat.</p></div></li>
+    <li class="rv" style="--d:.7"><i class="fi m"><svg aria-hidden="true"><use href="#i-chat"/></svg></i><div><h3>Why they come back</h3><p>The thread is the loop. Payments, agent actions and skill purchases all land in the room they already use, not in another app.</p></div></li>
+    <li class="rv" style="--d:.85"><i class="fi v"><svg aria-hidden="true"><use href="#i-skill"/></svg></i><div><h3>Why builders come</h3><p>80% of every skill sale, paid on chain the moment it settles. No invoices, no license server.</p></div></li>
+    <li class="rv" style="--d:1.0"><i class="fi a"><svg aria-hidden="true"><use href="#i-coin"/></svg></i><div><h3>How Bond earns</h3><p>A 20% platform fee, inside the same atomic transaction.</p></div></li>
+  </ul>
+
+  <svg class="wheel rv s" style="--d:.4" viewBox="0 0 760 760" role="img" aria-label="The Bond flywheel: more rooms lead to more agent turns, more skill sales, builders paid 80 percent, more skills, and back to more rooms.">
+    <defs>
+      <linearGradient id="w-arc" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#14F195"/><stop offset="1" stop-color="#9945FF"/></linearGradient>
+      <radialGradient id="w-core"><stop offset="0" stop-color="#14F195" stop-opacity=".22"/><stop offset=".6" stop-color="#9945FF" stop-opacity=".12"/><stop offset="1" stop-color="#9945FF" stop-opacity="0"/></radialGradient>
+    </defs>
+    <circle cx="380" cy="380" r="200" fill="url(#w-core)"/>
+    <circle class="w-ring" cx="380" cy="380" r="270"/>
+    <g class="w-spin"><circle class="w-arc" cx="380" cy="380" r="270" pathLength="100"/></g>
+    <g class="w-chev">
+      <path transform="translate(380 380) rotate(-54) translate(270 0)" d="M-9 -6 L0 4 L9 -6"/>
+      <path transform="translate(380 380) rotate(18) translate(270 0)" d="M-9 -6 L0 4 L9 -6"/>
+      <path transform="translate(380 380) rotate(90) translate(270 0)" d="M-9 -6 L0 4 L9 -6"/>
+      <path transform="translate(380 380) rotate(162) translate(270 0)" d="M-9 -6 L0 4 L9 -6"/>
+      <path transform="translate(380 380) rotate(234) translate(270 0)" d="M-9 -6 L0 4 L9 -6"/>
+    </g>
+    <g class="w-core-mark" transform="translate(380 368)">
+      <g transform="scale(.36) translate(-512 -512)"><circle cx="391" cy="512" r="196" fill="url(#mk-h)"/><rect x="437" y="316" width="392" height="392" rx="118" fill="url(#mk-a)"/><rect x="437" y="316" width="392" height="392" rx="118" fill="#F4FFF9" clip-path="url(#mk-c)"/></g>
+      <text class="w-core-t" y="104" text-anchor="middle">one thread</text>
+    </g>
+    <g class="w-nodes">
+      <g transform="translate(380 110)"><g class="wn" style="--i:0"><rect x="-118" y="-32" width="236" height="64" rx="32"/><text y="9" text-anchor="middle">More rooms</text></g></g>
+      <g transform="translate(624 297)"><g class="wn v" style="--i:1"><rect x="-128" y="-32" width="256" height="64" rx="32"/><text y="9" text-anchor="middle">More agent turns</text></g></g>
+      <g transform="translate(539 598)"><g class="wn m" style="--i:2"><rect x="-122" y="-32" width="244" height="64" rx="32"/><text y="9" text-anchor="middle">More skill sales</text></g></g>
+      <g transform="translate(221 598)"><g class="wn m" style="--i:3"><rect x="-128" y="-32" width="256" height="64" rx="32"/><text y="9" text-anchor="middle">Builders paid 80%</text></g></g>
+      <g transform="translate(136 297)"><g class="wn" style="--i:4"><rect x="-112" y="-32" width="224" height="64" rx="32"/><text y="9" text-anchor="middle">More skills</text></g></g>
+    </g>
+  </svg>
+  <p class="honest rv f" style="--d:1.3"><i class="dot a"></i>Bond has no users yet. This deck makes no adoption or retention claims.</p>
+  <footer class="foot"><span class="fb"><svg class="mk" viewBox="0 0 664 424" aria-hidden="true"><use href="#mark"/></svg>Bond</span><span class="pg">14 / 16</span></footer>
+  <aside class="sn" hidden>The repeat-use loop is the thread itself. Every payment, agent action and skill purchase lands in the room you already use, and every sale pays a builder on chain, which brings more skills and better agents. Bond has no users yet, so there are no adoption numbers here.</aside>
+</section>
+
+<!-- ============================== 15 STATUS ============================== -->
+<section class="slide" id="s15" data-scene="status" data-title="Real today, next" data-dur="9" aria-label="Slide 15: What is real today, what ships next">
+  <div class="pbg" aria-hidden="true"></div>
+  <p class="ey rv f" style="--d:0">14 · Status</p>
+  <h2 class="t1 split" style="--d:.1">What is real today. <span class="dim">What ships next.</span></h2>
+
+  <div class="cols">
+    <section class="col m rv" style="--d:.5">
+      <h3><i class="dot m"></i>Real, on devnet</h3>
+      <ul>
+        <li><code>did:key</code> identity, signing, verify on read</li>
+        <li>Human USDC payment over Mobile Wallet Adapter</li>
+        <li>Agent USDC payment from its own keypair, hard-capped</li>
+        <li>Atomic 80/20 skill purchase, the signature kept as proof</li>
+        <li>Three bought skills running in the agent, each unlocked by an on-chain license check</li>
+        <li>Tool-calling agent runtime on MiniMax, streamed into the thread</li>
+      </ul>
+    </section>
+    <section class="col c rv" style="--d:.65">
+      <h3><i class="dot c"></i>Mainnet, read only</h3>
+      <ul>
+        <li>Live Jupiter swap quote. The agent returns an unsigned swap and never signs it</li>
+        <li>SKR price and holder balance, read from mainnet</li>
+      </ul>
+      <p class="seed"><span class="mono">Seeded for the demo</span>The four marketplace listings and their creators are samples. Everything that moves money settles on devnet.</p>
+    </section>
+    <section class="col a rv" style="--d:.8">
+      <h3><i class="dot a"></i>Next, with mainnet</h3>
+      <ol>
+        <li>Publish to the Solana dApp Store. The APK is already release-signed</li>
+        <li>Mainnet USDC behind the same spend gate</li>
+        <li>Jupiter swap execution, signed in your own wallet</li>
+        <li>Pay in SKR, and SKR-staked creator listings</li>
+        <li>Self-serve skill publishing with signed manifests</li>
+        <li>Multi-device rooms over the existing signed sync</li>
+      </ol>
+    </section>
+  </div>
+  <footer class="foot"><span class="fb"><svg class="mk" viewBox="0 0 664 424" aria-hidden="true"><use href="#mark"/></svg>Bond</span><span class="pg">15 / 16</span></footer>
+  <aside class="sn" hidden>Here is exactly what is real. Payments, purchases and agent transfers are real on devnet. Mainnet is touched only to read a Jupiter quote and SKR. The roadmap starts with the dApp Store, then mainnet behind the same gates.</aside>
+</section>
+
+<!-- ============================== 16 CLOSE ============================== -->
+<section class="slide" id="s16" data-scene="close" data-title="Get Bond" data-dur="10" aria-label="Slide 16: Bring your agents, bring your wallet">
+  <div class="pbg" aria-hidden="true"></div>
+  <svg class="bmark xl" viewBox="180 300 664 424" aria-hidden="true">
+    <circle class="bm-h" cx="391" cy="512" r="196" fill="url(#mk-h)"/>
+    <rect class="bm-a" x="437" y="316" width="392" height="392" rx="118" fill="url(#mk-a)"/>
+    <g clip-path="url(#mk-c)"><rect class="bm-l" x="437" y="316" width="392" height="392" rx="118" fill="#F4FFF9"/></g>
+  </svg>
+  <h2 class="cl-h split" style="--d:.5">Bring your agents. <span class="br"></span><span class="dim">Bring your wallet.</span></h2>
+  <p class="cl-sub rv" style="--d:.9">Bond: humans and AI agents, as paid peers. Built for Seeker on the Solana Mobile Stack.</p>
+
+  <div class="cl-row">
+    <a class="qr rv s" style="--d:1.1" href="https://github.com/zkasuran/bond/releases/latest" aria-label="QR code for the signed APK on GitHub Releases">
+      <svg viewBox="-3 -3 39 39" shape-rendering="crispEdges" aria-hidden="true"><rect x="-3" y="-3" width="39" height="39" rx="3" fill="#F4FFF9"/><path stroke="#06080B" d="M0 0.5h7m3 0h1m1 0h1m3 0h1m1 0h4m1 0h1m2 0h7m-33 1h1m5 0h1m2 0h1m5 0h1m2 0h1m1 0h3m3 0h1m5 0h1m-33 1h1m1 0h3m1 0h1m1 0h1m1 0h3m1 0h1m4 0h1m1 0h1m4 0h1m1 0h3m1 0h1m-33 1h1m1 0h3m1 0h1m1 0h1m1 0h3m2 0h1m2 0h2m2 0h1m3 0h1m1 0h3m1 0h1m-33 1h1m1 0h3m1 0h1m1 0h1m1 0h1m1 0h5m3 0h2m1 0h1m2 0h1m1 0h3m1 0h1m-33 1h1m5 0h1m1 0h1m1 0h1m1 0h3m3 0h2m6 0h1m5 0h1m-33 1h7m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h7m-25 1h1m1 0h1m3 0h1m1 0h1m2 0h3m2 0h1m-25 1h1m1 0h5m3 0h2m1 0h2m2 0h1m1 0h1m6 0h5m-28 1h3m1 0h1m2 0h4m2 0h2m1 0h3m1 0h1m2 0h2m1 0h4m-33 1h1m2 0h5m2 0h8m3 0h2m1 0h1m3 0h1m1 0h2m-29 1h1m3 0h1m1 0h1m1 0h3m2 0h4m1 0h2m1 0h3m1 0h5m-33 1h1m1 0h5m1 0h1m3 0h1m1 0h1m1 0h1m2 0h2m1 0h4m2 0h2m1 0h2m-33 1h1m3 0h2m2 0h1m3 0h1m2 0h1m2 0h1m3 0h2m2 0h1m3 0h3m-33 1h2m1 0h2m1 0h2m1 0h1m1 0h3m1 0h4m1 0h1m1 0h1m1 0h3m4 0h1m-30 1h1m5 0h1m2 0h2m1 0h2m5 0h1m3 0h3m1 0h2m-31 1h1m1 0h2m1 0h2m3 0h1m4 0h1m1 0h1m2 0h1m1 0h4m1 0h2m3 0h1m-33 1h2m2 0h1m2 0h1m2 0h5m4 0h3m1 0h1m2 0h2m1 0h2m1 0h1m-33 1h1m1 0h1m3 0h2m1 0h2m1 0h4m2 0h1m1 0h1m3 0h2m1 0h2m1 0h1m-30 1h3m4 0h3m3 0h1m1 0h1m2 0h4m2 0h1m1 0h4m-31 1h2m2 0h1m1 0h3m1 0h1m2 0h1m4 0h2m2 0h1m1 0h2m1 0h3m1 0h1m-32 1h2m1 0h3m3 0h1m1 0h2m2 0h2m3 0h4m1 0h2m2 0h2m1 0h1m-33 1h1m3 0h1m1 0h2m5 0h2m4 0h1m5 0h1m3 0h3m-32 1h1m2 0h3m2 0h6m2 0h1m2 0h5m1 0h2m2 0h2m-31 1h1m1 0h2m1 0h4m2 0h1m2 0h1m2 0h1m1 0h1m2 0h7m-21 1h2m1 0h4m1 0h2m1 0h1m1 0h1m1 0h2m3 0h1m1 0h1m1 0h1m-33 1h7m3 0h2m2 0h4m2 0h5m1 0h1m1 0h1m1 0h2m-32 1h1m5 0h1m1 0h2m1 0h5m1 0h2m1 0h2m1 0h2m3 0h3m1 0h1m-33 1h1m1 0h3m1 0h1m1 0h2m2 0h1m2 0h2m2 0h1m1 0h1m2 0h6m1 0h2m-33 1h1m1 0h3m1 0h1m1 0h3m1 0h1m1 0h2m2 0h1m4 0h3m2 0h2m1 0h2m-33 1h1m1 0h3m1 0h1m1 0h1m1 0h1m1 0h1m2 0h4m3 0h1m3 0h2m2 0h1m-31 1h1m5 0h1m2 0h1m1 0h1m3 0h1m2 0h1m2 0h2m5 0h3m-31 1h7m1 0h4m3 0h1m1 0h1m4 0h1m1 0h4m3 0h1"/></svg>
+      <span>Scan for the signed APK</span>
+    </a>
+    <ul class="cl-links">
+      <li class="rv" style="--d:1.2"><a href="https://github.com/zkasuran/bond/releases/latest"><span class="mono">APK</span>github.com/zkasuran/bond/releases/latest</a></li>
+      <li class="rv" style="--d:1.28"><a href="https://bond.zkasuran.dev"><span class="mono">Web app</span>bond.zkasuran.dev</a></li>
+      <li class="rv" style="--d:1.36"><a href="https://getbond.zkasuran.dev"><span class="mono">Site</span>getbond.zkasuran.dev</a></li>
+      <li class="rv" style="--d:1.44"><a href="https://github.com/zkasuran/bond"><span class="mono">Code</span>github.com/zkasuran/bond</a></li>
+    </ul>
+    <a class="demo rv s" style="--d:1.3" href="https://youtu.be/ye3Se6gQOLQ">
+      <img src="img/demo-thumb.jpg" width="1280" height="720" alt="Demo video thumbnail: The payment is the license, the runtime checks the purchase on chain before a skill unlocks.">
+      <span class="demo-l"><span class="play" aria-hidden="true"><svg><use href="#i-play"/></svg></span><b>Watch the demo</b><span class="mono">2:42</span></span>
+    </a>
+  </div>
+
+  <nav class="jmap rv f" style="--d:1.6" aria-label="For judges: where each criterion lives">
+    <span class="mono jm-l">For judges</span>
+    <a href="#s14"><b>Stickiness &amp; PMF</b>14</a>
+    <a href="#s05"><b>User experience</b>05 · 11</a>
+    <a href="#s03"><b>Innovation</b>03 · 07</a>
+    <a href="#s08"><b>Presentation &amp; demo</b>08 · video</a>
+    <a href="#s09"><b>SKR</b>09</a>
+  </nav>
+  <p class="cl-foot rv f" style="--d:1.75">Built solo by zkasuran. AI assistance (Claude) was used to build Bond; the design, review and verification are the author's.</p>
+  <aside class="sn" hidden>Bond: people and agents in one thread, with a market where the payment is the license. It is live, the APK is signed, and the code is public.</aside>
+</section>
+
+</div>
+</main>
+
+<!-- ============================== PRESENTER UI (screen only) ============================== -->
+<div class="ui" id="ui">
+  <div class="prog" aria-hidden="true"><i id="prog"></i></div>
+  <div class="bar" id="bar">
+    <span class="bar-t" id="ui-title">Bond</span>
+    <div class="bar-c">
+      <button type="button" data-act="prev" aria-label="Previous slide"><svg aria-hidden="true"><use href="#i-chev-l"/></svg></button>
+      <span class="bar-n mono" id="ui-count">01 / 16</span>
+      <button type="button" data-act="next" aria-label="Next slide"><svg aria-hidden="true"><use href="#i-chev-r"/></svg></button>
+      <i class="bar-s" aria-hidden="true"></i>
+      <button type="button" data-act="play" aria-label="Play the deck (P)" aria-pressed="false"><svg class="ip" aria-hidden="true"><use href="#i-play"/></svg><svg class="ipa" aria-hidden="true"><use href="#i-pause"/></svg></button>
+      <button type="button" data-act="grid" aria-label="Overview (G)" aria-pressed="false"><svg aria-hidden="true"><use href="#i-grid"/></svg></button>
+      <button type="button" data-act="notes" aria-label="Speaker notes (N)" aria-pressed="false"><svg aria-hidden="true"><use href="#i-notes"/></svg></button>
+      <button type="button" data-act="full" aria-label="Fullscreen (F)"><svg aria-hidden="true"><use href="#i-full"/></svg></button>
+      <button type="button" data-act="help" aria-label="Keyboard shortcuts (?)"><svg aria-hidden="true"><use href="#i-help"/></svg></button>
+    </div>
+    <i class="ap" aria-hidden="true"><b id="ap"></b></i>
+  </div>
+</div>
+<aside class="notes" id="notes" hidden><p class="mono">Speaker notes <span id="notes-n"></span></p><p id="notes-t"></p></aside>
+<div class="help" id="help" role="dialog" aria-modal="true" aria-labelledby="help-h" hidden>
+  <div class="help-c">
+    <h2 id="help-h">Keys</h2>
+    <dl>
+      <div><dt><kbd>→</kbd><kbd>Space</kbd></dt><dd>Next slide</dd></div>
+      <div><dt><kbd>←</kbd></dt><dd>Previous slide</dd></div>
+      <div><dt><kbd>Home</kbd><kbd>End</kbd></dt><dd>First or last slide</dd></div>
+      <div><dt><kbd>G</kbd><kbd>Esc</kbd></dt><dd>Overview of every slide</dd></div>
+      <div><dt><kbd>P</kbd></dt><dd>Play the deck on its own</dd></div>
+      <div><dt><kbd>R</kbd></dt><dd>Replay this slide's motion</dd></div>
+      <div><dt><kbd>N</kbd></dt><dd>Speaker notes</dd></div>
+      <div><dt><kbd>F</kbd></dt><dd>Fullscreen</dd></div>
+      <div><dt><kbd>Ctrl</kbd><kbd>P</kbd></dt><dd>Print: one slide per page</dd></div>
+    </dl>
+    <p>Swipe on touch screens. Prefer paper? The same deck as a <a href="https://github.com/zkasuran/bond/blob/master/docs/submission/bond-deck.pdf">PDF</a>.</p>
+    <button type="button" class="help-x" data-act="help">Close</button>
+  </div>
+</div>
+<p class="sr" id="live" aria-live="polite"></p>
+<p class="rotate">Turn your phone sideways to see the whole slide.</p>
+
+<!-- ============================== SHARED SYMBOLS ============================== -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <defs>
+    <linearGradient id="mk-h" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3DFFB0"/><stop offset="1" stop-color="#0FD584"/></linearGradient>
+    <linearGradient id="mk-a" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#B57BFF"/><stop offset="1" stop-color="#7B2FF7"/></linearGradient>
+    <clipPath id="mk-c"><circle cx="391" cy="512" r="196"/></clipPath>
+    <symbol id="mark" viewBox="180 300 664 424">
+      <circle cx="391" cy="512" r="196" fill="url(#mk-h)"/>
+      <rect x="437" y="316" width="392" height="392" rx="118" fill="url(#mk-a)"/>
+      <rect x="437" y="316" width="392" height="392" rx="118" fill="#F4FFF9" clip-path="url(#mk-c)"/>
+    </symbol>
+    <symbol id="i-wallet" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="3"/><path d="M3 10h18M15.5 14.5h2"/></g></symbol>
+    <symbol id="i-agent" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M10.5 3.5l1.7 4.6 4.6 1.7-4.6 1.7-1.7 4.6-1.7-4.6-4.6-1.7 4.6-1.7z"/><path d="M18 14.5l.9 2.1 2.1.9-2.1.9-.9 2.1-.9-2.1-2.1-.9 2.1-.9z"/></g></symbol>
+    <symbol id="i-skill" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="4" width="7" height="7" rx="2"/><rect x="13" y="4" width="7" height="7" rx="2"/><rect x="4" y="13" width="7" height="7" rx="2"/><rect x="13" y="13" width="7" height="7" rx="2"/></g></symbol>
+    <symbol id="i-key" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="15" r="4"/><path d="M10.8 12.2L19 4M16 7l2.5 2.5M14 9l1.8 1.8"/></g></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.8-3 8.3-7 10-4-1.7-7-5.2-7-10V6z"/><path d="M9 12l2.2 2.2L15.5 10"/></g></symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="5" y="11" width="14" height="9" rx="2.5"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></g></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></symbol>
+    <symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13 3L5 13.5h6L10 21l8-10.5h-6z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
+    <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M4 12h15M13 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-up" viewBox="0 0 24 24"><path d="M12 19V5M6 11l6-6 6 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-ext" viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-9 9M18 14v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-chat" viewBox="0 0 24 24"><path d="M4 6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5v7a2.5 2.5 0 0 1-2.5 2.5H10l-4.5 4v-4h0A2.5 2.5 0 0 1 4 13.5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
+    <symbol id="i-coin" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><path d="M14.6 9.4c-.5-.9-1.4-1.3-2.6-1.3-1.5 0-2.5.8-2.5 1.9 0 2.6 5.1 1.4 5.1 4 0 1.1-1 1.9-2.6 1.9-1.1 0-2.1-.5-2.6-1.4M12 6.6v1.5M12 15.9v1.5"/></g></symbol>
+    <symbol id="i-phone" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="7" y="3" width="10" height="18" rx="2.6"/><path d="M11 17.8h2"/></g></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5.5v13l10.5-6.5z" fill="currentColor"/></symbol>
+    <symbol id="i-pause" viewBox="0 0 24 24"><path d="M8.5 5.5v13M15.5 5.5v13" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/></symbol>
+    <symbol id="i-grid" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="4" width="6.5" height="6.5" rx="1.6"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.6"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.6"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.6"/></g></symbol>
+    <symbol id="i-full" viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-notes" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="5" y="4" width="14" height="16" rx="2.5"/><path d="M8.5 9h7M8.5 12.5h7M8.5 16h4"/></g></symbol>
+    <symbol id="i-help" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><path d="M9.6 9.4a2.5 2.5 0 0 1 4.8.9c0 1.7-2.4 2.1-2.4 3.6"/><path d="M12 17h.01" stroke-width="2.6"/></g></symbol>
+    <symbol id="i-chev-l" viewBox="0 0 24 24"><path d="M14.5 5.5L8 12l6.5 6.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-chev-r" viewBox="0 0 24 24"><path d="M9.5 5.5L16 12l-6.5 6.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  </defs>
+</svg>
+</body>
+</html>
