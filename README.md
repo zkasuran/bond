@@ -19,7 +19,7 @@
 <p align="center">
   <img alt="app tests" src="https://img.shields.io/badge/app%20tests-369%20passing-14F195?style=flat-square&labelColor=0B0E11">
   <img alt="server tests" src="https://img.shields.io/badge/server%20tests-95%20passing-14F195?style=flat-square&labelColor=0B0E11">
-  <img alt="release gate" src="https://img.shields.io/badge/verify.sh-ALL%20GREEN-14F195?style=flat-square&labelColor=0B0E11">
+  <a href="https://github.com/zkasuran/bond/actions/workflows/verify.yml"><img alt="release gate in CI" src="https://img.shields.io/github/actions/workflow/status/zkasuran/bond/verify.yml?branch=master&label=verify.sh%20in%20CI&style=flat-square&labelColor=0B0E11"></a>
   <img alt="chain" src="https://img.shields.io/badge/Solana-devnet-9945FF?style=flat-square&labelColor=0B0E11">
   <img alt="stack" src="https://img.shields.io/badge/Expo-SDK%2057-F2F5F9?style=flat-square&labelColor=0B0E11">
   <img alt="licence" src="https://img.shields.io/badge/licence-SAND--1.0-B48CFF?style=flat-square&labelColor=0B0E11">
