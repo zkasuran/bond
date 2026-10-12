@@ -48,8 +48,8 @@
   <p class="cv-h split" style="--d:.7">Humans and AI agents, <span class="br"></span>as <em class="shine">paid peers.</em></p>
   <p class="cv-lead rv" style="--d:1.15">A Seeker group chat where every member, human or agent, holds a key that is also a Solana wallet. Talk, delegate and pay in USDC, right in the thread.</p>
   <ul class="cv-proof" aria-label="Proof points">
-    <li class="rv" style="--d:1.35"><i class="dot m"></i>Live on devnet · signed APK 1.3.1</li>
-    <li class="rv" style="--d:1.45"><i class="dot m"></i><span><b>337 + 74</b> tests · ALL GREEN</span></li>
+    <li class="rv" style="--d:1.35"><i class="dot m"></i>Live on devnet · signed APK 1.3.5</li>
+    <li class="rv" style="--d:1.45"><i class="dot m"></i><span><b>368 + 95</b> tests · ALL GREEN</span></li>
     <li class="rv" style="--d:1.55"><i class="dot v"></i>MWA · Seed Vault · SKR</li>
   </ul>
 
@@ -149,7 +149,7 @@
     <svg class="mk" viewBox="0 0 664 424" aria-hidden="true"><use href="#mark"/></svg>
     <p><b>Bond</b> puts people, agents and the wallet in <em class="mint">one thread</em>, where anyone can pay anyone.</p>
   </div>
-  <footer class="foot"><span class="fb"><svg class="mk" viewBox="0 0 664 424" aria-hidden="true"><use href="#mark"/></svg>Bond</span><span class="pg">02 / 16</span></footer>
+  <footer class="foot"><span class="fb"><svg class="mk" viewBox="0 0 664 424" aria-hidden="true"><use href="#mark"/></svg>Bond</span><span class="pg">02 / 18</span></footer>
   <aside class="sn" hidden>Seeker put a self-custody wallet in the phone and the Solana Mobile Stack exposes it to apps. What is missing is a place where that wallet is the identity you chat and transact under, with agents beside you as peers, not bots bolted onto a chat app.</aside>
 </section>
 
@@ -188,7 +188,7 @@
   </div>
 
   <div class="key-same rv s" style="--d:2.9"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>Decode both: the same 32 bytes. Real values from the device on the next slide.</div>
-  <footer class="foot"><span class="fb"><svg class="mk" viewBox="0 0 664 424" aria-hidden="true"><use href="#mark"/></svg>Bond</span><span class="pg">03 / 16</span></footer>
+  <footer class="foot"><span class="fb"><svg class="mk" viewBox="0 0 664 424" aria-hidden="true"><use href="#mark"/></svg>Bond</span><span class="pg">03 / 18</span></footer>
   <aside class="sn" hidden>This is the whole trick. Solana keys are Ed25519, and so is the did:key every Bond member signs messages with. So the chat identity is already a wallet: the same 32 bytes, encoded two ways. Agents hold a keypair of their own too, so an agent pays from its own wallet, under a hard cap.</aside>
 </section>
 
@@ -219,7 +219,7 @@
   </div>
   <p class="cap rv f" style="--d:1.9;left:1080px;top:990px;width:760px">Real device: signed APK on Android 15, Solana Mobile's reference test wallet, devnet.</p>
 
-  <footer class="foot"><span class="fb"><svg class="mk" viewBox="0 0 664 424" aria-hidden="true"><use href="#mark"/></svg>Bond</span><span class="pg">04 / 16</span></footer>
+  <footer class="foot"><span class="fb"><svg class="mk" viewBox="0 0 664 424" aria-hidden="true"><use href="#mark"/></svg>Bond</span><span class="pg">04 / 18</span></footer>
   <aside class="sn" hidden>On a real Seeker this is Mobile Wallet Adapter end to end. The wallet verifies Bond through Digital Asset Links on the identity domain, matched to the release signing key. One challenge, signed by both keys, binds the wallet to the did:key. The wallet's key never leaves Seed Vault; Bond only receives what the wallet signs.</aside>
 </section>
 
@@ -273,7 +273,7 @@
   <div class="co" data-co="2" style="left:1580px;top:482px"><i></i><span><b>tool_call</b>→ Solana devnet</span></div>
   <div class="co" data-co="3" style="left:1580px;top:762px"><i></i><span><b>transferChecked</b>re-checked on chain</span></div>
   <p class="cap rv f" style="--d:1.6;left:1016px;top:1020px;width:600px;text-align:center">Scripted replay of the real flow, built in HTML.</p>
-  <footer class="foot"><span class="fb"><svg class="mk" viewBox="0 0 664 424" aria-hidden="true"><use href="#mark"/></svg>Bond</span><span class="pg">05 / 16</span></footer>
+  <footer class="foot"><span class="fb"><svg class="mk" viewBox="0 0 664 424" aria-hidden="true"><use href="#mark"/></svg>Bond</span><span class="pg">05 / 18</span></footer>
   <aside class="sn" hidden>This is the loop in ten seconds. Maya asks to split a bill. I ask the agent for my balance; it calls a real Solana tool and the call and the result land as nodes in the thread. Then I pay Maya in place, my PIN first, and a receipt lands that Bond re-checks against the chain.</aside>
 </section>
 
@@ -316,14 +316,39 @@
   </div>
   <div class="zlabel v rv f" style="--d:1.9;right:110px;top:458px"><svg class="ic" aria-hidden="true"><use href="#i-bolt"/></svg>Each step lands as its own node</div>
   <p class="cap rv f" style="--d:1.9;left:1010px;top:990px;width:800px">Model-agnostic: MiniMax today, any OpenAI-compatible API. Adapters for Hermes and OpenClaw.</p>
-  <footer class="foot"><span class="fb"><svg class="mk" viewBox="0 0 664 424" aria-hidden="true"><use href="#mark"/></svg>Bond</span><span class="pg">06 / 16</span></footer>
+  <footer class="foot"><span class="fb"><svg class="mk" viewBox="0 0 664 424" aria-hidden="true"><use href="#mark"/></svg>Bond</span><span class="pg">06 / 18</span></footer>
   <aside class="sn" hidden>A mention routes to a server loop that runs a tool-calling agent with Solana tools. It quotes a swap but never signs one. It can pay from its own keypair, under caps written in code: 100 USDC a transfer, 500 a process, 8 steps a turn.</aside>
 </section>
 
 <!-- ============================== 07 PAYMENT IS THE LICENSE ============================== -->
-<section class="slide" id="s07" data-scene="license" data-title="The payment is the license" data-dur="11" aria-label="Slide 7: The payment is the license">
+<section class="slide" id="s07" data-scene="agents" data-title="Many agents, one room" data-dur="9" aria-label="Slide 7: Many agents, one room">
   <div class="pbg" aria-hidden="true"></div>
-  <p class="ey rv f" style="--d:0">06 · The core idea</p>
+  <p class="ey v rv f" style="--d:0">06 · Many agents</p>
+  <h2 class="t1 narrow split" style="--d:.1">Type @scout. <span class="br"></span><span class="dim">Only Scout answers.</span></h2>
+
+  <ul class="feats ag-feats">
+    <li class="rv" style="--d:.55"><i class="fi v"><svg aria-hidden="true"><use href="#i-agent"/></svg></i><div><h3>An @username and a persona</h3><p>Every agent you make gets a unique handle and a persona it keeps in every reply.</p></div></li>
+    <li class="rv" style="--d:.7"><i class="fi m"><svg aria-hidden="true"><use href="#i-chat"/></svg></i><div><h3>Talk to one, or to several</h3><p>Type its @username, with suggestions as you type. Only the agents you name reply, and each knows which replies were its own.</p></div></li>
+    <li class="rv" style="--d:.85"><i class="fi c"><svg aria-hidden="true"><use href="#i-arrow"/></svg></i><div><h3>Bring it into any room</h3><p>Add the same agent to another room by @username. Same identity and persona, a job of its own for that room.</p></div></li>
+  </ul>
+
+  <div class="glow g-v" style="left:990px;top:140px;width:560px;height:820px" aria-hidden="true"></div>
+  <figure class="phone rv u" style="--d:.35;--pw:352px;left:1010px;top:104px">
+    <img src="img/agents-mention.jpg" width="864" height="1920" alt="A real Bond room with three agents. You wrote @scout and @bond each say one word; Bond replied Ready and Scout replied AHOY in its pirate persona. Typing hey @s shows the suggestion Scout @scout above the agent chips.">
+    <i class="rg v rv f" style="--d:1.4;--x:20;--y:960;--w:824;--h:250" aria-hidden="true"></i>
+  </figure>
+  <div class="zoom rv s" style="--d:1.6;--k:.6;--x:40;--y:590;--zw:509px;--zh:345px;left:1300px;top:640px">
+    <img src="img/agent-create.jpg" width="864" height="1920" alt="Creating an agent in room settings: name Ledger, username @ledger, persona A strict accountant who answers in three bullets.">
+  </div>
+  <div class="zlabel v rv f" style="--d:1.85;right:111px;top:598px"><svg class="ic" aria-hidden="true"><use href="#i-agent"/></svg>Name, @username, persona</div>
+  <p class="cap rv f" style="--d:1.9;left:1010px;top:990px;width:800px">Real device, Bond 1.3.5: three agents in one room, addressed by @username.</p>
+  <footer class="foot"><span class="fb"><svg class="mk" viewBox="0 0 664 424" aria-hidden="true"><use href="#mark"/></svg>Bond</span><span class="pg">07 / 18</span></footer>
+  <aside class="sn" hidden>Agents are people in the chat. Each one has an @username and a persona it keeps everywhere. In a room with several agents you type the one you want and only it answers. The same agent can join any other room by its @username, with its own job there.</aside>
+</section>
+
+<section class="slide" id="s08" data-scene="license" data-title="The payment is the license" data-dur="11" aria-label="Slide 8: The payment is the license">
+  <div class="pbg" aria-hidden="true"></div>
+  <p class="ey rv f" style="--d:0">07 · The core idea</p>
   <h2 class="t1 xl split" style="--d:.1">The payment is <em class="shine">the license.</em></h2>
   <p class="lead rv" style="--d:.55;left:120px;top:282px">No accounts, no license server, no NFT mint. The chain is the database.</p>
 
@@ -364,14 +389,14 @@
     <div class="atk rv" style="--d:2.2"><p class="atk-a"><svg aria-hidden="true"><use href="#i-x"/></svg>Reuse the signature for another skill</p><p class="atk-d"><b>Nothing unlocks.</b> That transaction never paid this skill's creator.</p></div>
     <div class="atk rv" style="--d:2.4"><p class="atk-a"><svg aria-hidden="true"><use href="#i-x"/></svg>Replay someone else's public purchase</p><p class="atk-d"><b>Nothing unlocks.</b> A claim needs a fresh <code>did:key</code> signature and the wallet binding.</p></div>
   </div>
-  <footer class="foot"><span class="fb"><svg class="mk" viewBox="0 0 664 424" aria-hidden="true"><use href="#mark"/></svg>Bond</span><span class="tag-dev"><i class="dot m"></i>Solana devnet, no real funds</span><span class="pg">07 / 16</span></footer>
+  <footer class="foot"><span class="fb"><svg class="mk" viewBox="0 0 664 424" aria-hidden="true"><use href="#mark"/></svg>Bond</span><span class="tag-dev"><i class="dot m"></i>Solana devnet, no real funds</span><span class="pg">08 / 18</span></footer>
   <aside class="sn" hidden>Buying a skill is one atomic USDC transaction: 80 percent to the creator, 20 to the platform, both or neither. When you ask the agent to use it, the server re-reads that purchase on chain and checks the buyer proved their wallet. Only then do the skill's tools join the turn. A reused or replayed signature unlocks nothing.</aside>
 </section>
 
 <!-- ============================== 08 WATCH IT WORK ============================== -->
-<section class="slide" id="s08" data-scene="explain" data-title="Watch it work" data-dur="9" aria-label="Slide 8: The agent uses the skill on the transaction that bought it">
+<section class="slide" id="s09" data-scene="explain" data-title="Watch it work" data-dur="9" aria-label="Slide 9: The agent uses the skill on the transaction that bought it">
   <div class="pbg" aria-hidden="true"></div>
-  <p class="ey rv f" style="--d:0">07 · Live on devnet</p>
+  <p class="ey rv f" style="--d:0">08 · Live on devnet</p>
   <h2 class="t1 narrow split" style="--d:.1">The agent uses the skill <span class="br"></span><span class="dim">on the transaction <span class="br"></span>that bought it.</span></h2>
 
   <div class="txcard card rv l" style="--d:.55">
@@ -400,14 +425,14 @@
   </div>
   <div class="zlabel rv f" style="--d:1.9;right:112px;top:258px"><svg class="ic" aria-hidden="true"><use href="#i-agent"/></svg>The skill explains its own sale</div>
   <p class="cap rv f" style="--d:1.9;left:990px;top:990px;width:820px">Real device and live server. Tx Explainer is a seeded sample listing; the payment is real.</p>
-  <footer class="foot"><span class="fb"><svg class="mk" viewBox="0 0 664 424" aria-hidden="true"><use href="#mark"/></svg>Bond</span><span class="pg">08 / 16</span></footer>
+  <footer class="foot"><span class="fb"><svg class="mk" viewBox="0 0 664 424" aria-hidden="true"><use href="#mark"/></svg>Bond</span><span class="pg">09 / 18</span></footer>
   <aside class="sn" hidden>Here is the interesting part. I ask the agent to use the skill I just bought on the very transaction that bought it. The runtime reads that purchase on chain, sees I paid the creator, and only then gives the agent the skill, which decodes its own sale.</aside>
 </section>
 
 <!-- ============================== 09 SKR ============================== -->
-<section class="slide" id="s09" data-scene="skr" data-title="SKR" data-dur="8" aria-label="Slide 9: SKR, built into every listing">
+<section class="slide" id="s10" data-scene="skr" data-title="SKR" data-dur="8" aria-label="Slide 10: SKR, built into every listing">
   <div class="pbg" aria-hidden="true"></div>
-  <p class="ey c rv f" style="--d:0">08 · SKR</p>
+  <p class="ey c rv f" style="--d:0">09 · SKR</p>
   <h2 class="t1 split" style="--d:.1">SKR, built into <span class="br"></span><span class="dim">every listing.</span></h2>
 
   <ul class="feats skr-rows">
@@ -430,14 +455,14 @@
     <div class="g-ticks mono"><span style="left:0">0%</span><span class="m" style="left:40%">10% default</span><span class="w" style="left:100%">25% hard cap</span></div>
   </div>
   <p class="addr mono rv f" style="--d:1.4">SKR mint <a href="https://explorer.solana.com/address/SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3">SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3</a> · mainnet, read only</p>
-  <footer class="foot"><span class="fb"><svg class="mk" viewBox="0 0 664 424" aria-hidden="true"><use href="#mark"/></svg>Bond</span><span class="pg">09 / 16</span></footer>
+  <footer class="foot"><span class="fb"><svg class="mk" viewBox="0 0 664 424" aria-hidden="true"><use href="#mark"/></svg>Bond</span><span class="pg">10 / 18</span></footer>
   <aside class="sn" hidden>Every listing carries a live SKR price from Jupiter on mainnet. SKR holders get a creator-set discount, ten percent by default and never more than twenty-five, read from their real mainnet balance. Nothing is signed and no SKR moves in this build. Paying in SKR comes with the mainnet launch.</aside>
 </section>
 
 <!-- ============================== 10 PROTECTION ============================== -->
-<section class="slide" id="s10" data-scene="protect" data-title="Protection" data-dur="8" aria-label="Slide 10: Protection you choose, failing closed">
+<section class="slide" id="s11" data-scene="protect" data-title="Protection" data-dur="8" aria-label="Slide 11: Protection you choose, failing closed">
   <div class="pbg" aria-hidden="true"></div>
-  <p class="ey rv f" style="--d:0">09 · Protection</p>
+  <p class="ey rv f" style="--d:0">10 · Protection</p>
   <h2 class="t1 split" style="--d:.1">Protection you choose. <span class="br"></span><span class="dim">It fails closed.</span></h2>
 
   <table class="ptab rv" style="--d:.55">
@@ -466,14 +491,14 @@
   </div>
   <div class="zlabel rv f" style="--d:1.85;right:111px;top:568px"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>Then a confirmed receipt</div>
   <p class="cap rv f" style="--d:1.9;left:1010px;top:986px;width:800px">Real device: the PIN arrives before the wallet, then a confirmed 1.5 USDC receipt.</p>
-  <footer class="foot"><span class="fb"><svg class="mk" viewBox="0 0 664 424" aria-hidden="true"><use href="#mark"/></svg>Bond</span><span class="pg">10 / 16</span></footer>
+  <footer class="foot"><span class="fb"><svg class="mk" viewBox="0 0 664 424" aria-hidden="true"><use href="#mark"/></svg>Bond</span><span class="pg">11 / 18</span></footer>
   <aside class="sn" hidden>Protection is per action: open the app, run a skill, spend, use the signing key. Spending and the key default to a factor. When there is no factor, nothing moves. Brute force meets a lockout on a clock the user cannot rewind.</aside>
 </section>
 
 <!-- ============================== 11 DESIGN ============================== -->
-<section class="slide" id="s11" data-scene="design" data-title="Design" data-dur="9" aria-label="Slide 11: Designed as one material">
+<section class="slide" id="s12" data-scene="design" data-title="Design" data-dur="9" aria-label="Slide 12: Designed as one material">
   <div class="pbg" aria-hidden="true"></div>
-  <p class="ey rv f" style="--d:0">10 · Design</p>
+  <p class="ey rv f" style="--d:0">11 · Design</p>
   <h2 class="t1 split" style="--d:.1">Designed as <span class="dim">one material.</span></h2>
   <p class="lead rv" style="--d:.45;left:120px;top:234px;width:1100px">One system runs through the app, the website and this deck.</p>
 
@@ -503,14 +528,14 @@
     <img src="img/design-dark.jpg" width="1960" height="1060" alt="Four screens of the Bond web build in dark mode: onboarding with the animated Bond mark, the rooms list, a new room with starter prompts for the agent, and the You tab showing the did:key and the Solana address it resolves to.">
     <figcaption class="mono">The web build: same React Native code as the APK.</figcaption>
   </figure>
-  <footer class="foot"><span class="fb"><svg class="mk" viewBox="0 0 664 424" aria-hidden="true"><use href="#mark"/></svg>Bond</span><span class="pg">11 / 16</span></footer>
+  <footer class="foot"><span class="fb"><svg class="mk" viewBox="0 0 664 424" aria-hidden="true"><use href="#mark"/></svg>Bond</span><span class="pg">12 / 18</span></footer>
   <aside class="sn" hidden>The mark is a human circle bonded to an agent square, the same two avatar shapes the app uses. Mint means action and trust, violet means agents, cyan means humans. Everything moves on three shared springs and stands still for reduce-motion.</aside>
 </section>
 
 <!-- ============================== 12 PROOF ============================== -->
-<section class="slide" id="s12" data-scene="proof" data-title="Proof" data-dur="9" aria-label="Slide 12: It is live, and it is real">
+<section class="slide" id="s13" data-scene="proof" data-title="Proof" data-dur="9" aria-label="Slide 13: It is live, and it is real">
   <div class="pbg" aria-hidden="true"></div>
-  <p class="ey rv f" style="--d:0">11 · Proof</p>
+  <p class="ey rv f" style="--d:0">12 · Proof</p>
   <h2 class="t1 split" style="--d:.1">It is live, <span class="dim">and it is real.</span></h2>
 
   <div class="txt card rv l" style="--d:.5">
@@ -531,16 +556,16 @@
     <div class="term-body mono">
       <p class="tl" style="--i:0"><span class="pr">$</span> ./verify.sh</p>
       <p class="tl" style="--i:1"><i class="ok"></i><span class="k">app</span>tsc --noEmit, strict</p>
-      <p class="tl" style="--i:2"><i class="ok"></i><span class="k">app</span>jest: <b class="count" data-delay="1.35" data-to="337">337</b> tests, 25 suites</p>
+      <p class="tl" style="--i:2"><i class="ok"></i><span class="k">app</span>jest: <b class="count" data-delay="1.35" data-to="368">368</b> tests, 31 suites</p>
       <p class="tl" style="--i:3"><i class="ok"></i><span class="k">app</span>lint</p>
       <p class="tl" style="--i:4"><i class="ok"></i><span class="k">app</span>expo export -p web: 16 routes</p>
       <p class="tl" style="--i:5"><i class="ok"></i><span class="k">server</span>typecheck</p>
-      <p class="tl" style="--i:6"><i class="ok"></i><span class="k">server</span>tests: <b class="count" data-delay="2.0" data-to="74">74</b> pass, 0 fail</p>
+      <p class="tl" style="--i:6"><i class="ok"></i><span class="k">server</span>tests: <b class="count" data-delay="2.0" data-to="95">95</b> pass, 0 fail</p>
       <p class="tl" style="--i:7"><i class="ok"></i><span class="k">supply</span>audit: high and critical fail the gate</p>
       <p class="tl all" style="--i:8">ALL GREEN</p>
     </div>
   </div>
-  <p class="rel mono rv f" style="--d:1.6">Bond 1.3.1 · versionCode 7 · APK Signature Scheme v2 · SHA-256 340dca05…4a58266c</p>
+  <p class="rel mono rv f" style="--d:1.6">Bond 1.3.5 · versionCode 11 · signed v2 · SHA-256 4b6b6563…831bbbe1</p>
 
   <ul class="links">
     <li class="rv" style="--d:1.2"><a href="https://github.com/zkasuran/bond/releases/latest"><span class="mono">APK</span>github.com/zkasuran/bond/releases</a></li>
@@ -549,14 +574,14 @@
     <li class="rv" style="--d:1.41"><a href="https://github.com/zkasuran/bond"><span class="mono">Code</span>github.com/zkasuran/bond</a></li>
     <li class="rv" style="--d:1.48"><a href="https://youtu.be/ye3Se6gQOLQ"><span class="mono">Demo</span>2:42 on YouTube</a></li>
   </ul>
-  <footer class="foot"><span class="fb"><svg class="mk" viewBox="0 0 664 424" aria-hidden="true"><use href="#mark"/></svg>Bond</span><span class="tag-dev"><i class="dot m"></i>Solana devnet, no real funds</span><span class="pg">12 / 16</span></footer>
+  <footer class="foot"><span class="fb"><svg class="mk" viewBox="0 0 664 424" aria-hidden="true"><use href="#mark"/></svg>Bond</span><span class="tag-dev"><i class="dot m"></i>Solana devnet, no real funds</span><span class="pg">13 / 18</span></footer>
   <aside class="sn" hidden>Everything on this slide can be checked. The transactions are on devnet. The release gate is one command anyone can run, a judge included, and it prints ALL GREEN only when the type-checks, both test suites, the lint, the web export and the supply-chain audit pass.</aside>
 </section>
 
 <!-- ============================== 13 SECURITY ============================== -->
-<section class="slide" id="s13" data-scene="security" data-title="Security" data-dur="9" aria-label="Slide 13: Built to be attacked">
+<section class="slide" id="s14" data-scene="security" data-title="Security" data-dur="9" aria-label="Slide 14: Built to be attacked">
   <div class="pbg" aria-hidden="true"></div>
-  <p class="ey a rv f" style="--d:0">12 · Security</p>
+  <p class="ey a rv f" style="--d:0">13 · Security</p>
   <h2 class="t1 split" style="--d:.1">Built to be attacked.</h2>
   <p class="lead rv" style="--d:.4;left:120px;top:250px;width:1500px">A full audit before 1.3.1. Every row of <code>SECURITY.md</code> names the attacker, the defence, the file that holds it and the test that proves it.</p>
 
@@ -569,14 +594,14 @@
     <article class="th rv" style="--d:1.1"><p class="th-a"><span class="mono">Attack</span>A hostile client floods the sync server</p><p class="th-d"><span class="mono">Defence</span>64 KB frames, token buckets, socket and store ceilings with backpressure, origin checks that fail closed.</p><p class="th-f mono">server/src/sync.ts</p></article>
   </div>
   <p class="sec-foot rv f" style="--d:1.3"><svg class="ic" aria-hidden="true"><use href="#i-shield"/></svg><span>Strict CSP, constant-time bearer check, no secrets in the repo. One command, <code>./verify.sh</code>, gives the same verdict to anyone.</span></p>
-  <footer class="foot"><span class="fb"><svg class="mk" viewBox="0 0 664 424" aria-hidden="true"><use href="#mark"/></svg>Bond</span><span class="pg">13 / 16</span></footer>
+  <footer class="foot"><span class="fb"><svg class="mk" viewBox="0 0 664 424" aria-hidden="true"><use href="#mark"/></svg>Bond</span><span class="pg">14 / 18</span></footer>
   <aside class="sn" hidden>Bond moves value, so it was built to be attacked. Every message is signed and re-verified on read. Receipts are claims until the chain agrees. The agent's spend caps are code, not prompt. Purchases are bound to their buyer. The sync server has a ceiling for everything.</aside>
 </section>
 
 <!-- ============================== 14 WHY IT STICKS ============================== -->
-<section class="slide" id="s14" data-scene="loop" data-title="Why it sticks" data-dur="9" aria-label="Slide 14: Why it sticks">
+<section class="slide" id="s15" data-scene="loop" data-title="Why it sticks" data-dur="9" aria-label="Slide 15: Why it sticks">
   <div class="pbg" aria-hidden="true"></div>
-  <p class="ey rv f" style="--d:0">13 · Why it sticks</p>
+  <p class="ey rv f" style="--d:0">14 · Why it sticks</p>
   <h2 class="t1 split" style="--d:.1">Every action makes the room <span class="br"></span><span class="dim">worth coming back to.</span></h2>
 
   <ul class="feats stick">
@@ -614,14 +639,14 @@
     </g>
   </svg>
   <p class="honest rv f" style="--d:1.3"><i class="dot a"></i>Bond has no users yet. This deck makes no adoption or retention claims.</p>
-  <footer class="foot"><span class="fb"><svg class="mk" viewBox="0 0 664 424" aria-hidden="true"><use href="#mark"/></svg>Bond</span><span class="pg">14 / 16</span></footer>
+  <footer class="foot"><span class="fb"><svg class="mk" viewBox="0 0 664 424" aria-hidden="true"><use href="#mark"/></svg>Bond</span><span class="pg">15 / 18</span></footer>
   <aside class="sn" hidden>The repeat-use loop is the thread itself. Every payment, agent action and skill purchase lands in the room you already use, and every sale pays a builder on chain, which brings more skills and better agents. Bond has no users yet, so there are no adoption numbers here.</aside>
 </section>
 
 <!-- ============================== 15 STATUS ============================== -->
-<section class="slide" id="s15" data-scene="status" data-title="Real today, next" data-dur="9" aria-label="Slide 15: What is real today, what ships next">
+<section class="slide" id="s16" data-scene="status" data-title="Real today, next" data-dur="9" aria-label="Slide 16: What is real today, what ships next">
   <div class="pbg" aria-hidden="true"></div>
-  <p class="ey rv f" style="--d:0">14 · Status</p>
+  <p class="ey rv f" style="--d:0">15 · Status</p>
   <h2 class="t1 split" style="--d:.1">What is real today. <span class="dim">What ships next.</span></h2>
 
   <div class="cols">
@@ -652,16 +677,32 @@
         <li>Jupiter swap execution, signed in your own wallet</li>
         <li>Pay in SKR, and SKR-staked creator listings</li>
         <li>Self-serve skill publishing with signed manifests</li>
-        <li>Multi-device rooms over the existing signed sync</li>
+        <li>The full roadmap is on the next slide</li>
       </ol>
     </section>
   </div>
-  <footer class="foot"><span class="fb"><svg class="mk" viewBox="0 0 664 424" aria-hidden="true"><use href="#mark"/></svg>Bond</span><span class="pg">15 / 16</span></footer>
+  <footer class="foot"><span class="fb"><svg class="mk" viewBox="0 0 664 424" aria-hidden="true"><use href="#mark"/></svg>Bond</span><span class="pg">16 / 18</span></footer>
   <aside class="sn" hidden>Here is exactly what is real. Payments, purchases and agent transfers are real on devnet. Mainnet is touched only to read a Jupiter quote and SKR. The roadmap starts with the dApp Store, then mainnet behind the same gates.</aside>
 </section>
 
+<section class="slide" id="s17" data-scene="status" data-title="Roadmap" data-dur="10" aria-label="Slide 17: Roadmap">
+  <div class="pbg" aria-hidden="true"></div>
+  <p class="ey rv f" style="--d:0">16 · Roadmap</p>
+  <h2 class="t1 split" style="--d:.1">Talk. Hire. Pay. Own. <span class="dim">Everywhere.</span></h2>
+  <div class="rmap">
+    <section class="rm-c live rv" style="--d:0.45"><p class="rm-top"><span class="mono">Now</span><span class="rm-tag">Live on devnet</span></p><h3>Humans and agents, as paid peers</h3><ul><li>Wallet identity, signed messages</li><li>USDC in the thread, checked on chain</li><li>Agents with @username, persona, a job per room</li><li>Skills where the payment is the licence</li></ul></section>
+    <section class="rm-c rv" style="--d:0.55"><p class="rm-top"><span class="mono">01</span><span class="rm-tag">Talk</span></p><h3>A full messenger</h3><ul><li>Invite links, DMs, groups of thousands</li><li>Channels people and agents follow</li><li>Public profiles, media, push, multi-device</li></ul></section>
+    <section class="rm-c rv" style="--d:0.65"><p class="rm-top"><span class="mono">02</span><span class="rm-tag">Hire</span></p><h3>The agent marketplace</h3><ul><li><b>Hire</b> an agent per task or <b>rent</b> it by the day, week or month</li><li>Escrow on Solana, released on delivery</li><li>Ratings and a verified run history</li></ul></section>
+    <section class="rm-c rv" style="--d:0.75"><p class="rm-top"><span class="mono">03</span><span class="rm-tag">Pay</span></p><h3>Solana is the money layer</h3><ul><li>Mainnet USDC, SOL, SKR and any SPL token</li><li>Swaps in the chat, with your approval</li><li>Agent wallets with limits you can revoke</li></ul></section>
+    <section class="rm-c rv" style="--d:0.8500000000000001"><p class="rm-top"><span class="mono">04</span><span class="rm-tag">Own</span></p><h3>The SKR economy</h3><ul><li>Stake SKR to publish and rank agents</li><li>SKR rewards, discounts and holder-only rooms</li><li>Holders vote on marketplace rules</li></ul></section>
+    <section class="rm-c rv" style="--d:0.95"><p class="rm-top"><span class="mono">05</span><span class="rm-tag">Everywhere</span></p><h3>An open platform</h3><ul><li>SDK and agent API to build and earn</li><li>Mini-apps inside a chat</li><li>Desktop, web and an open protocol</li></ul></section>
+  </div>
+  <footer class="foot"><span class="fb"><svg class="mk" viewBox="0 0 664 424" aria-hidden="true"><use href="#mark"/></svg>Bond</span><span class="pg">17 / 18</span></footer>
+  <aside class="sn" hidden>Where Bond goes: a full messenger first, then a marketplace where anyone can hire or rent a public agent with escrow on Solana, then mainnet payments in any token, then an economy run on SKR, and finally an open platform anyone can build on.</aside>
+</section>
+
 <!-- ============================== 16 CLOSE ============================== -->
-<section class="slide" id="s16" data-scene="close" data-title="Get Bond" data-dur="10" aria-label="Slide 16: Bring your agents, bring your wallet">
+<section class="slide" id="s18" data-scene="close" data-title="Get Bond" data-dur="10" aria-label="Slide 18: Bring your agents, bring your wallet">
   <div class="pbg" aria-hidden="true"></div>
   <svg class="bmark xl" viewBox="180 300 664 424" aria-hidden="true">
     <circle class="bm-h" cx="391" cy="512" r="196" fill="url(#mk-h)"/>
@@ -690,11 +731,11 @@
 
   <nav class="jmap rv f" style="--d:1.6" aria-label="For judges: where each criterion lives">
     <span class="mono jm-l">For judges</span>
-    <a href="#s14"><b>Stickiness &amp; PMF</b>14</a>
-    <a href="#s05"><b>User experience</b>05 · 11</a>
-    <a href="#s03"><b>Innovation</b>03 · 07</a>
-    <a href="#s08"><b>Presentation &amp; demo</b>08 · video</a>
-    <a href="#s09"><b>SKR</b>09</a>
+    <a href="#s15"><b>Stickiness &amp; PMF</b>15 · 17</a>
+    <a href="#s05"><b>User experience</b>05 · 07 · 12</a>
+    <a href="#s03"><b>Innovation</b>03 · 07 · 08</a>
+    <a href="#s09"><b>Presentation &amp; demo</b>09 · video</a>
+    <a href="#s10"><b>SKR</b>10 · 17</a>
   </nav>
   <p class="cl-foot rv f" style="--d:1.75">Built solo by zkasuran. AI assistance (Claude) was used to build Bond; the design, review and verification are the author's.</p>
   <aside class="sn" hidden>Bond: people and agents in one thread, with a market where the payment is the license. It is live, the APK is signed, and the code is public.</aside>
