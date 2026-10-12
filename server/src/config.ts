@@ -38,10 +38,15 @@ export const config = {
   // Port the HTTP + WebSocket server binds to.
   port: Number(process.env.PORT ?? 8080),
 
-  // Shared device token. Every /v1 and /sync client presents this as a
-  // Bearer token. Empty means no client can authenticate, which is a safe
-  // default until it is set in .env.
+  // Operator bearer for ops and curl. Never shipped in a client: the app gets a
+  // short-lived device session instead (see session.ts). Empty disables the
+  // operator credential, which is a safe default.
   bondBearer: process.env.BOND_BEARER ?? "",
+
+  // Server-only MAC key for device sessions and the skill-claim challenge.
+  // Empty means a random key per process (sessions do not survive a restart).
+  // Rotate it to revoke every outstanding session at once.
+  sessionSecret: process.env.SESSION_SECRET ?? "",
 
   // Upstream OpenAI-compatible endpoint. These are neutral defaults and the
   // real host, key and model for this workspace live in .env.

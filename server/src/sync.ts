@@ -1,7 +1,8 @@
 import type { IncomingMessage, Server } from "node:http";
 import type { Duplex } from "node:stream";
 import { WebSocketServer, WebSocket } from "ws";
-import { config, bearerMatches } from "./config.js";
+import { config } from "./config.js";
+import { authenticate } from "./session.js";
 import {
   MAX_NODE_BYTES,
   MAX_ROOMS,
@@ -245,11 +246,12 @@ export function mountSync(server: Server): WebSocketServer {
         return;
       }
 
-      // Accept the token from the Authorization header or, for browsers that
-      // cannot set it on a WebSocket, from ?token=. Compared in constant time.
+      // Accept a device session or the operator bearer from the Authorization
+      // header or, for browsers that cannot set it on a WebSocket, from ?token=.
+      // A session token is short-lived, so one leaked from an access log expires.
       const token =
         bearerFrom(req.headers.authorization) ?? url.searchParams.get("token");
-      if (!bearerMatches(token, config.bondBearer)) {
+      if (!authenticate(token)) {
         reject(socket, 401, "Unauthorized");
         return;
       }

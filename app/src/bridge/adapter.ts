@@ -40,6 +40,9 @@ export interface GatewayConfig {
   apiKey?: string;
   model?: string;
   headers?: Record<string, string>;
+  /** Async credential source, called per request, preferred over a static apiKey when set.
+   *  `refresh` asks for a new token after the server rejected the last one. */
+  getToken?: (opts?: { refresh?: boolean }) => Promise<string | undefined>;
   /** header name used to pin a Bond thread to an upstream session, if the runtime supports it. */
   sessionHeader?: string;
   extra?: Record<string, unknown>;

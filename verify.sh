@@ -46,14 +46,15 @@ say "server: tests (unit + adversarial)"
 # ---------------------------------------------------------------------------
 # 4. Supply chain. 0 high/critical is the bar. Exceptions are advisories with
 #    NO patched release upstream, each documented in SECURITY.md Supply chain:
-#    bigint-buffer (via @solana/spl-token), node-forge (Expo CLI build tooling)
-#    and braces (Metro/Jest file matching). Remove each the moment a fix ships.
+#    node-forge (Expo CLI build tooling) and braces (Metro/Jest file matching).
+#    Remove each the moment a fix ships. bigint-buffer is no longer allowlisted:
+#    it is replaced by the vendored, input-validating vendor/bigint-buffer-safe.
 # ---------------------------------------------------------------------------
-say "supply chain: audit (high and critical fail, bigint-buffer allowlisted)"
+say "supply chain: audit (high and critical fail)"
 for d in app server; do
   echo "-- audit: ${d}"
   ( cd "${d}" && npx --yes audit-ci@^7 --high \
-      --allowlist GHSA-3gc7-fjrx-p6mg GHSA-86w9-cpqp-85rv GHSA-vfj7-8cjw-p6xm )
+      --allowlist GHSA-86w9-cpqp-85rv GHSA-vfj7-8cjw-p6xm )
 done
 
 printf '\nALL GREEN\n'

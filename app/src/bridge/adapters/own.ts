@@ -6,6 +6,7 @@
 import type {
   AdapterEvent,
   GatewayCapabilities,
+  GatewayConfig,
   SendTurnInput,
 } from "../adapter";
 import { getStreamingFetch, joinUrl } from "../net";
@@ -76,6 +77,34 @@ export class BondOwnGatewayAdapter extends GenericOpenAIAdapter {
   readonly id = "bond";
   readonly displayName = "Bond gateway";
 
+  // Pull a current device-session token into the config before a request. The token is
+  // short-lived and minted from the device did:key, so nothing static is held here.
+  private async withFreshToken(refresh = false): Promise<void> {
+    if (!this.config.getToken) return;
+    const apiKey = await this.config.getToken({ refresh });
+    this.config = { ...this.config, apiKey };
+  }
+
+  async connect(config: GatewayConfig): Promise<GatewayCapabilities> {
+    this.config = config;
+    await this.withFreshToken();
+    let res = await getStreamingFetch()(joinUrl(config.baseUrl, "models"), {
+      method: "GET",
+      headers: this.headers(),
+    });
+    if (res.status === 401 && this.config.getToken) {
+      await this.withFreshToken(true);
+      res = await getStreamingFetch()(joinUrl(config.baseUrl, "models"), {
+        method: "GET",
+        headers: this.headers(),
+      });
+    }
+    if (!res.ok) {
+      throw new Error(`connect failed: ${res.status} ${res.statusText}`.trim());
+    }
+    return this.capabilities();
+  }
+
   protected capabilities(): GatewayCapabilities {
     return {
       streaming: true,
@@ -103,12 +132,21 @@ export class BondOwnGatewayAdapter extends GenericOpenAIAdapter {
 
     let res: Response;
     try {
-      res = await getStreamingFetch()(url, {
-        method: "POST",
-        headers: this.sessionHeaders(input),
-        body: JSON.stringify(body),
-        signal: input.signal,
-      });
+      await this.withFreshToken();
+      const post = () =>
+        getStreamingFetch()(url, {
+          method: "POST",
+          headers: this.sessionHeaders(input),
+          body: JSON.stringify(body),
+          signal: input.signal,
+        });
+      res = await post();
+      // An expired or revoked session (a server restart, a rotated SESSION_SECRET): mint a
+      // new one and retry once. A second 401 is reported as is.
+      if (res.status === 401 && this.config.getToken) {
+        await this.withFreshToken(true);
+        res = await post();
+      }
     } catch (e) {
       yield { kind: "error", message: String((e as Error)?.message ?? e), retryable: true };
       yield { kind: "done" };

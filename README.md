@@ -17,8 +17,8 @@
 </p>
 
 <p align="center">
-  <img alt="app tests" src="https://img.shields.io/badge/app%20tests-336%20passing-14F195?style=flat-square&labelColor=0B0E11">
-  <img alt="server tests" src="https://img.shields.io/badge/server%20tests-74%20passing-14F195?style=flat-square&labelColor=0B0E11">
+  <img alt="app tests" src="https://img.shields.io/badge/app%20tests-343%20passing-14F195?style=flat-square&labelColor=0B0E11">
+  <img alt="server tests" src="https://img.shields.io/badge/server%20tests-83%20passing-14F195?style=flat-square&labelColor=0B0E11">
   <img alt="release gate" src="https://img.shields.io/badge/verify.sh-ALL%20GREEN-14F195?style=flat-square&labelColor=0B0E11">
   <img alt="chain" src="https://img.shields.io/badge/Solana-devnet-9945FF?style=flat-square&labelColor=0B0E11">
   <img alt="stack" src="https://img.shields.io/badge/Expo-SDK%2057-F2F5F9?style=flat-square&labelColor=0B0E11">
@@ -88,7 +88,7 @@ The agent runtime is live on MiniMax (OpenAI-compatible API), so a mention gets 
 | SKR price and holder discount (mainnet, read only) | [`app/src/solana/skr.ts`](app/src/solana/skr.ts) |
 | Digital Asset Links for the verified-app badge | [`server/src/assetlinks.ts`](server/src/assetlinks.ts) |
 
-Run `./verify.sh` for the release gate: 336 app tests, 74 server tests, lint, type-check and audit.
+Run `./verify.sh` for the release gate: 343 app tests, 83 server tests, lint, type-check and audit.
 
 **What is on chain.** Payments, purchases and agent transfers run on Solana **devnet** with no real funds. The only mainnet calls are reads (Jupiter quotes and SKR). The full table is under [What is real and what is simulated](#what-is-real-and-what-is-simulated). Real devnet transactions from the recorded run of 2026-10-06, viewable on Solana Explorer with `?cluster=devnet`:
 
@@ -252,7 +252,7 @@ npm ci
 npx expo start --web     # or build the APK, see below
 ```
 
-Point the app at your server with `EXPO_PUBLIC_BOND_GATEWAY` and `EXPO_PUBLIC_BOND_TOKEN` in `app/.env`. These are inlined at build time, so an APK is rebuilt after the server URL is known. Upstream credentials live only in `server/.env`, never in the app bundle or a tracked file.
+Point the app at your server with `EXPO_PUBLIC_BOND_GATEWAY` in `app/.env`. It is inlined at build time, so an APK is rebuilt after the server URL is known. The app ships no credential: it signs a server challenge with its device `did:key` and gets a one-hour session (`server/src/session.ts`). `BOND_BEARER`, `SESSION_SECRET` and the upstream keys live only in `server/.env`, never in the app bundle or a tracked file.
 
 The website is static: serve `site/` with any file server, for example `npx http-server site`.
 

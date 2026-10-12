@@ -101,8 +101,8 @@
         </a>
       </div>
       <ul class="hero-proof reveal" style="--d:.85s" aria-label="Release gate">
-        <li><b data-count="336">336</b><span>app tests</span></li>
-        <li><b data-count="74">74</b><span>server tests</span></li>
+        <li><b data-count="343">343</b><span>app tests</span></li>
+        <li><b data-count="83">83</b><span>server tests</span></li>
         <li><b class="green">ALL GREEN</b><span>one-command gate</span></li>
       </ul>
     </div>
@@ -395,8 +395,8 @@
       </div>
       <div class="sec-side">
         <div class="stats reveal">
-          <div><b data-count="336">336</b><span>app tests</span></div>
-          <div><b data-count="74">74</b><span>server tests</span></div>
+          <div><b data-count="343">343</b><span>app tests</span></div>
+          <div><b data-count="83">83</b><span>server tests</span></div>
           <div><b data-count="16">16</b><span>web routes</span></div>
         </div>
         <ul class="hard">
@@ -445,7 +445,7 @@
 <span class="k">cd</span> android &amp;&amp; ./gradlew assembleRelease</code></pre>
         <ul class="code-notes">
           <li><b>Secrets stay server-side.</b> Upstream keys live only in <code>server/.env</code>, never in the app bundle.</li>
-          <li><b>Point the app at your server</b> with <code>EXPO_PUBLIC_BOND_GATEWAY</code> and <code>EXPO_PUBLIC_BOND_TOKEN</code>, inlined at build time.</li>
+          <li><b>Point the app at your server</b> with <code>EXPO_PUBLIC_BOND_GATEWAY</code>, inlined at build time. No credential ships in the app: it signs in with its device key.</li>
           <li><b>One gate.</b> <code>./verify.sh</code> prints ALL GREEN only when every check passes.</li>
         </ul>
       </div>
