@@ -303,31 +303,42 @@
     const light = (k) => { Object.values(callouts).forEach((c) => c.classList.remove("lit")); if (k) callouts[k]?.classList.add("lit"); };
     watch(phoneEl);
     const now = () => { const t = new Date(); return `${String(t.getHours()).padStart(2, "0")}:${String(t.getMinutes()).padStart(2, "0")}`; };
-    const el = (html) => { const t = d.createElement("template"); t.innerHTML = html.trim(); return t.content.firstElementChild; };
-    const msg = (who, body) => {
+    // Every node here is built from elements and text, never parsed from an HTML string, so
+    // nothing in the replay can become markup.
+    const h = (tag, cls, ...kids) => { const e = d.createElement(tag); if (cls) e.className = cls; e.append(...kids); return e; };
+    const msg = (who, ...body) => {
       const agent = who === "bond";
       const meta = { maya: ["a-maya", "MA", "Maya"], you: ["a-you", "YO", "You"], bond: ["", "BO", "Bond"] }[who];
-      return el(`<div class="msg"><span class="av ${agent ? "ag" : "h " + meta[0]}">${meta[1]}</span><div>
-        <div class="msg-head"><b class="${agent ? "agent" : ""}">${meta[2]}</b>${agent ? '<span class="agt">AGENT</span><span class="vbadge uns">Unsigned</span>' : '<span class="vbadge">Verified</span>'}<time>${now()}</time></div>
-        <div class="body">${body}</div></div></div>`);
+      const head = h("div", "msg-head", h("b", agent ? "agent" : "", meta[2]));
+      if (agent) head.append(h("span", "agt", "AGENT"), h("span", "vbadge uns", "Unsigned"));
+      else head.append(h("span", "vbadge", "Verified"));
+      head.append(h("time", "", now()));
+      return h("div", "msg", h("span", "av " + (agent ? "ag" : "h " + meta[0]), meta[1]), h("div", "", head, h("div", "body", ...body)));
     };
+    const para = (text) => h("p", "", text);
+    const ck = () => h("i", "ck");
+    const toolDone = () => h("div", "tool ok", h("div", "t1", ck(), "returned"), h("code", "", "USDC 12.50 · SOL 1.00 · devnet"));
+    const toolCall = () => h("div", "tool", h("div", "t1", h("span", "spin"), "called ", h("code", "", "solana_get_balance")), h("code", "", '{ "owner": "GuvA…j4R6", "cluster": "devnet" }'), h("small", "", "Agent-reported. Not a signed on-chain receipt."));
+    const typing = () => h("span", "typing", h("i"), h("i"), h("i"));
+    const row = (k, v) => h("div", "rc-row", h("span", "", k), h("code", "", v));
+    const receipt = () => h("div", "receipt", h("div", "rc-body",
+      h("div", "rc-top", h("span", "", "PAYMENT"), h("span", "ok", ck(), "Confirmed")),
+      h("div", "rc-amt", h("b", "", "5"), h("span", "", "USDC"), h("em", "", "devnet")),
+      row("From", "GuvA…j4R6"), row("To", "7xKX…9fQ2"),
+      h("div", "rc-link", "↗ View on Solana Explorer (devnet)")));
     const add = (node) => { S.inner.append(node); return node; };
     const gate = async (ms) => { await whenVisible(phoneEl); await sleep(ms); await whenVisible(phoneEl); };
 
-    const AGENT_REPLY = "You hold <strong>12.50 USDC</strong> and 1 SOL on devnet. Want to settle up with Maya?";
-    const receiptHTML = `<div class="receipt"><div class="rc-body">
-      <div class="rc-top"><span>PAYMENT</span><span class="ok"><i class="ck"></i>Confirmed</span></div>
-      <div class="rc-amt"><b>5</b><span>USDC</span><em>devnet</em></div>
-      <div class="rc-row"><span>From</span><code>GuvA…j4R6</code></div><div class="rc-row"><span>To</span><code>7xKX…9fQ2</code></div>
-      <div class="rc-link">↗ View on Solana Explorer (devnet)</div></div></div>`;
-
+    // The agent's reply as segments: plain text, or [tag, text] for an inline element.
+    const AGENT_REPLY = ["You hold ", ["strong", "12.50 USDC"], " and 1 SOL on devnet. Want to settle up with Maya?"];
+    const replyNodes = () => AGENT_REPLY.map((seg) => (typeof seg === "string" ? seg : h(seg[0], "", seg[1])));
     const finalState = () => {
       S.inner.replaceChildren();
-      add(msg("maya", "<p>Seeker build ships tonight. Who covers the RPC credits?</p>"));
-      add(msg("you", "<p>@Bond what's my USDC balance?</p>"));
-      add(msg("bond", `<div class="tool ok"><div class="t1"><i class="ck"></i>returned</div><code>USDC 12.50 · SOL 1.00 · devnet</code></div>`));
-      add(msg("bond", `<p>${AGENT_REPLY}</p>`));
-      add(msg("you", receiptHTML));
+      add(msg("maya", para("Seeker build ships tonight. Who covers the RPC credits?")));
+      add(msg("you", para("@Bond what's my USDC balance?")));
+      add(msg("bond", toolDone()));
+      add(msg("bond", h("p", "", ...replyNodes())));
+      add(msg("you", receipt()));
       light("pay");
     };
 
@@ -345,16 +356,18 @@
       S.send.classList.add("tap"); await sleep(140); S.send.classList.remove("tap", "on");
       S.typed.textContent = ""; S.input.classList.remove("has", "focus"); S.mention.classList.remove("on");
     };
-    const stream = async (p, html) => {
-      // Stream word by word, keeping inline tags whole.
-      const parts = html.match(/<[^>]+>[^<]*<\/[^>]+>|[^\s<]+|\s+/g) || [];
-      let acc = "";
-      for (const part of parts) {
-        acc += part;
-        p.innerHTML = acc + '<span class="caret-b"></span>';
-        if (part.trim()) await gate(55 + Math.random() * 60);
+    const stream = async (p) => {
+      // Stream word by word as text nodes, keeping an inline element whole.
+      const caret = h("span", "caret-b");
+      p.replaceChildren(caret);
+      for (const seg of AGENT_REPLY) {
+        const parts = typeof seg === "string" ? seg.match(/\S+|\s+/g) || [] : [seg];
+        for (const part of parts) {
+          caret.before(typeof part === "string" ? part : h(part[0], "", part[1]));
+          if (typeof part !== "string" || part.trim()) await gate(55 + Math.random() * 60);
+        }
       }
-      p.innerHTML = acc;
+      caret.remove();
     };
 
     const loop = async () => {
@@ -364,25 +377,25 @@
         S.inner.replaceChildren();
         light(null);
         await gate(500);
-        add(msg("maya", "<p>Seeker build ships tonight. Who covers the RPC credits?</p>"));
+        add(msg("maya", para("Seeker build ships tonight. Who covers the RPC credits?")));
         await gate(1100);
         await typeInto("@Bond what's my USDC balance?");
         await gate(350);
         await pressSend();
-        add(msg("you", "<p>@Bond what's my USDC balance?</p>"));
+        add(msg("you", para("@Bond what's my USDC balance?")));
         light("sign");
         await gate(900);
         S.status.textContent = "Bond is working…"; S.status.parentElement.classList.add("busy");
-        const thinking = add(msg("bond", '<span class="typing"><i></i><i></i><i></i></span>'));
+        const thinking = add(msg("bond", typing()));
         await gate(1100);
         const body = $(".body", thinking);
-        body.innerHTML = `<div class="tool"><div class="t1"><span class="spin"></span>called <code>solana_get_balance</code></div><code>{ "owner": "GuvA…j4R6", "cluster": "devnet" }</code><small>Agent-reported. Not a signed on-chain receipt.</small></div>`;
+        body.replaceChildren(toolCall());
         light("tool");
         await gate(1500);
-        add(msg("bond", `<div class="tool ok"><div class="t1"><i class="ck"></i>returned</div><code>USDC 12.50 · SOL 1.00 · devnet</code></div>`));
+        add(msg("bond", toolDone()));
         await gate(700);
-        const reply = add(msg("bond", "<p></p>"));
-        await stream($("p", reply), AGENT_REPLY);
+        const reply = add(msg("bond", h("p", "")));
+        await stream($("p", reply));
         S.status.textContent = "2 humans · 1 agent"; S.status.parentElement.classList.remove("busy");
         light(null);
         await gate(1300);
@@ -398,7 +411,7 @@
         await gate(800);
         S.sheet.classList.remove("open"); S.screen.classList.remove("dim");
         await gate(450);
-        add(msg("you", receiptHTML));
+        add(msg("you", receipt()));
         light("pay");
         S.auth.classList.remove("done"); S.authLabel.textContent = "Confirm with fingerprint";
         await gate(4200);
@@ -621,23 +634,27 @@
       ["h", "=== server: tests (unit + adversarial) ==="], ["ok", "95 passed"],
       ["h", "=== supply chain: audit (high and critical fail) ==="], ["ok", "app, server: none beyond the 2 build-time allowlisted in SECURITY.md"],
     ];
-    const line = (c, t) => (c === "ok" ? `<span class="ok"><i class="ck"></i> ${t}</span>` : `<span class="${c}">${t}</span>`);
-    const finalHTML = '<span class="p">~/bond $</span> ./verify.sh\n\n' + lines.map(([c, t]) => line(c, t)).join("\n") + '\n\n<span class="green">ALL GREEN</span>';
-    if (RM) out.innerHTML = finalHTML;
-    else {
-      out.innerHTML = '<span class="p">~/bond $</span> <span class="cur"></span>';
+    const span = (cls, ...kids) => { const e = d.createElement("span"); e.className = cls; e.append(...kids); return e; };
+    const line = (c, t) => (c === "ok" ? span("ok", span("ck"), " " + t) : span(c, t));
+    const prompt = () => span("p", "~/bond $");
+    const cursor = span("cur");
+    const green = () => span("green", "ALL GREEN");
+    if (RM) {
+      out.replaceChildren(prompt(), " ./verify.sh\n\n", ...lines.flatMap(([c, t], k) => (k ? ["\n", line(c, t)] : [line(c, t)])), "\n\n", green());
+    } else {
+      out.replaceChildren(prompt(), " ", cursor);
       const io = new IntersectionObserver(async (es) => {
         if (!es.some((e) => e.isIntersecting)) return;
         io.disconnect();
-        let html = '<span class="p">~/bond $</span> ';
-        for (const ch of "./verify.sh") { html += ch; out.innerHTML = html + '<span class="cur"></span>'; await sleep(70); }
-        html += "\n\n"; out.innerHTML = html; await sleep(400);
+        const cmd = d.createTextNode("");
+        out.replaceChildren(prompt(), " ", cmd, cursor);
+        for (const ch of "./verify.sh") { cmd.data += ch; await sleep(70); }
+        cursor.before("\n\n"); await sleep(400);
         for (const [c, t] of lines) {
-          html += line(c, t) + "\n";
-          out.innerHTML = html + '<span class="cur"></span>';
+          cursor.before(line(c, t), "\n");
           await sleep(c === "h" ? 260 : 420);
         }
-        out.innerHTML = html + '\n<span class="green">ALL GREEN</span>';
+        cursor.replaceWith("\n", green());
       }, { threshold: 0.35 });
       io.observe(term);
     }

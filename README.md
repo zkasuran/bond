@@ -71,6 +71,8 @@ The agent runtime is live on MiniMax (OpenAI-compatible API), so a mention gets 
 
 ## For judges
 
+**Evidence.** [Device test run on Android 15, 13/13 steps with screenshots](docs/evidence/README.md) · [Release gate in CI](https://github.com/zkasuran/bond/actions/workflows/verify.yml) · [How each audit finding was fixed](docs/evidence/README.md#audit-findings-and-their-fixes)
+
 **Materials.** [Demo video](https://youtu.be/ye3Se6gQOLQ) (2:42, captions in [`docs/submission/bond-demo.srt`](docs/submission/bond-demo.srt)) · [Pitch deck (PDF)](docs/submission/bond-deck.pdf) · [Motion deck (web)](https://getbond.zkasuran.dev/deck/) ([`site/deck/`](site/deck/), PDF rebuilt by [`export-deck.mjs`](docs/submission/export-deck.mjs)) · [Signed APK](https://github.com/zkasuran/bond/releases/latest) · [Live web app](https://bond.zkasuran.dev)
 
 **Who it is for.** Seeker owners who already hold USDC in a self-custody wallet and want to split costs, pay a collaborator, or hand a bounded task to an AI agent without leaving the conversation. The repeat-use loop is the thread itself: every payment and skill purchase lands in the room as a signed node, next to the agents' replies and tool calls. Bond has no users yet, and this README makes no adoption or retention claims; the expected loop and how we'll measure it are under [Stickiness and product-market fit](#stickiness-and-product-market-fit). The build is verified by tests and by on-chain transactions, listed below.
@@ -191,6 +193,19 @@ One visual system runs through the app, the website and this README.
 | App identity to the wallet | The release signing key | `/.well-known/assetlinks.json` on the identity origin, so Mobile Wallet Adapter shows Bond as verified |
 | Protection factor | `expo-local-authentication` | An app-layer gate that fails closed when no factor is available |
 
+## Is it safe for me today?
+
+Bond is a hackathon build. Use it with test money only. This is the line between what you can rely on now and what is not built yet:
+
+| Tier | What it covers | Safe to use today? |
+|---|---|---|
+| 🟢 **Devnet, real transactions** | Payments, skill purchases, agent transfers and receipts. Every one is a real Solana transaction you can look up on Explorer | **Yes, with devnet tokens only.** Devnet USDC and SOL have no value. Never send mainnet funds to an address you see in Bond |
+| 🔵 **Mainnet, read only** | The Jupiter swap quote, the SKR price and an SKR holder balance | **Yes.** Bond only reads. Nothing is signed and no mainnet funds move |
+| 🟡 **Not built yet** | Mainnet payments, swap execution, paying or staking SKR, self-serve skill publishing, the dApp Store listing | **Not available.** See the [roadmap](#roadmap) |
+| 🔒 **What only you hold** | Your wallet key, in Seed Vault on Seeker. Your app PIN | Bond never sees your wallet key. A payment moves only when your wallet signs it |
+
+The agent pays from its own server wallet, which holds devnet USDC under caps enforced in code (100 per transfer, 500 per process). On the web build the device signing key is kept in the browser, so use the Android APK for anything you care about. The full threat model and who enforces each rule are in [`SECURITY.md`](SECURITY.md#production-trust-model).
+
 ## What is real and what is simulated
 
 Everything runs on devnet with no real funds. Anything that touches mainnet is a read only.
@@ -286,13 +301,13 @@ Or on EAS with `eas build --platform android --profile production-apk`. Either w
 
 ## Built to be attacked
 
-One command is the release gate, so anyone who clones the repo gets the same verdict:
+One command is the release gate. GitHub Actions runs it on every push to master ([`verify.yml`](.github/workflows/verify.yml)), and anyone who clones the repo gets the same verdict:
 
 ```bash
 ./verify.sh      # prints ALL GREEN only when every check passes
 ```
 
-It runs the app type-check and tests, the app lint, the web export (asserting the route count), the server type-check and tests, and a supply-chain audit that fails on any high or critical finding, with the handful of upstream-unfixable Solana advisories allowlisted and named in `SECURITY.md`.
+It runs the app type-check and tests, the app lint, the web export (asserting the route count), a check that no credential name or bearer value is in the built client bundle, a check that both workspaces resolve the patched `bigint-buffer`, the server type-check and tests, and a supply-chain audit that fails on any high or critical finding, with the handful of upstream-unfixable Solana advisories allowlisted and named in `SECURITY.md`.
 
 What the hardening covers, with the file that holds each defence listed in [`SECURITY.md`](SECURITY.md):
 

@@ -1,0 +1,86 @@
+[
+ {
+  "id": "CAP3",
+  "what": "101 USDC transfer via tool (code cap)",
+  "expected": "tool called and rejected by cap, no signature",
+  "actual": "tools=solana_transfer_usdc result=[{\"ok\":false,\"error\":\"transfer of 101 USDC exceeds the per-transfer cap of 100 USDC\"}]",
+  "r": "PASS"
+ },
+ {
+  "id": "SYNC1",
+  "what": "no token",
+  "expected": "HTTP 401",
+  "actual": "HTTP 401",
+  "r": "PASS"
+ },
+ {
+  "id": "SYNC2",
+  "what": "bad token",
+  "expected": "HTTP 401",
+  "actual": "HTTP 401",
+  "r": "PASS"
+ },
+ {
+  "id": "SYNC3",
+  "what": "missing room",
+  "expected": "rejected",
+  "actual": "HTTP 400",
+  "r": "PASS"
+ },
+ {
+  "id": "SYNC4",
+  "what": "bad Origin",
+  "expected": "HTTP 403",
+  "actual": "HTTP 403",
+  "r": "PASS"
+ },
+ {
+  "id": "SYNC5",
+  "what": "two devices join a room",
+  "expected": "both open",
+  "actual": "open open open",
+  "r": "PASS"
+ },
+ {
+  "id": "SYNC6",
+  "what": "relay A -> B in same room",
+  "expected": "B receives node",
+  "actual": "1",
+  "r": "PASS"
+ },
+ {
+  "id": "SYNC7",
+  "what": "no leak to another room",
+  "expected": "C receives nothing",
+  "actual": "0",
+  "r": "PASS"
+ },
+ {
+  "id": "SYNC8",
+  "what": "late joiner replay via hello",
+  "expected": "receives stored node",
+  "actual": "1",
+  "r": "PASS"
+ },
+ {
+  "id": "SYNC9",
+  "what": "70 KB frame (cap 64 KB)",
+  "expected": "socket closed",
+  "actual": "closed 1009",
+  "r": "PASS"
+ },
+ {
+  "id": "RATE1",
+  "what": "160-request burst",
+  "expected": "some 429",
+  "actual": "200=130 429=30",
+  "r": "PASS"
+ },
+ {
+  "id": "RATE2",
+  "what": "recovers after 8 s",
+  "expected": "200",
+  "actual": "200",
+  "r": "PASS"
+ }
+]

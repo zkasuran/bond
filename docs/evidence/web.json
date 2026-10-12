@@ -1,0 +1,394 @@
+[
+ {
+  "id": "ON1",
+  "what": "first open shows onboarding",
+  "exp": "Humans and agents",
+  "act": "BUILT FOR SOLANA SEEKER | Humans and agents, as paid peers. | One room where eve",
+  "r": "PASS"
+ },
+ {
+  "id": "ON2",
+  "what": "back from step 2",
+  "exp": "step 1 again",
+  "act": "BUILT FOR SOLANA SEEKER | Humans and agents, as paid peers. ",
+  "r": "PASS"
+ },
+ {
+  "id": "ON3",
+  "what": "chips selectable",
+  "exp": "selected",
+  "act": "null",
+  "r": "PASS"
+ },
+ {
+  "id": "ON4",
+  "what": "key step shows did:key + address",
+  "exp": "did:key:z\u2026 and address",
+  "act": "did:key:z6Mkf9zVey\u2026fzomhj",
+  "r": "PASS"
+ },
+ {
+  "id": "ON5",
+  "what": "lock step continue disabled until choice",
+  "exp": "aria-disabled=true",
+  "act": "true",
+  "r": "PASS"
+ },
+ {
+  "id": "ON6",
+  "what": "biometric disabled on web",
+  "exp": "aria-disabled",
+  "act": "true",
+  "r": "PASS"
+ },
+ {
+  "id": "ON7",
+  "what": "PIN confirm mismatch",
+  "exp": "PINs did not match",
+  "act": "PINs did not match. Try again. ",
+  "r": "PASS"
+ },
+ {
+  "id": "ON8",
+  "what": "cancel enrol stays on step",
+  "exp": "Protect Bond visible",
+  "act": "true",
+  "r": "PASS"
+ },
+ {
+  "id": "ON9",
+  "what": "3-digit PIN cannot submit",
+  "exp": "Next disabled",
+  "act": "true",
+  "r": "PASS"
+ },
+ {
+  "id": "ON10",
+  "what": "PIN max 6 digits",
+  "exp": "6 filled",
+  "act": "0",
+  "r": "PASS"
+ },
+ {
+  "id": "LK1",
+  "what": "no lock right after choosing PIN",
+  "exp": "home visible",
+  "act": "home",
+  "r": "PASS"
+ },
+ {
+  "id": "LK2",
+  "what": "reload locks",
+  "exp": "PIN sheet",
+  "act": "true",
+  "r": "PASS"
+ },
+ {
+  "id": "LK3",
+  "what": "4 wrong PINs",
+  "exp": "rejected, back-off appears",
+  "act": "Could not verify. Try again.  / Could not verify. Try again.  / Could not verify. Try again.  / Could not verify. Try again. ",
+  "r": "FAIL"
+ },
+ {
+  "id": "LK4",
+  "what": "pad layout differs every showing",
+  "exp": "all distinct",
+  "act": "9014258763 9217308564 7462813509 7462813509 2803794561 1348926057 6394175208",
+  "r": "FAIL"
+ },
+ {
+  "id": "RM1",
+  "what": "empty rooms state",
+  "exp": "No rooms yet",
+  "act": "true",
+  "r": "PASS"
+ },
+ {
+  "id": "RM2",
+  "what": "empty title -> default",
+  "exp": "New room",
+  "act": "New room",
+  "r": "PASS"
+ },
+ {
+  "id": "RM3",
+  "what": "emoji + long title",
+  "exp": "room opens",
+  "act": "true",
+  "r": "PASS"
+ },
+ {
+  "id": "MSG1",
+  "what": "own message Verified, no agent reply",
+  "exp": "Verified, no Bond reply",
+  "act": "true 0",
+  "r": "PASS"
+ },
+ {
+  "id": "MSG2",
+  "what": "typed @bond runs a turn with tool cards",
+  "exp": "reply + Agent-reported card",
+  "act": "called | solana_get_balance",
+  "r": "PASS"
+ },
+ {
+  "id": "MSG3",
+  "what": "chip mention",
+  "exp": "reply contains CHIP",
+  "act": "true",
+  "r": "PASS"
+ },
+ {
+  "id": "MSG4",
+  "what": "reply opens reply bar",
+  "exp": "Replying to",
+  "act": "true",
+  "r": "PASS"
+ },
+ {
+  "id": "AG1",
+  "what": "taken @username rejected",
+  "exp": "error + disabled",
+  "act": "@bond is already one of your agents",
+  "r": "PASS"
+ },
+ {
+  "id": "AG2",
+  "what": "invalid @username",
+  "exp": "shape error",
+  "act": "true",
+  "r": "PASS"
+ },
+ {
+  "id": "AG3",
+  "what": "username normalized as typed",
+  "exp": "@scoutone",
+  "act": "@scoutone",
+  "r": "PASS"
+ },
+ {
+  "id": "AG4",
+  "what": "job capped at 600",
+  "exp": "600",
+  "act": "600",
+  "r": "PASS"
+ },
+ {
+  "id": "AG5",
+  "what": "agent created",
+  "exp": "Scout (@scout) joined",
+  "act": "Scout (@scout) joined",
+  "r": "PASS"
+ },
+ {
+  "id": "AG6",
+  "what": "clear job",
+  "exp": "No job set",
+  "act": "true",
+  "r": "PASS"
+ },
+ {
+  "id": "MA1",
+  "what": "@scout: only Scout replies, persona kept",
+  "exp": "AHOY from Scout, no LEDGER/Bond reply",
+  "act": "introduce yourself in one line | \uf53b | Reply | SC | \uf58c | Scout | AGENT | \uf2cc | Unsigned | 22:10 | AHOY I'm Scout, yer pirate matey for all things Solana. | \uf53b | Reply",
+  "r": "PASS"
+ },
+ {
+  "id": "MA2",
+  "what": "two agents addressed by name",
+  "exp": "both reply",
+  "act": "each say one word | \uf53b | Reply | SC | \uf58c | Scout | AGENT | \uf2cc | Unsigned | 22:10 | AHOY | \uf53b | Reply | LE | \uf58c | Ledger | AGENT | \uf2cc | Unsigned | 22:10 | LEDGER. Confirmed. | \uf53b | Reply | \uf14b | Bond | \uf14b | Scou",
+  "r": "PASS"
+ },
+ {
+  "id": "MA3",
+  "what": "x@scout inside an email does not address",
+  "exp": "no reply",
+  "act": "email me at x@scout.dev please | \uf53b | Reply | \uf14b | Bond | \uf14b | Scout | \uf14b | Ledger | \uf41d | \uf145",
+  "r": "PASS"
+ },
+ {
+  "id": "MA4",
+  "what": "@ autocomplete",
+  "exp": "Ledger suggested",
+  "act": "[\"Address Ledger, @ledger\"]",
+  "r": "PASS"
+ },
+ {
+  "id": "MA5",
+  "what": "pick suggestion inserts handle",
+  "exp": "hi @ledger ",
+  "act": "\"hi @ledger \"",
+  "r": "PASS"
+ },
+ {
+  "id": "PER1",
+  "what": "reload on a /room/<id> URL",
+  "exp": "room renders",
+  "act": "{\"message\":\"Route GET:/room/01M4RFQ1QSV5F1210960K20Q1X not found\",\"error\":\"Not Found\",\"sta",
+  "r": "FAIL"
+ },
+ {
+  "id": "PER2",
+  "what": "data survives reload (from /)",
+  "exp": "room listed",
+  "act": "true",
+  "r": "PASS"
+ },
+ {
+  "id": "PER3",
+  "what": "history + agents after reload",
+  "exp": "messages + Ledger chip",
+  "act": "true",
+  "r": "PASS"
+ },
+ {
+  "id": "IM1",
+  "what": "import unknown handle",
+  "exp": "error",
+  "act": "You have no agent called @ghost",
+  "r": "PASS"
+ },
+ {
+  "id": "IM2",
+  "what": "import @SCOUT (case-insensitive)",
+  "exp": "joined",
+  "act": "Scout (@scout) joined",
+  "r": "PASS"
+ },
+ {
+  "id": "IM3",
+  "what": "imported keeps persona, job not carried over",
+  "exp": "Persona AHOY + No job set",
+  "act": "true",
+  "r": "PASS"
+ },
+ {
+  "id": "IM4",
+  "what": "import twice",
+  "exp": "already in this room",
+  "act": "already in this room",
+  "r": "PASS"
+ },
+ {
+  "id": "IM5",
+  "what": "imported agent persona in room 2",
+  "exp": "AHOY",
+  "act": "true",
+  "r": "PASS"
+ },
+ {
+  "id": "AT1",
+  "what": "Agents tab lists your agents with rooms",
+  "exp": "@bond @scout @ledger, scout 2 rooms",
+  "act": "Your agents | 3",
+  "r": "PASS"
+ },
+ {
+  "id": "BR0",
+  "what": "connect form fields after picking a runtime",
+  "exp": "inputs present",
+  "act": "[\"https://host:port/v1\",\"Optional for local runtimes\",\"Optional, the runtime default is used\"]",
+  "r": "PASS"
+ },
+ {
+  "id": "BR1",
+  "what": "bridge URL http://evil.example/v1",
+  "exp": "validation error",
+  "act": "Base URL | API key ",
+  "r": "FAIL"
+ },
+ {
+  "id": "BR2",
+  "what": "bridge URL https://169.254.169.254/v1",
+  "exp": "validation error",
+  "act": "Base URL | API key ",
+  "r": "FAIL"
+ },
+ {
+  "id": "BR3",
+  "what": "bridge URL not a url",
+  "exp": "validation error",
+  "act": "Base URL | API key ",
+  "r": "PASS"
+ },
+ {
+  "id": "BR4",
+  "what": "unreachable https host",
+  "exp": "error state, no crash",
+  "act": "Connect a bridge | Pick a runtime to bring into Bond. | \uf24a | \uf58c | Bond gateway | No setup | The built-in agent. Zero setup",
+  "r": "FAIL"
+ },
+ {
+  "id": "YOU1",
+  "what": "You tab shows did + Solana address",
+  "exp": "did:key and address",
+  "act": "did:key:z6Mkvo…aThwZF",
+  "r": "PASS"
+ },
+ {
+  "id": "WAL1",
+  "what": "open /wallet",
+  "exp": "renders",
+  "act": "Wallet | Connect your Seeker wallet, send USDC and price a swap. | WALLET | Conn",
+  "r": "FAIL"
+ },
+ {
+  "id": "MKT1",
+  "what": "open /market",
+  "exp": "renders",
+  "act": "PAID ON-CHAIN, PER SALE | Skills Market | Publish a skill, get paid in USDC. Ins",
+  "r": "FAIL"
+ },
+ {
+  "id": "PRO1",
+  "what": "open /protection",
+  "exp": "renders",
+  "act": "\uf229 | Protection | Choose how each action is protected. Bond gates at the app laye",
+  "r": "FAIL"
+ },
+ {
+  "id": "MKT2",
+  "what": "market lists skills with prices",
+  "exp": ">=1",
+  "act": "4",
+  "r": "PASS"
+ },
+ {
+  "id": "MKT3",
+  "what": "skill detail",
+  "exp": "price + buy",
+  "act": "\uf229 | Back | USDC Price Watcher | finance | by Orbit Labs | WHAT IT DOES | Watches SOL and major token",
+  "r": "PASS"
+ },
+ {
+  "id": "DL1",
+  "what": "/room/does-not-exist",
+  "exp": "friendly not-found, no crash",
+  "act": "{\"message\":\"Route GET:/room/does-not-exist not found\",\"error\":\"Not Found\",\"statu",
+  "r": "FAIL"
+ },
+ {
+  "id": "DL2",
+  "what": "/market/nope",
+  "exp": "friendly not-found, no crash",
+  "act": "{\"message\":\"Route GET:/market/nope not found\",\"error\":\"Not Found\",\"statusCode\":4",
+  "r": "FAIL"
+ },
+ {
+  "id": "DL3",
+  "what": "/room/x/settings",
+  "exp": "friendly not-found, no crash",
+  "act": "{\"message\":\"Route GET:/room/x/settings not found\",\"error\":\"Not Found\",\"statusCod",
+  "r": "FAIL"
+ },
+ {
+  "id": "DL4",
+  "what": "/totally/unknown",
+  "exp": "friendly not-found, no crash",
+  "act": "{\"message\":\"Route GET:/totally/unknown not found\",\"error\":\"Not Found\",\"statusCod",
+  "r": "FAIL"
+ }
+]

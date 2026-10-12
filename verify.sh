@@ -34,6 +34,23 @@ routes=$(find app/dist -name '*.html' | wc -l | tr -d ' ')
 echo "web routes emitted: ${routes}"
 [ "${routes}" -ge 16 ] || { echo "FAIL: expected at least 16 web routes, got ${routes}"; exit 1; }
 
+say "app: no credential in the client bundle"
+# The app authenticates with a device session, so no token, bearer or upstream key may be
+# inlined into the web build. Fail on any of their names or on an inlined bearer value.
+if grep -rIlE 'EXPO_PUBLIC_BOND_TOKEN|BOND_BEARER|SESSION_SECRET|OPENAI_API_KEY|ANTHROPIC_API_KEY|AGENT_SOLANA_SECRET|Bearer [A-Za-z0-9._-]{20,}' app/dist >/dev/null; then
+  echo "FAIL: a credential name or bearer value is in app/dist"; exit 1
+fi
+echo "no credential names or bearer values in app/dist"
+
+say "supply chain: bigint-buffer is the patched drop-in"
+for d in app server; do
+  v=$( cd "${d}" && npm ls bigint-buffer --all 2>/dev/null | grep -oE 'bigint-buffer@[^ ]+' | sort -u | tr '\n' ' ' )
+  echo "${d}: ${v:-not present}"
+  if [ -n "${v}" ] && echo "${v}" | grep -qvE '^(bigint-buffer@1\.1\.5-bond\.1 ?)+$'; then
+    echo "FAIL: ${d} resolves an unpatched bigint-buffer"; exit 1
+  fi
+done
+
 # ---------------------------------------------------------------------------
 # 3. Server: type-check and tests
 # ---------------------------------------------------------------------------

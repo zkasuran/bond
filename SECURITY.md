@@ -62,6 +62,8 @@ Limits stated plainly: the cumulative cap is in memory, so it resets when the pr
 
 ## Production trust model
 
+In one line: everything that moves money is on devnet with test tokens, mainnet is read only, and nothing on mainnet is built yet. The tiers are spelled out for users in the [README](README.md#is-it-safe-for-me-today).
+
 Who enforces each rule. A judge can check the on-chain rows on Solana Explorer without trusting Bond at all.
 
 | Layer | What it enforces | What it cannot enforce |
@@ -88,17 +90,16 @@ Who enforces each rule. A judge can check the on-chain rows on Solana Explorer w
 
 ## HTML sinks in the website and deck
 
-An automated scan flagged places in `site/` where values are written as HTML. Each one was reviewed:
+An automated scan flagged places in `site/` where values were written as HTML. As of 1.3.6 there are none left: `site/assets/site.js` and `site/deck/deck.js` contain no `innerHTML`, `outerHTML`, `insertAdjacentHTML` or `document.write`.
 
-| Location | Source of the HTML | Verdict |
+| Location | What it was | Now |
 |---|---|---|
-| `site/assets/site.js`, signature playground `render()` | The canonical JSON of a node, including **text the visitor types** | **Fixed.** Rebuilt from text nodes and `textContent` with no HTML string. Visible output is identical, and an `<img onerror>` or `<script>` payload now renders as text |
-| `site/deck/deck.js`, headline split and restore for print | The deck's own static headline markup | **Fixed.** It now keeps and restores cloned DOM nodes, so markup is never re-parsed |
-| `site/assets/site.js`, thread replay (`el`, `msg`, `stream`) | String constants in the script (`AGENT_REPLY`, `receiptHTML`, fixed chat lines) and `now()`, which returns only digits | False positive: no input from the visitor, the URL or the network reaches it |
-| `site/assets/site.js`, tool-card placeholder | One constant string | False positive |
-| `site/assets/site.js`, terminal replay | A constant `lines` array | False positive |
+| `site/assets/site.js`, signature playground `render()` | Wrote the canonical JSON of a node, including **text the visitor types**, as HTML | Built from text nodes and `textContent`. An `<img onerror>` payload creates no element |
+| `site/deck/deck.js`, headline split and restore for print | Re-parsed the deck's own headline markup | Keeps and restores cloned DOM nodes |
+| `site/assets/site.js`, thread replay (`el`, `msg`, `stream`), tool card, receipt | Built from constant strings | Built element by element with `createElement` and text; the agent reply streams as text nodes |
+| `site/assets/site.js`, terminal replay | Built from a constant `lines` array | Spans and text nodes |
 
-The same scan flagged two `generic-api-key` matches, `site/index.html:187` and `site/deck/index.html:210`. Both are false positives: each is a `did:key:z6Mk…` identifier, which is an Ed25519 *public* key and is shown on purpose as the identity on the demo card and in a screenshot's alt text. No credential exists in `site/`.
+The same scan flagged two `generic-api-key` matches, `site/index.html:187` and `site/deck/index.html:210`. Both were `did:key:z6Mk…` identifiers, which are Ed25519 *public* keys shown as the demo identity, so they were never secrets. The site and deck now show them shortened (`did:key:z6MkpMwQ…PavARoQ`), and the full public values a judge may want to check on Explorer are in the README.
 
 The scan's low-severity notes that Bond imports `@solana/web3.js` v1 (in maintenance) are accurate. The move to `@solana/kit` is planned after the hackathon. It touches every wallet, payment and RPC call, and v1 still receives security fixes.
 

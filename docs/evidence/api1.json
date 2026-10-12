@@ -1,0 +1,275 @@
+[
+ {
+  "id": "HDR/",
+  "what": "security headers on /",
+  "expected": "HSTS, nosniff, XFO DENY, referrer no-referrer",
+  "actual": "hsts|nosniff|DENY|no-referrer",
+  "r": "PASS"
+ },
+ {
+  "id": "HDR/v1/models",
+  "what": "security headers on /v1/models",
+  "expected": "HSTS, nosniff, XFO DENY, referrer no-referrer",
+  "actual": "|||",
+  "r": "FAIL"
+ },
+ {
+  "id": "HDR/health",
+  "what": "security headers on /health",
+  "expected": "HSTS, nosniff, XFO DENY, referrer no-referrer",
+  "actual": "|||",
+  "r": "FAIL"
+ },
+ {
+  "id": "CSP1",
+  "what": "web CSP default-src none + script hash",
+  "expected": "default-src 'none'; script-src 'self' 'sha256-\u2026'",
+  "actual": "default-src 'none'; script-src 'self' 'sha256-67fhrP0+BkBqmgGGXTtgiVO/9EQs3QruYNU/7fnRkI8='; style-src 'self' 'unsafe-in",
+  "r": "PASS"
+ },
+ {
+  "id": "HEALTH",
+  "what": "/health",
+  "expected": "200",
+  "actual": "200",
+  "r": "PASS"
+ },
+ {
+  "id": "AL1",
+  "what": "assetlinks.json shape + cert",
+  "expected": "com.zkasuran.bond, BB:4F:\u2026:22:C1, application/json",
+  "actual": "200 application/json com.zkasuran.bond BB:4F:34:37:FD:B2:FF:35:07:CB:84:3C:4C:45:B6:90:FE:EE:5B:18:0C:99:E5:B2:E0:9F:88:FA:14:55:22:C1",
+  "r": "PASS"
+ },
+ {
+  "id": "NF/v1/nope",
+  "what": "unknown path /v1/nope",
+  "expected": "no stack trace, no secret",
+  "actual": "404 {\"message\":\"Route GET:/v1/nope not found\",\"error\":\"Not Found\",\"statusCode\":404}",
+  "r": "PASS"
+ },
+ {
+  "id": "NF/nope.php",
+  "what": "unknown path /nope.php",
+  "expected": "no stack trace, no secret",
+  "actual": "404 {\"message\":\"Route GET:/nope.php not found\",\"error\":\"Not Found\",\"statusCode\":404}",
+  "r": "PASS"
+ },
+ {
+  "id": "NF/.env",
+  "what": "unknown path /.env",
+  "expected": "no stack trace, no secret",
+  "actual": "404 {\"message\":\"Route GET:/.env not found\",\"error\":\"Not Found\",\"statusCode\":404}",
+  "r": "PASS"
+ },
+ {
+  "id": "NF/../etc/passwd",
+  "what": "unknown path /../etc/passwd",
+  "expected": "no stack trace, no secret",
+  "actual": "404 {\"message\":\"Route GET:/etc/passwd not found\",\"error\":\"Not Found\",\"statusCode\":40",
+  "r": "PASS"
+ },
+ {
+  "id": "NF/v1/agent/turn/../../health",
+  "what": "unknown path /v1/agent/turn/../../health",
+  "expected": "no stack trace, no secret",
+  "actual": "404 {\"message\":\"Route GET:/v1/health not found\",\"error\":\"Not Found\",\"statusCode\":404",
+  "r": "PASS"
+ },
+ {
+  "id": "SES1",
+  "what": "session mint",
+  "expected": "200 bs1 token, ~60 min",
+  "actual": "bs1. ttl=60m",
+  "r": "PASS"
+ },
+ {
+  "id": "SES2",
+  "what": "bad signature",
+  "expected": "401",
+  "actual": "401",
+  "r": "PASS"
+ },
+ {
+  "id": "SES3",
+  "what": "signature by another key (did mismatch)",
+  "expected": "401",
+  "actual": "401",
+  "r": "PASS"
+ },
+ {
+  "id": "SES4",
+  "what": "did containing '.'",
+  "expected": "401",
+  "actual": "401",
+  "r": "PASS"
+ },
+ {
+  "id": "SES5",
+  "what": "forged challenge MAC",
+  "expected": "401",
+  "actual": "401",
+  "r": "PASS"
+ },
+ {
+  "id": "SES6",
+  "what": "expired challenge",
+  "expected": "401",
+  "actual": "401",
+  "r": "PASS"
+ },
+ {
+  "id": "SES7",
+  "what": "challenge reuse within TTL",
+  "expected": "documented: stateless, reuse allowed by the same key",
+  "actual": "200 then 200",
+  "r": "PASS"
+ },
+ {
+  "id": "SES8",
+  "what": "malformed JSON body",
+  "expected": "4xx, no stack",
+  "actual": "400 {\"statusCode\":400,\"code\":\"FST_ERR_CTP_INVALID_JSON_BODY\",\"er",
+  "r": "PASS"
+ },
+ {
+  "id": "SES9",
+  "what": "oversized fields",
+  "expected": "401",
+  "actual": "401",
+  "r": "PASS"
+ },
+ {
+  "id": "SES10",
+  "what": "empty object",
+  "expected": "401",
+  "actual": "401",
+  "r": "PASS"
+ },
+ {
+  "id": "SES11",
+  "what": "wrong types",
+  "expected": "401",
+  "actual": "401",
+  "r": "PASS"
+ },
+ {
+  "id": "AUTH1",
+  "what": "/v1/models with session",
+  "expected": "200",
+  "actual": "200",
+  "r": "PASS"
+ },
+ {
+  "id": "AUTH-tampered did",
+  "what": "tampered did",
+  "expected": "401",
+  "actual": "401",
+  "r": "PASS"
+ },
+ {
+  "id": "AUTH-tampered exp",
+  "what": "tampered exp",
+  "expected": "401",
+  "actual": "401",
+  "r": "PASS"
+ },
+ {
+  "id": "AUTH-tampered tag",
+  "what": "tampered tag",
+  "expected": "401",
+  "actual": "401",
+  "r": "PASS"
+ },
+ {
+  "id": "AUTH-wrong prefix",
+  "what": "wrong prefix",
+  "expected": "401",
+  "actual": "401",
+  "r": "PASS"
+ },
+ {
+  "id": "AUTH-far-future exp re-MAC impossible",
+  "what": "far-future exp re-MAC impossible",
+  "expected": "401",
+  "actual": "401",
+  "r": "PASS"
+ },
+ {
+  "id": "AUTH-none",
+  "what": "auth header none",
+  "expected": "401",
+  "actual": "401",
+  "r": "PASS"
+ },
+ {
+  "id": "AUTH-empty",
+  "what": "auth header empty",
+  "expected": "401",
+  "actual": "401",
+  "r": "PASS"
+ },
+ {
+  "id": "AUTH-Bearer only",
+  "what": "auth header Bearer only",
+  "expected": "401",
+  "actual": "401",
+  "r": "PASS"
+ },
+ {
+  "id": "AUTH-basic",
+  "what": "auth header basic",
+  "expected": "401",
+  "actual": "401",
+  "r": "PASS"
+ },
+ {
+  "id": "AUTH-garbage",
+  "what": "auth header garbage",
+  "expected": "401",
+  "actual": "401",
+  "r": "PASS"
+ },
+ {
+  "id": "AUTH-lowercase",
+  "what": "auth header lowercase",
+  "expected": "200 or 401 (documented)",
+  "actual": "200",
+  "r": "PASS"
+ },
+ {
+  "id": "GATE /v1/models",
+  "what": "GET /v1/models unauthenticated",
+  "expected": "401",
+  "actual": "401",
+  "r": "PASS"
+ },
+ {
+  "id": "GATE /v1/agent/skill-challenge",
+  "what": "GET /v1/agent/skill-challenge unauthenticated",
+  "expected": "401",
+  "actual": "401",
+  "r": "PASS"
+ },
+ {
+  "id": "GATE /v1/agent/turn",
+  "what": "POST /v1/agent/turn unauthenticated",
+  "expected": "401",
+  "actual": "401",
+  "r": "PASS"
+ },
+ {
+  "id": "GATE /v1/chat/completions",
+  "what": "POST /v1/chat/completions unauthenticated",
+  "expected": "401",
+  "actual": "401",
+  "r": "PASS"
+ },
+ {
+  "id": "SKC",
+  "what": "skill-challenge with session",
+  "expected": "200 challenge",
+  "actual": "200 challenge",
+  "r": "PASS"
+ }
+]

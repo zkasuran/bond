@@ -1,0 +1,100 @@
+[
+ {
+  "id": "YOU2",
+  "what": "You tab: wallet + protection entries",
+  "exp": "Wallet/Protection links",
+  "act": "Bond | Humans and agents, together | \uf103 | No rooms yet | Create a room and message Bond. Every message is signed by your device identity. | Create your first roo",
+  "r": "PASS"
+ },
+ {
+  "id": "PRO1",
+  "what": "Protection screen",
+  "exp": "per-action methods",
+  "act": "\uf229 | Protection | Choose how each action is protected. Bond gates at the app layer, so turning these on never risks your ",
+  "r": "PASS"
+ },
+ {
+  "id": "WAL1",
+  "what": "Wallet screen without wallet",
+  "exp": "connect prompt, no crash",
+  "act": "Wallet | Connect your Seeker wallet, send USDC and price a swap. | WALLET | Connect wallet | Wallet features run on an A",
+  "r": "PASS"
+ },
+ {
+  "id": "MKT1",
+  "what": "Skills market lists skills with USDC prices",
+  "exp": ">=4",
+  "act": "4",
+  "r": "PASS"
+ },
+ {
+  "id": "MKT2",
+  "what": "skill detail shows SKR equivalent",
+  "exp": "\u2248 x SKR",
+  "act": "price unavailable",
+  "r": "FAIL"
+ },
+ {
+  "id": "MKT3",
+  "what": "skill detail has a buy action",
+  "exp": "button",
+  "act": "1",
+  "r": "PASS"
+ },
+ {
+  "id": "PAY1",
+  "what": "PaySheet without wallet",
+  "exp": "Connect a wallet first",
+  "act": "Connect a wallet in the Wallet tab before sending. ",
+  "r": "PASS"
+ },
+ {
+  "id": "ERR1",
+  "what": "page errors in this session",
+  "exp": "0",
+  "act": "0 ",
+  "r": "PASS"
+ },
+ {
+  "id": "TH-dark-390",
+  "what": "onboarding dark 390px",
+  "exp": "no errors",
+  "act": "0",
+  "r": "PASS"
+ },
+ {
+  "id": "TH-dark-1360",
+  "what": "onboarding dark 1360px",
+  "exp": "no errors",
+  "act": "0",
+  "r": "PASS"
+ },
+ {
+  "id": "TH-light-1360",
+  "what": "onboarding light 1360px",
+  "exp": "no errors",
+  "act": "0",
+  "r": "PASS"
+ },
+ {
+  "id": "TH-light-390",
+  "what": "onboarding light 390px",
+  "exp": "no errors",
+  "act": "0",
+  "r": "PASS"
+ },
+ {
+  "id": "A11Y1",
+  "what": "keyboard reaches Get started",
+  "exp": "focus lands on it",
+  "act": "Get started",
+  "r": "PASS"
+ },
+ {
+  "id": "A11Y2",
+  "what": "Enter activates it",
+  "exp": "step 2",
+  "act": "true",
+  "r": "PASS"
+ }
+]

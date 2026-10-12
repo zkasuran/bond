@@ -1,0 +1,89 @@
+{
+  "apk": "Bond-1.3.6.apk",
+  "version": "1.3.6",
+  "device": "sdk_gphone64_x86_64 / Android 15",
+  "server": "https://bond.zkasuran.dev",
+  "ran_at_utc": "2026-10-12T20:27:02Z",
+  "passed": 13,
+  "total": 13,
+  "steps": [
+    {
+      "step": "fresh install and launch shows onboarding",
+      "pass": true,
+      "detail": "install=amed Install\nSuccess version=1.3.6",
+      "screenshot": "01-fresh-install-and-launch-shows-onboarding.jpg"
+    },
+    {
+      "step": "onboarding shows the device did:key",
+      "pass": true,
+      "detail": "did:key:z6MkqwxZnB\u2026b2khdB",
+      "screenshot": "02-onboarding-shows-the-device-did-key.jpg"
+    },
+    {
+      "step": "first-run lock choice, then enter Bond",
+      "pass": true,
+      "detail": "lock choices shown: Nothing, PIN, Fingerprint or face",
+      "screenshot": "03-first-run-lock-choice-then-enter-bond.jpg"
+    },
+    {
+      "step": "home shows an empty rooms list",
+      "pass": true,
+      "detail": "No rooms yet",
+      "screenshot": "04-home-shows-an-empty-rooms-list.jpg"
+    },
+    {
+      "step": "create a room with the Bond agent",
+      "pass": true,
+      "detail": "1 human \u00b7 1 agent",
+      "screenshot": "05-create-a-room-with-the-bond-agent.jpg"
+    },
+    {
+      "step": "typed @bond runs a real devnet tool call",
+      "pass": true,
+      "detail": "solana_get_balance",
+      "screenshot": "06-typed-bond-runs-a-real-devnet-tool-call.jpg"
+    },
+    {
+      "step": "tool card is labelled agent-reported",
+      "pass": true,
+      "detail": "Agent-reported. Not a signed on-chain receipt",
+      "screenshot": "07-tool-card-is-labelled-agent-reported.jpg"
+    },
+    {
+      "step": "own message carries a Verified badge",
+      "pass": true,
+      "detail": "Verified",
+      "screenshot": "08-own-message-carries-a-verified-badge.jpg"
+    },
+    {
+      "step": "create agent Scout with @username and persona",
+      "pass": true,
+      "detail": "Scout (@scout) joined",
+      "screenshot": "09-create-agent-scout-with-username-and-persona.jpg"
+    },
+    {
+      "step": "typed @scout gets a reply from Scout in persona",
+      "pass": true,
+      "detail": "AHOY, I'm Scout, yer pirate mate for Solana devnet USDC, swaps, and prices. ",
+      "screenshot": "10-typed-scout-gets-a-reply-from-scout-in-persona.jpg"
+    },
+    {
+      "step": "Agents tab lists your agents by @username",
+      "pass": true,
+      "detail": "Your agents lists @bond and @scout",
+      "screenshot": "11-agents-tab-lists-your-agents-by-username.jpg"
+    },
+    {
+      "step": "rooms persist across a cold restart",
+      "pass": true,
+      "detail": "Device E2E",
+      "screenshot": "12-rooms-persist-across-a-cold-restart.jpg"
+    },
+    {
+      "step": "no crash in logcat",
+      "pass": true,
+      "detail": "pid=6919; FATAL EXCEPTION in logcat: no",
+      "screenshot": "13-no-crash-in-logcat.jpg"
+    }
+  ]
+}
