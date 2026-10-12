@@ -39,6 +39,23 @@ Bond moves value (USDC on devnet) and shows signed identity, so it is built to b
 | XSS or clickjacking on the hosted web build | A strict Content-Security-Policy (`default-src 'none'`, scripts by hash), nosniff, `frame-ancestors 'none'`, no `dangerouslySetInnerHTML` | `server/src/index.ts`, `server/src/csp.ts` | yes, `server/src/csp.test.ts` |
 | A corrupted or hostile `localStorage` value crashes the web app or forges a node | The parse is guarded, returns empty on malformed data and caps the parsed length. An unsigned `did:key` node planted at rest is dropped on read | `app/src/store/web.ts`, `app/src/store/guard.ts` | yes, `app/src/store/__tests__/storage.test.ts` |
 
+## Agent wallet: funding, caps, revocation
+
+The agent pays from its own server-held keypair, because a Seed Vault wallet always prompts and cannot sign unattended. It is never a user's wallet, so the most a compromised or misled agent can move is what the operator put in it, further bounded by the caps below.
+
+| Concern | How it works today | Code | Tested |
+|---|---|---|---|
+| Funding | The operator sets `AGENT_SOLANA_SECRET` (base58 or JSON byte array) and sends devnet USDC and SOL for fees to its public key. With no secret, a fresh ephemeral keypair is generated per process, holds nothing and cannot pay. The secret is never logged or returned; only the public key leaves the server | `server/src/config.ts`, `loadWallet` in `server/src/agent/tools.ts` | yes, `server/src/agent/tools.test.ts` (`loadWallet …`) |
+| Per-transfer cap | `solana_transfer_usdc` refuses any amount over `MAX_AGENT_TRANSFER_USDC` (100 USDC), and any non-finite, zero or negative amount, before a transaction is built | `server/src/limits.ts`, `server/src/agent/tools.ts` | yes, `rejects an amount over the per-transfer cap`, `rejects a non-positive amount` |
+| Cumulative cap | Each transfer reserves its amount against `MAX_AGENT_TRANSFER_TOTAL_USDC` (500 USDC) synchronously before any `await`, so parallel turns cannot race past it. A failed send releases its reservation | `server/src/agent/tools.ts` | yes, `concurrent transfers cannot drain past the per-process ceiling` |
+| Runaway loops | A turn stops after `MAX_AGENT_STEPS` (8) tool steps. A larger client-requested `maxSteps` is clamped down to it | `server/src/limits.ts`, `server/src/agent/route.ts`, `server/src/agent/loop.ts` | partly, the clamp is in code, the loop tests cover message handling |
+| Prompt injection | The system prompt is fixed on the server, and a client-supplied `system` message is dropped. The caps are checks in code, so no message can raise or bypass them | `server/src/agent/loop.ts` | yes, `toModelMessages drops a client-supplied system message` |
+| Which tools it can call | Four built-in tools: `solana_get_balance`, `solana_transfer_usdc` (devnet), `solana_price`, and `solana_swap_quote`, which returns an unsigned transaction and never signs. Paid skill tools join a turn only after `verifyClaims` proves an on-chain purchase by the claimant. MCP tools come only from the operator-set `MCP_SKILL_URL`, never from a client, and are SSRF-filtered, size-bounded and time-limited | `server/src/agent/tools.ts`, `server/src/agent/skills.ts` | yes, `tools.test.ts`, `skills.test.ts` |
+| Visibility | Every `tool_call` and `tool_result`, including transfer signatures, streams into the thread as its own node, so the room sees exactly what the agent did | `server/src/agent/events.ts`, `server/src/agent/loop.ts` | yes, client side, `app/src/bridge/__tests__/generic.test.ts` |
+| Revocation | Operator-side. Sweep the wallet's remaining USDC to a safe address, then unset or rotate `AGENT_SOLANA_SECRET` and restart. With no secret the agent comes back on an empty ephemeral key, so its transfer tool can no longer move funds. Rotating the shared `BOND_BEARER` cuts off every client at once | `server/src/config.ts` | no, it's an operational procedure |
+
+Limits stated plainly: the cumulative cap is in memory, so it resets when the process restarts, and the real ceiling across restarts is the wallet balance. There is one agent wallet per deployment, not one per user, so a user cannot set their own budget or revoke the agent from the app. Per-user agent wallets with an on-chain allowance (for example an SPL token delegate the user can revoke from their own wallet) are planned, not built.
+
 ## Known limits
 
 Stated plainly, because an unlabelled gap is worse than a named one.

@@ -72,7 +72,7 @@ The agent runtime is live on MiniMax (OpenAI-compatible API), so a mention gets 
 
 **Materials.** [Demo video](https://youtu.be/ye3Se6gQOLQ) (2:42, captions in [`docs/submission/bond-demo.srt`](docs/submission/bond-demo.srt)) · [Pitch deck (PDF)](docs/submission/bond-deck.pdf) · [Motion deck (web)](https://getbond.zkasuran.dev/deck/) ([`site/deck/`](site/deck/), PDF rebuilt by [`export-deck.mjs`](docs/submission/export-deck.mjs)) · [Signed APK](https://github.com/zkasuran/bond/releases/latest) · [Live web app](https://bond.zkasuran.dev)
 
-**Who it is for.** Seeker owners who already hold USDC in a self-custody wallet and want to split costs, pay a collaborator, or hand a bounded task to an AI agent without leaving the conversation. The repeat-use loop is the thread itself: every payment, agent action and skill purchase lands as a signed node in the room. Bond has no users yet, and this README makes no adoption or retention claims. The build is verified by tests and by on-chain transactions, listed below.
+**Who it is for.** Seeker owners who already hold USDC in a self-custody wallet and want to split costs, pay a collaborator, or hand a bounded task to an AI agent without leaving the conversation. The repeat-use loop is the thread itself: every payment, agent action and skill purchase lands as a signed node in the room. Bond has no users yet, and this README makes no adoption or retention claims; the expected loop and how we'll measure it are under [Stickiness and product-market fit](#stickiness-and-product-market-fit). The build is verified by tests and by on-chain transactions, listed below.
 
 **Where each claim lives in the code**
 
@@ -83,7 +83,7 @@ The agent runtime is live on MiniMax (OpenAI-compatible API), so a mention gets 
 | Atomic 80/20 skill purchase | [`app/src/skills/purchase.ts`](app/src/skills/purchase.ts) |
 | Payment is the licence: the server re-reads the purchase transaction on chain (`isValidLicense`, `verifyClaims`) | [`server/src/agent/skills.ts`](server/src/agent/skills.ts) |
 | Agent tool-calling loop and tools | [`server/src/agent/loop.ts`](server/src/agent/loop.ts), [`server/src/agent/tools.ts`](server/src/agent/tools.ts) |
-| Spend caps enforced in code (100 USDC per transfer, 500 per process, 8 tool steps per turn) | [`server/src/limits.ts`](server/src/limits.ts) |
+| Spend caps enforced in code (100 USDC per transfer, 500 per process, 8 tool steps per turn) | [`server/src/limits.ts`](server/src/limits.ts), with funding, caps and revocation in [`SECURITY.md`](SECURITY.md#agent-wallet-funding-caps-revocation) |
 | PIN or biometric gate, fails closed | [`app/src/protection/gate.ts`](app/src/protection/gate.ts) |
 | SKR price and holder discount (mainnet, read only) | [`app/src/solana/skr.ts`](app/src/solana/skr.ts) |
 | Digital Asset Links for the verified-app badge | [`server/src/assetlinks.ts`](server/src/assetlinks.ts) |
@@ -135,6 +135,37 @@ sequenceDiagram
 | Buy a skill for your agent | One atomic USDC transfer splits the price to the creator and the platform, and the payment itself unlocks the skill's tools for the agent |
 | Sell a skill you built | Publish a signed skill manifest, get paid on-chain each time it sells |
 | Protect value | Set a PIN or biometric per trigger: open app, run a skill, spend over a threshold |
+
+## Stickiness and product-market fit
+
+Bond has no users yet. This section explains why we expect repeat use and how we'll test that. It does not claim any traction.
+
+**Who comes back, and why**
+
+| Who | What they keep doing | Why it brings them back to the thread |
+|---|---|---|
+| Small groups of Seeker owners: friends, DAOs, freelance crews | Splitting costs, paying each other, asking the agent about balances and prices | The thread doubles as a shared ledger. Every payment is a receipt node checked on chain, so the room is where you go to see who paid what |
+| Collaborators who pay each other | Paying for work in the conversation where it was agreed | The request, the agreement and the USDC receipt sit in one signed history, with no separate invoice tool |
+| Agent users | Handing the agent small, bounded jobs: check, quote, refund, pay | The agent works inside hard spend caps, and every tool call shows up in the room, so delegating stays visible and low-risk |
+| Skill creators | Building a skill once and earning on each sale | Each sale is one atomic USDC transfer that pays the creator 80% directly, with no invoicing and no payout delay ([`purchase.ts`](app/src/skills/purchase.ts)). The payment is also the licence, so there is no licence server to run |
+
+**How buyers find skills today.** The in-app Skills Market ([`app/src/app/market/`](app/src/app/market/)) lists skills by shelf, with prices in USDC and SKR and a live SKR holder discount. The most natural moment to discover one is in a thread: someone asks the agent for something it can't do yet, and a skill fills the gap. After purchase, that skill's tools join the agent's next turn.
+
+**The loop we're designing for.** A group uses the room, the agent helps, and someone buys a skill to extend it. The creator gets paid, which funds more skills, which gives the agent more to do in the room. Each step leaves a signed node in the thread, so the history itself keeps people coming back.
+
+**What's built and what isn't**
+
+- Built: in-thread payments and receipts, the capped agent wallet, the atomic 80/20 purchase, and on-chain licence checks.
+- Not built: the four catalog listings and their creators are samples seeded in [`registry.ts`](app/src/skills/registry.ts) and `PAID_SKILLS` in [`server/src/agent/skills.ts`](server/src/agent/skills.ts). Self-serve publishing, ranking and reviews are next.
+
+**How we'll test it after the dApp Store launch**
+
+- Weekly active rooms, and the share of rooms with at least two payments a week.
+- Agent turns per active room.
+- Repeat skill buyers.
+- Creator earnings per listing.
+
+All of these can be counted from signed nodes and on-chain transfers, without third-party analytics.
 
 ## Design
 
