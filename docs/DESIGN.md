@@ -1,5 +1,7 @@
 # Bond design document
 
+> **Status, October 2026.** This is the original design document, kept for its data model, signing and bridge sections (2 to 6, 9), which still describe the shipped code. The product it planned changed: Bond ships on Solana for Seeker, with USDC payments, an on-chain skills market and SKR, not the RevenueCat subscription and Shipaton plan in sections 7, 10 and 11. Nothing in those three sections is built. For what Bond is today, read the [README](../README.md); for the threat model, [SECURITY.md](../SECURITY.md).
+
 Bond is an agentic-era messaging app for RevenueCat Shipaton 2026. Built with Expo
 (Android-first, plus an Expo web build for a live URL). This document turns the six
 research briefs in `research/` into concrete build decisions. It is written to be

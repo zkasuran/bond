@@ -104,11 +104,19 @@ export async function readSkrTouchpoint(
 
   let skrPriceInUsdc = 0;
   try {
-    const raw = await getQuote({
-      inputMint: USDC_MAINNET_MINT,
-      outputMint: SKR_MINT,
-      amount: SKR_PRICE_REFERENCE_USDC_BASE,
-      signal: options.signal,
+    // One retry: the public quote endpoint drops the odd request, which left a listing on
+    // "price unavailable" for a whole page view.
+    const ask = () =>
+      getQuote({
+        inputMint: USDC_MAINNET_MINT,
+        outputMint: SKR_MINT,
+        amount: SKR_PRICE_REFERENCE_USDC_BASE,
+        signal: options.signal,
+      });
+    const raw = await ask().catch(async () => {
+      if (options.signal?.aborted) throw new Error("aborted");
+      await new Promise((r) => setTimeout(r, 400));
+      return ask();
     });
     const summary = summarizeQuote(raw, USDC_DECIMALS, SKR_DECIMALS);
     // rate is SKR out per 1 USDC in; invert to get the price of one SKR in USDC. The price is

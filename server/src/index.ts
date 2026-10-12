@@ -52,6 +52,14 @@ function bearerFrom(header?: string): string | null {
 // hashes are read from the build at startup so they cannot drift from it.
 let CSP = buildCsp([]);
 
+export const API_HEADERS: Record<string, string> = {
+  "X-Content-Type-Options": "nosniff",
+  "X-Frame-Options": "DENY",
+  "Referrer-Policy": "no-referrer",
+  "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
+  "Cache-Control": "no-store",
+};
+
 function setStaticHeaders(reply: FastifyReply): void {
   reply.header("Content-Security-Policy", CSP);
   reply.header("X-Content-Type-Options", "nosniff");
@@ -88,6 +96,16 @@ export async function buildApp(): Promise<FastifyInstance> {
     // on the caller rather than collapsing to the proxy's single IP. Off unless
     // TRUST_PROXY is set, because the forwarded header is otherwise spoofable.
     trustProxy: config.trustProxy,
+  });
+
+  // API and health responses are JSON, never a page, but they still carry the baseline headers
+  // so a sniffing or framing client cannot treat them as one. Web-build responses get the full
+  // set (CSP included) from setStaticHeaders, which runs after and overrides these.
+  app.addHook("onSend", async (_request, reply, payload) => {
+    for (const [k, v] of Object.entries(API_HEADERS)) {
+      if (!reply.hasHeader(k)) reply.header(k, v);
+    }
+    return payload;
   });
 
   // The paid surface carries its own rate limit and bearer auth, scoped to the

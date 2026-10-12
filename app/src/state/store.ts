@@ -807,20 +807,22 @@ export const useBond = create<BondState>((set, get) => ({
     try {
       const { readSkrTouchpoint } = await import("../solana/skr");
       const t = await readSkrTouchpoint(ownerAddress);
-      set({
+      // A read that could not get a price (0) keeps the last good one, so a listing does not
+      // flip to "price unavailable" on one dropped quote. The price is display-only.
+      set((s) => ({
         skr: {
           balanceUi: t.skrBalanceUi,
-          priceInUsdc: t.skrPriceInUsdc,
+          priceInUsdc: t.skrPriceInUsdc > 0 ? t.skrPriceInUsdc : (s.skr?.priceInUsdc ?? 0),
           isHolder: t.isHolder,
           loading: false,
           error: null,
         },
-      });
+      }));
     } catch (e) {
       set((s) => ({
         skr: {
           balanceUi: s.skr?.balanceUi ?? "0",
-          priceInUsdc: 0,
+          priceInUsdc: s.skr?.priceInUsdc ?? 0,
           isHolder: s.skr?.isHolder ?? false,
           loading: false,
           error: String((e as Error)?.message ?? e),

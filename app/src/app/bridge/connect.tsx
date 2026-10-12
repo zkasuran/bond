@@ -23,6 +23,7 @@ import { ADAPTER_LIST, type AdapterInfo } from "@/bridge/registry";
 import { useBond } from "@/state/store";
 import type { AdapterKind, GatewayConfig } from "@/bridge/adapter";
 import { useAndroidKeyboardInset } from "@/hooks/use-keyboard-inset";
+import { friendlyConnectError } from "@/bridge/errors";
 
 const ICON: Record<AdapterKind, keyof typeof Ionicons.glyphMap> = {
   bond: "sparkles",
@@ -156,12 +157,12 @@ export default function ConnectBridgeScreen() {
         .getState()
         .connectBridge(selected.kind, config, selected.displayName);
       if (bridge.status === "error") {
-        setError(bridge.error ?? "Could not reach this runtime. Check the base URL and key.");
+        setError(friendlyConnectError(bridge.error));
       } else {
         router.back();
       }
     } catch (e) {
-      setError(String((e as Error)?.message ?? e));
+      setError(friendlyConnectError(String((e as Error)?.message ?? e)));
     } finally {
       setConnecting(false);
     }

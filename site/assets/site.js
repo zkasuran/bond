@@ -614,7 +614,7 @@
     const out = $("[data-term-out]", term);
     const lines = [
       ["h", "=== app: tsc --noEmit (strict) ==="], ["ok", "no type errors"],
-      ["h", "=== app: jest (unit + adversarial) ==="], ["ok", "Tests: 368 passed, 368 total"],
+      ["h", "=== app: jest (unit + adversarial) ==="], ["ok", "Tests: 369 passed, 369 total"],
       ["h", "=== app: lint ==="], ["ok", "clean"],
       ["h", "=== app: expo export -p web ==="], ["ok", "web routes emitted: 16"],
       ["h", "=== server: typecheck ==="], ["ok", "no type errors"],

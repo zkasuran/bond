@@ -48,8 +48,8 @@
   <p class="cv-h split" style="--d:.7">Humans and AI agents, <span class="br"></span>as <em class="shine">paid peers.</em></p>
   <p class="cv-lead rv" style="--d:1.15">A Seeker group chat where every member, human or agent, holds a key that is also a Solana wallet. Talk, delegate and pay in USDC, right in the thread.</p>
   <ul class="cv-proof" aria-label="Proof points">
-    <li class="rv" style="--d:1.35"><i class="dot m"></i>Live on devnet · signed APK 1.3.5</li>
-    <li class="rv" style="--d:1.45"><i class="dot m"></i><span><b>368 + 95</b> tests · ALL GREEN</span></li>
+    <li class="rv" style="--d:1.35"><i class="dot m"></i>Live on devnet · signed APK 1.3.6</li>
+    <li class="rv" style="--d:1.45"><i class="dot m"></i><span><b>369 + 95</b> tests · ALL GREEN</span></li>
     <li class="rv" style="--d:1.55"><i class="dot v"></i>MWA · Seed Vault · SKR</li>
   </ul>
 
@@ -341,7 +341,7 @@
     <img src="img/agent-create.jpg" width="864" height="1920" alt="Creating an agent in room settings: name Ledger, username @ledger, persona A strict accountant who answers in three bullets.">
   </div>
   <div class="zlabel v rv f" style="--d:1.85;right:111px;top:598px"><svg class="ic" aria-hidden="true"><use href="#i-agent"/></svg>Name, @username, persona</div>
-  <p class="cap rv f" style="--d:1.9;left:1010px;top:990px;width:800px">Real device, Bond 1.3.5: three agents in one room, addressed by @username.</p>
+  <p class="cap rv f" style="--d:1.9;left:1010px;top:990px;width:800px">Real device: three agents in one room, addressed by @username.</p>
   <footer class="foot"><span class="fb"><svg class="mk" viewBox="0 0 664 424" aria-hidden="true"><use href="#mark"/></svg>Bond</span><span class="pg">07 / 18</span></footer>
   <aside class="sn" hidden>Agents are people in the chat. Each one has an @username and a persona it keeps everywhere. In a room with several agents you type the one you want and only it answers. The same agent can join any other room by its @username, with its own job there.</aside>
 </section>
@@ -479,18 +479,19 @@
     <li class="rv" style="--d:.9"><svg aria-hidden="true"><use href="#i-shield"/></svg><span>No factor available means <b>no spend.</b></span></li>
     <li class="rv" style="--d:1.0"><svg aria-hidden="true"><use href="#i-shield"/></svg><span>Five wrong PINs lock for 30 s, doubling to 15 min, on a monotonic clock a date change cannot rewind.</span></li>
     <li class="rv" style="--d:1.1"><svg aria-hidden="true"><use href="#i-shield"/></svg><span>Weakening a guard needs a factor that existed before the request.</span></li>
+    <li class="rv" style="--d:1.2"><svg aria-hidden="true"><use href="#i-shield"/></svg><span>Choose the app lock on first open. The PIN pad <b>shuffles every time</b>.</span></li>
   </ul>
 
   <div class="glow g-m" style="left:980px;top:140px;width:600px;height:820px" aria-hidden="true"></div>
   <figure class="phone rv u" style="--d:.35;--pw:352px;left:1010px;top:104px">
-    <img src="img/pin-gate.jpg" width="864" height="1920" alt="A real device: buying the Tx Explainer skill. A PIN pad reads Enter your PIN to buy Tx Explainer, over the price card, before any wallet prompt.">
-    <i class="rg rv f" style="--d:1.4;--x:40;--y:1180;--w:1000;--h:180" aria-hidden="true"></i>
+    <img src="img/pin-shuffle.jpg" width="864" height="1920" alt="A real device: Bond 1.3.6 locked, the PIN pad reads Enter your PIN to unlock Bond with its digits in a shuffled order: 8 0 5, 3 1 2, 6 4 7, 9.">
+    <i class="rg rv f" style="--d:1.4;--x:190;--y:1120;--w:700;--h:760" aria-hidden="true"></i>
   </figure>
   <div class="zoom rv s" style="--d:1.6;--k:.48;--x:20;--y:1290;--zw:509px;--zh:322px;left:1300px;top:610px">
     <img src="img/receipt.jpg" width="864" height="1920" alt="A confirmed payment receipt in a Bond room: 1.5 USDC on devnet, PIN-gated, with a View on Solana Explorer link.">
   </div>
   <div class="zlabel rv f" style="--d:1.85;right:111px;top:568px"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>Then a confirmed receipt</div>
-  <p class="cap rv f" style="--d:1.9;left:1010px;top:986px;width:800px">Real device: the PIN arrives before the wallet, then a confirmed 1.5 USDC receipt.</p>
+  <p class="cap rv f" style="--d:1.9;left:1010px;top:986px;width:800px">Real device: the PIN pad shuffles every time, then a confirmed receipt.</p>
   <footer class="foot"><span class="fb"><svg class="mk" viewBox="0 0 664 424" aria-hidden="true"><use href="#mark"/></svg>Bond</span><span class="pg">11 / 18</span></footer>
   <aside class="sn" hidden>Protection is per action: open the app, run a skill, spend, use the signing key. Spending and the key default to a factor. When there is no factor, nothing moves. Brute force meets a lockout on a clock the user cannot rewind.</aside>
 </section>
@@ -556,7 +557,7 @@
     <div class="term-body mono">
       <p class="tl" style="--i:0"><span class="pr">$</span> ./verify.sh</p>
       <p class="tl" style="--i:1"><i class="ok"></i><span class="k">app</span>tsc --noEmit, strict</p>
-      <p class="tl" style="--i:2"><i class="ok"></i><span class="k">app</span>jest: <b class="count" data-delay="1.35" data-to="368">368</b> tests, 31 suites</p>
+      <p class="tl" style="--i:2"><i class="ok"></i><span class="k">app</span>jest: <b class="count" data-delay="1.35" data-to="369">369</b> tests, 32 suites</p>
       <p class="tl" style="--i:3"><i class="ok"></i><span class="k">app</span>lint</p>
       <p class="tl" style="--i:4"><i class="ok"></i><span class="k">app</span>expo export -p web: 16 routes</p>
       <p class="tl" style="--i:5"><i class="ok"></i><span class="k">server</span>typecheck</p>
@@ -565,7 +566,7 @@
       <p class="tl all" style="--i:8">ALL GREEN</p>
     </div>
   </div>
-  <p class="rel mono rv f" style="--d:1.6">Bond 1.3.5 · versionCode 11 · signed v2 · SHA-256 4b6b6563…831bbbe1</p>
+  <p class="rel mono rv f" style="--d:1.6">Bond 1.3.6 · versionCode 12 · signed v2 · SHA-256 130bd954…cb2b8397</p>
 
   <ul class="links">
     <li class="rv" style="--d:1.2"><a href="https://github.com/zkasuran/bond/releases/latest"><span class="mono">APK</span>github.com/zkasuran/bond/releases</a></li>

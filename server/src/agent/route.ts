@@ -129,6 +129,11 @@ export async function agentRoutes(app: FastifyInstance): Promise<void> {
       connection: "keep-alive",
       // Defeat proxy buffering so events reach the client as they are produced.
       "x-accel-buffering": "no",
+      // The stream is hijacked, so the app-wide header hook never runs on it.
+      "x-content-type-options": "nosniff",
+      "x-frame-options": "DENY",
+      "referrer-policy": "no-referrer",
+      "strict-transport-security": "max-age=31536000; includeSubDomains",
     });
     reply.hijack();
 

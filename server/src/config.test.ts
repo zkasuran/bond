@@ -99,6 +99,11 @@ test("the protected scope requires a bearer while /health stays open", async () 
 
     const health = await app.inject({ method: "GET", url: "/health" });
     assert.equal(health.statusCode, 200, "health needs no bearer");
+    for (const r of [noAuth, authed, health]) {
+      assert.equal(r.headers["x-content-type-options"], "nosniff");
+      assert.equal(r.headers["x-frame-options"], "DENY");
+      assert.match(String(r.headers["strict-transport-security"]), /max-age=/);
+    }
 
     // The guard is tied to route registration, not a raw-URL prefix, so an encoded
     // separator cannot reach a protected handler without the auth hook running.
