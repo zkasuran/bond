@@ -614,11 +614,11 @@
     const out = $("[data-term-out]", term);
     const lines = [
       ["h", "=== app: tsc --noEmit (strict) ==="], ["ok", "no type errors"],
-      ["h", "=== app: jest (unit + adversarial) ==="], ["ok", "Tests: 343 passed, 343 total"],
+      ["h", "=== app: jest (unit + adversarial) ==="], ["ok", "Tests: 368 passed, 368 total"],
       ["h", "=== app: lint ==="], ["ok", "clean"],
       ["h", "=== app: expo export -p web ==="], ["ok", "web routes emitted: 16"],
       ["h", "=== server: typecheck ==="], ["ok", "no type errors"],
-      ["h", "=== server: tests (unit + adversarial) ==="], ["ok", "83 passed"],
+      ["h", "=== server: tests (unit + adversarial) ==="], ["ok", "95 passed"],
       ["h", "=== supply chain: audit (high and critical fail) ==="], ["ok", "app, server: none beyond the 2 build-time allowlisted in SECURITY.md"],
     ];
     const line = (c, t) => (c === "ok" ? `<span class="ok"><i class="ck"></i> ${t}</span>` : `<span class="${c}">${t}</span>`);

@@ -17,8 +17,8 @@
 </p>
 
 <p align="center">
-  <img alt="app tests" src="https://img.shields.io/badge/app%20tests-343%20passing-14F195?style=flat-square&labelColor=0B0E11">
-  <img alt="server tests" src="https://img.shields.io/badge/server%20tests-83%20passing-14F195?style=flat-square&labelColor=0B0E11">
+  <img alt="app tests" src="https://img.shields.io/badge/app%20tests-368%20passing-14F195?style=flat-square&labelColor=0B0E11">
+  <img alt="server tests" src="https://img.shields.io/badge/server%20tests-95%20passing-14F195?style=flat-square&labelColor=0B0E11">
   <img alt="release gate" src="https://img.shields.io/badge/verify.sh-ALL%20GREEN-14F195?style=flat-square&labelColor=0B0E11">
   <img alt="chain" src="https://img.shields.io/badge/Solana-devnet-9945FF?style=flat-square&labelColor=0B0E11">
   <img alt="stack" src="https://img.shields.io/badge/Expo-SDK%2057-F2F5F9?style=flat-square&labelColor=0B0E11">
@@ -47,7 +47,7 @@ Built for the CLOCK IN Solana Mobile hackathon.
 <p align="center">
   <img alt="Bond 1.2.0 on Android: the agent answering a Jupiter quote with collapsed tool cards, a skill listing priced in USDC and SKR with the 80/20 split, the agent using the bought skill to explain the very transaction that bought it, and a confirmed USDC payment receipt" src="docs/assets/screens.png" width="100%">
 </p>
-<p align="center"><sub>On a real device: the signed 1.2.0 release APK on Android 15 against the live server, with Solana Mobile's reference test wallet. Every transaction shown is real, on devnet.</sub></p>
+<p align="center"><sub>On a real device: an earlier signed release (1.2.0) on Android 15 against the live server, with Solana Mobile's reference test wallet. Every transaction shown is real, on devnet.</sub></p>
 
 ## Try it in 60 seconds
 
@@ -55,13 +55,14 @@ Open the live web build at **https://bond.zkasuran.dev** (no install), or sidelo
 
 | # | Do this | You see |
 |---|---|---|
-| 1 | Open the app | Your device `did:key` identity, which is also your Solana address |
+| 1 | Open the app | Your device `did:key` identity, which is also your Solana address, then a choice of app lock: nothing, a PIN on a shuffled keypad, or fingerprint or face |
 | 2 | Open a room and connect a Seeker wallet | Mobile Wallet Adapter binds the wallet to your `did:key` with one signed challenge |
 | 3 | Type a message | A signed node in the thread with a verified badge |
-| 4 | Mention the agent and ask for a balance | The agent streams a `tool_call`, runs it on devnet, streams the `tool_result`, then answers in the thread |
-| 5 | Tap pay, enter an amount | Biometric or PIN prompt (if you set one), then a USDC transfer that lands as a signed receipt card |
-| 6 | Open the marketplace and buy a skill | One atomic USDC transfer splits the price to the creator and the platform, with the signature kept as proof |
-| 7 | Ask the agent to use the skill you bought | The server checks your purchase transaction on chain, then the skill's tool joins the agent's turn |
+| 4 | Type `@bond` and ask for a balance | The agent streams a `tool_call`, runs it on devnet, streams the `tool_result`, then answers in the thread |
+| 5 | In room settings, add an agent with a name, an `@username` and a persona, then type its `@username` | Only that agent answers, in its persona. Bring the same agent into another room by its `@username` |
+| 6 | Tap pay, enter an amount | Biometric or PIN prompt (if you set one), then a USDC transfer that lands as a signed receipt card |
+| 7 | Open the marketplace and buy a skill | One atomic USDC transfer splits the price to the creator and the platform, with the signature kept as proof |
+| 8 | Ask the agent to use the skill you bought | The server checks your purchase transaction on chain, then the skill's tool joins the agent's turn |
 
 The agent runtime is live on MiniMax (OpenAI-compatible API), so a mention gets a real tool-calling turn, not a canned reply.
 
@@ -72,7 +73,7 @@ The agent runtime is live on MiniMax (OpenAI-compatible API), so a mention gets 
 
 **Materials.** [Demo video](https://youtu.be/ye3Se6gQOLQ) (2:42, captions in [`docs/submission/bond-demo.srt`](docs/submission/bond-demo.srt)) · [Pitch deck (PDF)](docs/submission/bond-deck.pdf) · [Motion deck (web)](https://getbond.zkasuran.dev/deck/) ([`site/deck/`](site/deck/), PDF rebuilt by [`export-deck.mjs`](docs/submission/export-deck.mjs)) · [Signed APK](https://github.com/zkasuran/bond/releases/latest) · [Live web app](https://bond.zkasuran.dev)
 
-**Who it is for.** Seeker owners who already hold USDC in a self-custody wallet and want to split costs, pay a collaborator, or hand a bounded task to an AI agent without leaving the conversation. The repeat-use loop is the thread itself: every payment, agent action and skill purchase lands as a signed node in the room. Bond has no users yet, and this README makes no adoption or retention claims; the expected loop and how we'll measure it are under [Stickiness and product-market fit](#stickiness-and-product-market-fit). The build is verified by tests and by on-chain transactions, listed below.
+**Who it is for.** Seeker owners who already hold USDC in a self-custody wallet and want to split costs, pay a collaborator, or hand a bounded task to an AI agent without leaving the conversation. The repeat-use loop is the thread itself: every payment and skill purchase lands in the room as a signed node, next to the agents' replies and tool calls. Bond has no users yet, and this README makes no adoption or retention claims; the expected loop and how we'll measure it are under [Stickiness and product-market fit](#stickiness-and-product-market-fit). The build is verified by tests and by on-chain transactions, listed below.
 
 **Where each claim lives in the code**
 
@@ -88,9 +89,9 @@ The agent runtime is live on MiniMax (OpenAI-compatible API), so a mention gets 
 | SKR price and holder discount (mainnet, read only) | [`app/src/solana/skr.ts`](app/src/solana/skr.ts) |
 | Digital Asset Links for the verified-app badge | [`server/src/assetlinks.ts`](server/src/assetlinks.ts) |
 
-Run `./verify.sh` for the release gate: 343 app tests, 83 server tests, lint, type-check and audit.
+Run `./verify.sh` for the release gate: 368 app tests, 95 server tests, lint, type-check and audit.
 
-**What is on chain.** Payments, purchases and agent transfers run on Solana **devnet** with no real funds. The only mainnet calls are reads (Jupiter quotes and SKR). The full table is under [What is real and what is simulated](#what-is-real-and-what-is-simulated). Real devnet transactions from the recorded run of 2026-10-06, viewable on Solana Explorer with `?cluster=devnet`:
+**What is on chain.** Payments, purchases and agent transfers run on Solana **devnet** with no real funds. The only mainnet calls are reads (Jupiter quotes and SKR). The full table is under [What is real and what is simulated](#what-is-real-and-what-is-simulated). Real devnet transactions from the recorded run of 2026-10-05 (UTC), viewable on Solana Explorer with `?cluster=devnet`:
 
 | What | Signature |
 |---|---|
@@ -130,11 +131,13 @@ sequenceDiagram
 | Use case | How it works |
 |---|---|
 | Pay a teammate in a thread | Tap pay, enter an amount, USDC moves through Mobile Wallet Adapter and lands as a receipt |
-| Ask an agent for on-chain facts | Mention it, it runs balance and swap-quote tools and answers in the room |
+| Ask an agent for on-chain facts | Type its `@username`, it runs balance and swap-quote tools and answers in the room |
+| Run several agents in one room | Each has an `@username` and a persona it keeps in every reply. Only the agents you name answer, and each one sees the others' replies as theirs |
+| Reuse your agents anywhere | Bring an agent into another room by its `@username`, with the same persona and a job of its own in that room |
 | Let an agent pay for you | The agent sends USDC on its own keypair under a hard, code-enforced spend cap |
 | Buy a skill for your agent | One atomic USDC transfer splits the price to the creator and the platform, and the payment itself unlocks the skill's tools for the agent |
-| Sell a skill you built | Publish a signed skill manifest, get paid on-chain each time it sells |
-| Protect value | Set a PIN or biometric per trigger: open app, run a skill, spend over a threshold |
+| Sell a skill you built | Each sale pays the creator 80% on chain in the same transaction. The four listings today are seeded samples; self-serve publishing is on the roadmap |
+| Protect value | Choose the app lock on first open, then a PIN or biometric per trigger: open app, run a skill, spend over a threshold. The PIN pad shuffles its digits every time |
 
 ## Stickiness and product-market fit
 
@@ -201,6 +204,7 @@ Everything runs on devnet with no real funds. Anything that touches mainnet is a
 | Skill purchase, atomic USDC split | 🟢 Real on devnet, the transaction signature is kept as proof of purchase |
 | Purchased skills running in the agent | 🟢 Real: three skills run on the Bond runtime (price watcher, wallet summarizer, tx explainer) and one is instructions only, each unlocked by an on-chain licence check. The four listings and their creators are samples seeded for the demo |
 | Agent runtime and tools | 🟢 Real tool-calling on MiniMax (OpenAI-compatible API), streamed into the thread |
+| Agents with `@username`, persona and a job per room | 🟢 Real. Profiles live on the device; several agents per room, addressed by `@username` |
 | Jupiter swap quote | 🔵 Real live mainnet quote, read only, no funds move |
 | SKR price and holder balance | 🔵 Real reads off Solana mainnet, nothing signed, no SKR moved |
 | Jupiter swap execution | 🟡 Next, with the mainnet launch. The quote is live today; the agent returns an unsigned swap and never signs it, so signing in your own wallet comes with mainnet |
@@ -265,7 +269,7 @@ curl -N https://your-host/v1/agent/turn \
   -d '{"messages":[{"role":"user","content":"What is my USDC balance?"}]}'
 ```
 
-It streams Server-Sent Events: `turn_start`, `text` deltas, `tool_call`, `tool_result`, `turn_end`, `done`. The system prompt is fixed on the server and the tool-calling step count is capped, so a caller cannot redefine the agent or loop it forever.
+The app authenticates with a device session (sign `GET /v1/session/challenge` with the device key, exchange it at `POST /v1/session`); `BOND_BEARER` is the operator token for your own server. It streams Server-Sent Events: `turn_start`, `text` deltas, `tool_call`, `tool_result`, `turn_end`, `done`. The system prompt is fixed on the server and the tool-calling step count is capped, so a caller cannot redefine the agent or loop it forever.
 
 ## Build the Android APK
 
@@ -282,7 +286,7 @@ Or on EAS with `eas build --platform android --profile production-apk`. Either w
 
 ## Built to be attacked
 
-One command is the release gate, and CI runs the same script, so a judge and a reviewer get the same verdict:
+One command is the release gate, so anyone who clones the repo gets the same verdict:
 
 ```bash
 ./verify.sh      # prints ALL GREEN only when every check passes
@@ -300,7 +304,7 @@ What the hardening covers, with the file that holds each defence listed in [`SEC
 
 ## Repository layout
 
-- `app/` the Expo app. `src/identity` (did:key, signing), `src/model` (the node DAG), `src/store` (append-only storage with the verification gate), `src/state` (the app engine), `src/solana` (wallet, USDC, swap, SKR), `src/protection` (the factor gate), `src/bridge` (the agent adapter), `src/theme` (design and motion tokens), `src/components` and `src/app` (the screens).
+- `app/` the Expo app. `src/identity` (did:key, signing), `src/model` (the node DAG), `src/store` (append-only storage with the verification gate), `src/state` (the app engine), `src/solana` (wallet, USDC, swap, SKR), `src/protection` (the factor gate and the shuffled PIN pad), `src/rooms` (roles, agent profiles, `@` mentions), `src/bridge` (the agent adapter), `src/theme` (design and motion tokens), `src/components` and `src/app` (the screens).
 - `server/` the Fastify service: `agent/` (the tool-calling loop and the Solana tools), `sync.ts` (the node WebSocket), `gateway.ts` (the OpenAI-compatible proxy), `limits.ts` (every ceiling in one place).
 - `site/` the website at [getbond.zkasuran.dev](https://getbond.zkasuran.dev): one HTML page, one stylesheet, one script, no dependencies.
 - `docs/` the design document, the brand mark and the README art.

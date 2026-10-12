@@ -103,8 +103,8 @@
         </a>
       </div>
       <ul class="hero-proof reveal" style="--d:.85s" aria-label="Release gate">
-        <li><b data-count="343">343</b><span>app tests</span></li>
-        <li><b data-count="83">83</b><span>server tests</span></li>
+        <li><b data-count="368">368</b><span>app tests</span></li>
+        <li><b data-count="95">95</b><span>server tests</span></li>
         <li><b class="green">ALL GREEN</b><span>one-command gate</span></li>
       </ul>
     </div>
@@ -196,7 +196,7 @@
         <div class="card-copy">
           <span class="tag v">Agents</span>
           <h3>Agents with wallets and a leash.</h3>
-          <p>A real tool-calling runtime that reads balances, sends USDC and quotes swaps, on its own keypair under a hard cap enforced in code.</p>
+          <p>Give each agent an <code>@username</code> and a persona, run several in one room and type the one you want. Each reads balances, sends USDC and quotes swaps under a hard cap enforced in code.</p>
         </div>
         <div class="viz cap-viz" aria-hidden="true">
           <div class="cap-bar"><i></i><b class="cap-wall"></b></div>
@@ -223,7 +223,7 @@
         <div class="card-copy">
           <span class="tag v">Marketplace</span>
           <h3>The payment <em>is</em> the licence.</h3>
-          <p>Builders publish signed skills and get paid on-chain. One atomic USDC transfer splits the price to the creator and the platform, and the server re-reads that transaction on chain before the skill's tools join a turn.</p>
+          <p>Install a skill and its creator is paid on-chain. One atomic USDC transfer splits the price to the creator and the platform, and the server re-reads that transaction on chain before the skill's tools join a turn.</p>
         </div>
         <div class="viz split-viz" aria-hidden="true">
           <svg viewBox="0 0 420 170">
@@ -247,7 +247,7 @@
         <div class="card-copy">
           <span class="tag">Protection</span>
           <h3>A gate on every trigger.</h3>
-          <p>Set a PIN or biometric per trigger: open the app, run a skill, spend over a threshold. The gate fails closed when no factor is available.</p>
+          <p>Pick the app lock on first open, then a PIN or biometric per trigger: open the app, run a skill, spend over a threshold. The PIN pad shuffles every time, and the gate fails closed when no factor is available.</p>
         </div>
         <div class="viz prot-viz" aria-hidden="true">
           <div class="fp-scan"><svg viewBox="0 0 48 48"><path d="M24 6a17 17 0 0117 17v4M7 27v-4A17 17 0 0115 8.6M24 12a11 11 0 0111 11v6a19 19 0 01-2 8M13 23a11 11 0 015.5-9.5M13 23v4a19 19 0 003 10.5M24 18a5 5 0 015 5v6a25 25 0 01-4 13M19 23v5a25 25 0 002 10"/></svg><i></i></div>
@@ -360,8 +360,8 @@
       <p class="lead">Everything runs on devnet with no real funds. Anything that touches mainnet is a read only.</p>
     </div>
     <div class="filters reveal" role="tablist" aria-label="Filter capabilities">
-      <button type="button" role="tab" aria-selected="true" data-filter="all">All <span>12</span></button>
-      <button type="button" role="tab" aria-selected="false" data-filter="real">Real on devnet <span>7</span></button>
+      <button type="button" role="tab" aria-selected="true" data-filter="all">All <span>13</span></button>
+      <button type="button" role="tab" aria-selected="false" data-filter="real">Real on devnet <span>8</span></button>
       <button type="button" role="tab" aria-selected="false" data-filter="read">Mainnet read only <span>2</span></button>
       <button type="button" role="tab" aria-selected="false" data-filter="gated">Next, with mainnet <span>3</span></button>
     </div>
@@ -373,6 +373,7 @@
       <li data-kind="real"><i></i><b>Skill purchase, atomic USDC split</b><span>Real on devnet, the transaction signature is kept as proof of purchase</span></li>
       <li data-kind="real"><i></i><b>Purchased skills in the agent</b><span>Real, unlocked per turn by an on-chain licence check. Listings and creators are seeded samples</span></li>
       <li data-kind="real"><i></i><b>Agent runtime and tools</b><span>Real tool-calling on MiniMax (OpenAI-compatible), streamed into the thread</span></li>
+      <li data-kind="real"><i></i><b>Agents with <code>@username</code> and persona</b><span>Real. Several agents per room, each addressed by its <code>@username</code>, reusable in any room</span></li>
       <li data-kind="read"><i></i><b>Jupiter swap quote</b><span>Real live mainnet quote, read only, no funds move</span></li>
       <li data-kind="read"><i></i><b>SKR price and holder balance</b><span>Real reads off Solana mainnet, nothing signed, no SKR moved</span></li>
       <li data-kind="gated"><i></i><b>Jupiter swap execution</b><span>Next, with mainnet. The quote is live today; the agent returns an unsigned swap and never signs it</span></li>
@@ -437,7 +438,7 @@
     <div class="sec-head reveal">
       <span class="eyebrow">Security</span>
       <h2>Built to be attacked.</h2>
-      <p class="lead">One command is the release gate. CI runs the same script, so a judge and a reviewer get the same verdict.</p>
+      <p class="lead">One command is the release gate, so anyone who clones the repo gets the same verdict.</p>
     </div>
     <div class="sec-grid">
       <div class="term reveal" data-term>
@@ -446,8 +447,8 @@
       </div>
       <div class="sec-side">
         <div class="stats reveal">
-          <div><b data-count="343">343</b><span>app tests</span></div>
-          <div><b data-count="83">83</b><span>server tests</span></div>
+          <div><b data-count="368">368</b><span>app tests</span></div>
+          <div><b data-count="95">95</b><span>server tests</span></div>
           <div><b data-count="16">16</b><span>web routes</span></div>
         </div>
         <ul class="hard">
@@ -481,7 +482,7 @@
         </div>
         <pre class="code" role="tabpanel" id="t-server" aria-labelledby="tb-server"><code><span class="k">cd</span> server
 <span class="k">npm</span> ci
-<span class="k">cp</span> .env.example .env   <span class="c"># set BOND_BEARER + an OpenAI-compatible key</span>
+<span class="k">cp</span> .env.example .env   <span class="c"># set your operator token + an OpenAI-compatible key</span>
 <span class="k">npm</span> run build &amp;&amp; <span class="k">npm</span> start</code></pre>
         <pre class="code" role="tabpanel" id="t-app" aria-labelledby="tb-app" hidden><code><span class="k">cd</span> app
 <span class="k">npm</span> ci
