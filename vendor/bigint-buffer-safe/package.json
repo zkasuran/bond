@@ -1,0 +1,9 @@
+{
+  "name": "bigint-buffer",
+  "version": "1.1.5-bond.1",
+  "description": "Pure-JS, input-validating drop-in for bigint-buffer@1.1.5 (GHSA-3gc7-fjrx-p6mg). Vendored by Bond.",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "license": "Apache-2.0",
+  "files": ["index.js", "index.d.ts"]
+}

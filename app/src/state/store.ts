@@ -23,6 +23,7 @@ import type { SyncClient } from "../sync/client";
 import { useSkills } from "../skills/registry";
 import { signBytes } from "../identity/keys";
 import { base64urlnopad } from "@scure/base";
+import { invalidateSession, sessionToken } from "../bridge/session";
 import { useWallet } from "../solana/store";
 import type { WalletBinding } from "../solana/binding";
 
@@ -36,12 +37,23 @@ const KEY_MEMBERS = "bond.members";
 const KEY_BRIDGES = "bond.bridges";
 const KEY_RUNS = "bond.monthlyRuns";
 
+// The gateway URL and model are public build-time values. No credential is inlined: the app
+// authenticates with a short-lived device session minted from its did:key (bridge/session.ts),
+// so the bundle carries no secret to extract.
 function defaultBondConfig(): GatewayConfig {
+  const baseUrl = process.env.EXPO_PUBLIC_BOND_GATEWAY ?? "http://localhost:8080/v1";
   return {
-    baseUrl: process.env.EXPO_PUBLIC_BOND_GATEWAY ?? "http://localhost:8080/v1",
-    apiKey: process.env.EXPO_PUBLIC_BOND_TOKEN,
+    baseUrl,
     model: process.env.EXPO_PUBLIC_BOND_MODEL,
+    getToken: (opts) => bondSessionToken(baseUrl, opts?.refresh),
   };
+}
+
+// The current device-session token for the Bond gateway, signed by this device's did:key.
+async function bondSessionToken(baseUrl: string, refresh = false): Promise<string | undefined> {
+  if (refresh) invalidateSession();
+  const { identity, secretKey } = useBond.getState();
+  return sessionToken(baseUrl, identity && secretKey ? { did: identity.did, secretKey } : null);
 }
 
 // A skill claim carries a wallet-ownership proof (F14 HIGH): the device did:key signs a fresh
@@ -76,8 +88,9 @@ async function fetchSkillChallenge(): Promise<string | null> {
   try {
     const cfg = defaultBondConfig();
     const base = cfg.baseUrl.replace(/\/+$/, "");
+    const token = await cfg.getToken?.();
     const res = await fetch(`${base}/agent/skill-challenge`, {
-      headers: cfg.apiKey ? { authorization: `Bearer ${cfg.apiKey}` } : {},
+      headers: token ? { authorization: `Bearer ${token}` } : {},
     });
     if (!res.ok) return null;
     const body = (await res.json()) as { challenge?: unknown };
@@ -671,7 +684,8 @@ export const useBond = create<BondState>((set, get) => ({
     const cfg = defaultBondConfig();
     const client = createSyncClient({
       gatewayBaseUrl: cfg.baseUrl,
-      token: cfg.apiKey,
+      token: undefined,
+      getToken: cfg.getToken,
       roomId,
       sinceLamport: async () => {
         const storage = get().storage;

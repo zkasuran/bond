@@ -102,8 +102,8 @@ export function syncUrlFromGateway(baseUrl: string): string {
 /** The full ws URL for a room: the derived /sync origin plus the room then the bearer token.
  *  The token rides as ?token= because neither the browser nor the React Native WebSocket can
  *  set an Authorization header. The server accepts the token from either (see
- *  server/src/sync.ts). This token is the EXPO_PUBLIC device token, already shipped inside the
- *  client bundle, not a server secret. */
+ *  server/src/sync.ts). It is a short-lived device session, so one that lands in an access log
+ *  expires within the hour. */
 export function syncUrl(baseUrl: string, roomId: string, token?: string): string {
   const base = syncUrlFromGateway(baseUrl);
   const sep = base.includes("?") ? "&" : "?";
@@ -127,8 +127,11 @@ export interface SocketLike {
 export interface SyncClientOptions {
   /** The gateway base, e.g. http://localhost:8080/v1. The ws URL is derived from it. */
   gatewayBaseUrl: string;
-  /** The shared device bearer token, presented as ?token=. May be undefined in dev. */
+  /** A static token presented as ?token=. Used only when getToken is not set (tests, dev). */
   token: string | undefined;
+  /** The device-session token source, called before every connect. `refresh` is set when the
+   *  previous socket closed before it opened, which is how a rejected (401) upgrade looks. */
+  getToken?: (opts?: { refresh?: boolean }) => Promise<string | undefined>;
   roomId: string;
   /** Hand one untrusted inbound node to the Storage port. The gate there decides its fate. A
    *  throw or rejection here is caught so one bad node never tears the socket down. */
@@ -195,6 +198,8 @@ export class SyncClient {
   private stableTimer: ReturnType<typeof setTimeout> | null = null;
   private windowStart = 0;
   private windowCount = 0;
+  private lastSocketFailedEarly = false;
+  private socketOpened = false;
 
   constructor(opts: SyncClientOptions) {
     this.opts = opts;
@@ -240,9 +245,22 @@ export class SyncClient {
   }
   private open(): void {
     if (!this.running) return;
+    if (!this.opts.getToken) {
+      this.openWith(this.opts.token);
+      return;
+    }
+    const refresh = this.lastSocketFailedEarly;
+    this.opts
+      .getToken({ refresh })
+      .catch(() => undefined)
+      .then((token) => this.openWith(token));
+  }
+
+  private openWith(token: string | undefined): void {
+    if (!this.running || this.socket) return;
     let sock: SocketLike;
     try {
-      sock = this.makeSocket(syncUrl(this.opts.gatewayBaseUrl, this.opts.roomId, this.opts.token));
+      sock = this.makeSocket(syncUrl(this.opts.gatewayBaseUrl, this.opts.roomId, token));
     } catch {
       // No socket could be built (no WebSocket in this runtime, a bad url). Back off then
       // retry rather than throw into the caller: sync is additive, the app runs without it.
@@ -250,6 +268,7 @@ export class SyncClient {
       return;
     }
     this.socket = sock;
+    this.socketOpened = false;
     this.armConnectTimeout();
     sock.onopen = () => this.handleOpen(sock);
     sock.onmessage = (ev) => this.handleMessage(sock, ev);
@@ -259,6 +278,8 @@ export class SyncClient {
 
   private handleOpen(sock: SocketLike): void {
     if (sock !== this.socket) return;
+    this.socketOpened = true;
+    this.lastSocketFailedEarly = false;
     this.clearTimer("connectTimer");
     this.armStable(sock); // reset the backoff only once this stays open, not on a bare accept
     this.armIdle();
@@ -344,6 +365,7 @@ export class SyncClient {
     // exactly one retry.
     if (sock !== this.socket) return;
     this.socket = null;
+    this.lastSocketFailedEarly = !this.socketOpened;
     this.clearTimer("connectTimer");
     this.clearTimer("idleTimer");
     this.clearTimer("stableTimer");

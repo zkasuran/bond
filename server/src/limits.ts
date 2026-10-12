@@ -75,6 +75,12 @@ export const MAX_CONCURRENT_UPSTREAM = 24;
 export const HTTP_RATE_BURST = 120;
 export const HTTP_RATE_PER_SEC = 10;
 
+// Per-device-session bucket on the authenticated /v1 surface, keyed on the did:key
+// the session was issued to. Tighter than the per-IP bucket, which a shared network
+// splits across many devices.
+export const DEVICE_RATE_BURST = 60;
+export const DEVICE_RATE_PER_SEC = 2;
+
 // Upper bound on tracked rate-limit keys so the limiter map cannot grow without
 // end under a spoofed-IP flood.
 export const MAX_RATE_LIMIT_KEYS = 10_000;

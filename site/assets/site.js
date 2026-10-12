@@ -504,16 +504,26 @@
     let received = null; // canonical string as it arrived
     let tamperAt = -1;
 
+    // Built from text nodes and textContent, never an HTML string, because the canonical JSON
+    // carries whatever the visitor typed. Keys and simple string values get a highlight span.
     const render = () => {
       const s = received ?? "";
-      let html = esc(s)
-        .replace(/&quot;([a-zA-Z]+)&quot;:/g, '<span class="k">&quot;$1&quot;</span>:')
-        .replace(/:&quot;([^&]*?)&quot;/g, ':<span class="s">&quot;$1&quot;</span>');
+      const span = (cls, text) => { const e = d.createElement("span"); e.className = cls; e.textContent = text; return e; };
+      const out = [];
       if (tamperAt >= 0) {
-        const before = esc(s.slice(0, tamperAt)), ch = esc(s[tamperAt]), after = esc(s.slice(tamperAt + 1));
-        html = before + '<span class="x">' + ch + "</span>" + after;
+        out.push(s.slice(0, tamperAt), span("x", s[tamperAt]), s.slice(tamperAt + 1));
+      } else {
+        const re = /"([a-zA-Z]+)"(?=:)|:"([^"&<>]*?)"/g;
+        let last = 0, m;
+        while ((m = re.exec(s))) {
+          out.push(s.slice(last, m.index));
+          if (m[1] !== undefined) out.push(span("k", `"${m[1]}"`));
+          else out.push(":", span("s", `"${m[2]}"`));
+          last = re.lastIndex;
+        }
+        out.push(s.slice(last));
       }
-      ui.canon.innerHTML = html;
+      ui.canon.replaceChildren(...out);
     };
 
     const verify = async () => {
@@ -604,12 +614,12 @@
     const out = $("[data-term-out]", term);
     const lines = [
       ["h", "=== app: tsc --noEmit (strict) ==="], ["ok", "no type errors"],
-      ["h", "=== app: jest (unit + adversarial) ==="], ["ok", "Tests: 336 passed, 336 total"],
+      ["h", "=== app: jest (unit + adversarial) ==="], ["ok", "Tests: 343 passed, 343 total"],
       ["h", "=== app: lint ==="], ["ok", "clean"],
       ["h", "=== app: expo export -p web ==="], ["ok", "web routes emitted: 16"],
       ["h", "=== server: typecheck ==="], ["ok", "no type errors"],
-      ["h", "=== server: tests (unit + adversarial) ==="], ["ok", "74 passed"],
-      ["h", "=== supply chain: audit (high and critical fail) ==="], ["ok", "app, server: none beyond the 3 allowlisted in SECURITY.md"],
+      ["h", "=== server: tests (unit + adversarial) ==="], ["ok", "83 passed"],
+      ["h", "=== supply chain: audit (high and critical fail) ==="], ["ok", "app, server: none beyond the 2 build-time allowlisted in SECURITY.md"],
     ];
     const line = (c, t) => (c === "ok" ? `<span class="ok"><i class="ck"></i> ${t}</span>` : `<span class="${c}">${t}</span>`);
     const finalHTML = '<span class="p">~/bond $</span> ./verify.sh\n\n' + lines.map(([c, t]) => line(c, t)).join("\n") + '\n\n<span class="green">ALL GREEN</span>';

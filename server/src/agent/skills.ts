@@ -19,6 +19,7 @@ import { Connection, PublicKey, type ParsedTransactionWithMeta, type TokenBalanc
 import { createHmac, createPublicKey, timingSafeEqual, verify as nodeCryptoVerify } from "node:crypto";
 import { config } from "../config.js";
 import { errText } from "./events.js";
+import { serverSecret } from "../secret.js";
 
 const JUPITER = "https://lite-api.jup.ag";
 const USDC_DECIMALS = 6;
@@ -236,7 +237,7 @@ export function didKeyToPublicKey(did: string): Uint8Array {
 
 /** Verify a 64-byte Ed25519 signature against a 32-byte raw public key, using Node's native
  *  crypto. Returns false rather than throwing on any malformed input. */
-function verifyEd25519(message: Uint8Array, signature: Uint8Array, publicKey: Uint8Array): boolean {
+export function verifyEd25519(message: Uint8Array, signature: Uint8Array, publicKey: Uint8Array): boolean {
   if (publicKey.length !== 32 || signature.length !== 64) return false;
   try {
     const der = Buffer.concat([ED25519_SPKI_PREFIX, Buffer.from(publicKey)]);
@@ -252,7 +253,9 @@ function fromB64Url(s: string): Uint8Array {
 }
 
 function challengeMac(expiresAt: number): string {
-  return createHmac("sha256", `${CHALLENGE_DOMAIN}:${config.bondBearer}`)
+  // Keyed by the server-only secret, not the operator bearer, so the MAC key never depends on
+  // a value an operator might share and an empty bearer never means an empty MAC key.
+  return createHmac("sha256", `${CHALLENGE_DOMAIN}:${serverSecret()}`)
     .update(`${CHALLENGE_DOMAIN}.${expiresAt}`)
     .digest("hex");
 }

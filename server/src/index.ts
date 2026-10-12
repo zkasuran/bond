@@ -4,7 +4,8 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import Fastify from "fastify";
 import type { FastifyInstance, FastifyReply } from "fastify";
 import fastifyStatic from "@fastify/static";
-import { config, bearerMatches, assertStartupConfig } from "./config.js";
+import { config, assertStartupConfig } from "./config.js";
+import { authenticate, issueSession, issueSessionChallenge } from "./session.js";
 import { gatewayRoutes } from "./gateway.js";
 import { agentRoutes } from "./agent/route.js";
 import { mountSync } from "./sync.js";
@@ -13,6 +14,8 @@ import { androidAssetLinks } from "./assetlinks.js";
 import {
   HTTP_RATE_BURST,
   HTTP_RATE_PER_SEC,
+  DEVICE_RATE_BURST,
+  DEVICE_RATE_PER_SEC,
   MAX_RATE_LIMIT_KEYS,
   KeyedRateLimiter,
 } from "./limits.js";
@@ -68,6 +71,9 @@ const webDist = path.resolve(here, "../../app/dist");
 // Per-IP request limiter for the /v1 surface.
 const httpLimiter = new KeyedRateLimiter(HTTP_RATE_BURST, HTTP_RATE_PER_SEC, MAX_RATE_LIMIT_KEYS);
 
+// Per-device-session limiter for the authenticated /v1 surface, keyed on the did.
+const deviceLimiter = new KeyedRateLimiter(DEVICE_RATE_BURST, DEVICE_RATE_PER_SEC, MAX_RATE_LIMIT_KEYS);
+
 // Build the configured Fastify app without listening, so a test can drive it with
 // inject and the process entry can listen on it.
 export async function buildApp(): Promise<FastifyInstance> {
@@ -88,6 +94,23 @@ export async function buildApp(): Promise<FastifyInstance> {
   // registration, not a raw-URL string prefix, so a route added here later cannot
   // be left silently unauthenticated and a request only reaches these handlers
   // after both hooks have run. The compare is constant time.
+  // Device sessions: the only unauthenticated /v1 surface. The app signs a fresh challenge
+  // with its did:key and gets a short-lived token, so no static secret ships in the client.
+  // Rate limited per IP like the rest of /v1; neither route touches a paid upstream.
+  await app.register(async (pub) => {
+    pub.addHook("onRequest", async (request, reply) => {
+      if (!httpLimiter.allow(request.ip)) {
+        return reply.code(429).send({ error: "rate limit exceeded" });
+      }
+    });
+    pub.get("/v1/session/challenge", async () => ({ challenge: issueSessionChallenge() }));
+    pub.post("/v1/session", async (request, reply) => {
+      const session = issueSession(request.body);
+      if (!session) return reply.code(401).send({ error: "invalid session proof" });
+      return session;
+    });
+  });
+
   await app.register(async (secured) => {
     secured.addHook("onRequest", async (request, reply) => {
       if (!httpLimiter.allow(request.ip)) {
@@ -95,9 +118,14 @@ export async function buildApp(): Promise<FastifyInstance> {
       }
     });
     secured.addHook("onRequest", async (request, reply) => {
-      const token = bearerFrom(request.headers.authorization);
-      if (!bearerMatches(token, config.bondBearer)) {
+      const principal = authenticate(bearerFrom(request.headers.authorization));
+      if (!principal) {
         return reply.code(401).send({ error: "unauthorized" });
+      }
+      // A second budget per device identity, so one did cannot spend the whole per-IP
+      // allowance of a shared network, and abuse is attributable to a key.
+      if (principal.kind === "device" && !deviceLimiter.allow(principal.did)) {
+        return reply.code(429).send({ error: "rate limit exceeded" });
       }
     });
     await secured.register(gatewayRoutes);

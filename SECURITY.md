@@ -8,7 +8,7 @@ Bond moves value (USDC on devnet) and shows signed identity, so it is built to b
 
 - The device holds an Ed25519 `did:key` that signs chat nodes. It never leaves the device.
 - The Seeker wallet, custodied by Seed Vault, signs on-chain actions through Mobile Wallet Adapter. Bond only ever receives signed bytes, never the key.
-- The server holds its own agent keypair and the upstream LLM key. Clients never see either.
+- The server holds its own agent keypair, the upstream LLM key, `SESSION_SECRET` and the operator `BOND_BEARER`. Clients never see any of them: the app bundle inlines only the public gateway URL and model name, and it authenticates with a short-lived device session signed by its `did:key`.
 - The sync server is a relay. It is not trusted to vouch for a node's authorship, so clients re-verify every node.
 - Device-local stores (the protection policy, the PIN record, the attempt counter, the wallet binding) are trusted only as far as the device is. On a non-rooted Android or Seeker the OS keystore holds them. On web or a rooted device they are editable, so the integrity checks below raise the bar but the hardware wallet stays the real factor.
 
@@ -35,6 +35,7 @@ Bond moves value (USDC on devnet) and shows signed identity, so it is built to b
 | An MCP skill import is aimed at an internal address (SSRF) | `isSafeMcpUrl` requires https and rejects `localhost`, `0.0.0.0`, every IPv6 literal and the loopback, private and link-local IPv4 ranges, including the cloud metadata address | `server/src/agent/tools.ts` | yes, `server/src/agent/tools.test.ts` |
 | A client floods the sync socket or sends a giant frame to exhaust memory | A per-message size cap, a per-socket rate limit, room and node ceilings, a global store byte budget, socket-backpressure termination, room eviction on empty and a top-level crash guard | `server/src/sync.ts`, `server/src/index.ts`, `server/src/limits.ts` | yes, `server/src/sync.test.ts` |
 | A page opens a cross-site WebSocket to the sync server | An origin allowlist is checked at the upgrade, a missing origin is rejected by default and a mismatch is rejected | `server/src/sync.ts` | yes, `server/src/sync.test.ts` |
+| A secret is extracted from the APK or web bundle | No credential is inlined. The app signs a 2-minute server challenge with its `did:key` and gets a one-hour, did-bound, HMAC-tagged session. The per-did limiter applies on top of the per-IP one | `server/src/session.ts`, `server/src/index.ts`, `app/src/bridge/session.ts`, `app/src/state/store.ts` | yes, `server/src/session.test.ts`, `app/src/bridge/__tests__/session.test.ts` |
 | A timing attack on the bearer token | Both sides are hashed and compared in constant time, an empty configured token denies all and the server refuses to start on the placeholder | `server/src/config.ts` | yes, `server/src/config.test.ts` |
 | XSS or clickjacking on the hosted web build | A strict Content-Security-Policy (`default-src 'none'`, scripts by hash), nosniff, `frame-ancestors 'none'`, no `dangerouslySetInnerHTML` | `server/src/index.ts`, `server/src/csp.ts` | yes, `server/src/csp.test.ts` |
 | A corrupted or hostile `localStorage` value crashes the web app or forges a node | The parse is guarded, returns empty on malformed data and caps the parsed length. An unsigned `did:key` node planted at rest is dropped on read | `app/src/store/web.ts`, `app/src/store/guard.ts` | yes, `app/src/store/__tests__/storage.test.ts` |
@@ -56,26 +57,78 @@ The agent pays from its own server-held keypair, because a Seed Vault wallet alw
 
 Limits stated plainly: the cumulative cap is in memory, so it resets when the process restarts, and the real ceiling across restarts is the wallet balance. There is one agent wallet per deployment, not one per user, so a user cannot set their own budget or revoke the agent from the app. Per-user agent wallets with an on-chain allowance (for example an SPL token delegate the user can revoke from their own wallet) are planned, not built.
 
+## Production trust model
+
+Who enforces each rule. A judge can check the on-chain rows on Solana Explorer without trusting Bond at all.
+
+| Layer | What it enforces | What it cannot enforce |
+|---|---|---|
+| **Solana (on chain)** | A human payment moves only when the Seed Vault wallet signs it (`transferChecked`, exact mint and decimals). A skill purchase is one atomic transaction, so creator and platform are either both paid or neither is. Balances and token-account ownership | Who may chat or call the agent. How much the agent may spend: the agent's keypair can sign anything its balance allows |
+| **Bond server** | Device-session auth on `/v1` and `/sync` ([`session.ts`](server/src/session.ts)). Per-IP and per-did rate limits. The agent's spend caps and step cap ([`limits.ts`](server/src/limits.ts)). A fixed system prompt. Skill unlock only after it re-reads the purchase on chain *and* checks a wallet-ownership proof ([`skills.ts`](server/src/agent/skills.ts)). Message, room and socket ceilings on sync | Message authenticity, which the device checks itself. Anything after the agent's keypair or `SESSION_SECRET` leaks (see below) |
+| **Device** | Signs every node with its `did:key` and re-verifies every node on read. Shows a receipt as settled only after its own on-chain re-check ([`confirm.ts`](app/src/solana/confirm.ts)). The PIN or biometric gate before a spend reaches the wallet ([`gate.ts`](app/src/protection/gate.ts)) | Anything on a rooted device or in web `localStorage`, which the user fully controls |
+
+### Failure modes
+
+| Failure | What happens | Code | Tested |
+|---|---|---|---|
+| Solana RPC down or erroring during a skill unlock | The skill stays locked for that turn, never unlocked by default. A license already verified stays cached for that buyer only | `verifyClaims` in `server/src/agent/skills.ts` | yes, `skills.test.ts` |
+| RPC error during an agent transfer | The tool returns `ok: false` with the error, and the amount reserved against the cap is released. A transaction that was sent but never confirmed still counts against the cap, which errs on the safe side | `solana_transfer_usdc` in `server/src/agent/tools.ts` | yes, `tools.test.ts` |
+| RPC down while a receipt is shown | The receipt reads as an unverified claim, not as settled. A transaction it cannot fetch fails closed | `app/src/solana/confirm.ts` | yes, `usdc.test.ts` |
+| Replay of a session challenge or token | A challenge is HMAC-tagged and lasts 2 minutes. A token is bound to one did, lasts 1 hour, and any edit to it breaks the MAC | `server/src/session.ts` | yes, `session.test.ts` |
+| Replay of a skill purchase by someone else | Rejected: the claim must be signed by the `did:key` that a wallet-signed binding ties to the on-chain payer | `server/src/agent/skills.ts` | yes, `skills.test.ts` |
+| Replay of a relayed chat node | Deduplicated by signed content. A changed copy fails verification and is dropped | `app/src/store/guard.ts` | yes, `storage.test.ts` |
+| **Agent keypair leaks** | The attacker can spend whatever the agent wallet holds, because caps live in Bond's code and not on chain. User wallets are untouched, since Bond never holds their keys. Response: drain the wallet to a safe address, then rotate `AGENT_SOLANA_SECRET`. Keep the wallet funded only with what a demo needs | `server/src/agent/tools.ts` | operational |
+| **`SESSION_SECRET` leaks** | The attacker can mint sessions for any did. That gives the same access as any visitor, under the same rate limits and spend caps. Response: rotate it, which revokes every session and skill challenge at once | `server/src/secret.ts` | yes, `rotating the server secret revokes every outstanding session` |
+| **`BOND_BEARER` leaks** | Operator access to `/v1` and `/sync`, still under the IP rate limit and the agent caps. Response: rotate it. It is never in a client bundle | `server/src/config.ts` | yes, `session.test.ts` |
+| Upstream LLM key leaks | Cost exposure on the provider. It never leaves the server, and the gateway never forwards client credentials | `server/src/gateway.ts` | yes, `gateway.test.ts` |
+| Sync relay compromised | It can withhold or reorder nodes. It cannot forge or alter them, because clients re-verify every signature | `app/src/store/guard.ts` | yes |
+
+## HTML sinks in the website and deck
+
+An automated scan flagged places in `site/` where values are written as HTML. Each one was reviewed:
+
+| Location | Source of the HTML | Verdict |
+|---|---|---|
+| `site/assets/site.js`, signature playground `render()` | The canonical JSON of a node, including **text the visitor types** | **Fixed.** Rebuilt from text nodes and `textContent` with no HTML string. Visible output is identical, and an `<img onerror>` or `<script>` payload now renders as text |
+| `site/deck/deck.js`, headline split and restore for print | The deck's own static headline markup | **Fixed.** It now keeps and restores cloned DOM nodes, so markup is never re-parsed |
+| `site/assets/site.js`, thread replay (`el`, `msg`, `stream`) | String constants in the script (`AGENT_REPLY`, `receiptHTML`, fixed chat lines) and `now()`, which returns only digits | False positive: no input from the visitor, the URL or the network reaches it |
+| `site/assets/site.js`, tool-card placeholder | One constant string | False positive |
+| `site/assets/site.js`, terminal replay | A constant `lines` array | False positive |
+
+The same scan flagged two `generic-api-key` matches, `site/index.html:187` and `site/deck/index.html:210`. Both are false positives: each is a `did:key:z6Mk…` identifier, which is an Ed25519 *public* key and is shown on purpose as the identity on the demo card and in a screenshot's alt text. No credential exists in `site/`.
+
+The scan's low-severity notes that Bond imports `@solana/web3.js` v1 (in maintenance) are accurate. The move to `@solana/kit` is planned after the hackathon. It touches every wallet, payment and RPC call, and v1 still receives security fixes.
+
+Defence in depth: neither page reads URL parameters, `postMessage` or the network into the DOM. The deck reads `location.hash` only through `/^#\/(\d+)$/` and `/^#(s\d\d)$/` to pick a slide number. Both pages ship a CSP meta tag with `default-src 'none'`, `connect-src 'none'` and `script-src 'self'` (the site adds one sha256 hash), so injected markup could not run inline script or send data out.
+
 ## Known limits
 
 Stated plainly, because an unlabelled gap is worse than a named one.
 
 - Device-local storage (the protection policy, the PIN record, the attempt counter, the wallet binding) is only as strong as the device. On a non-rooted Android or Seeker the OS keystore protects it. On web or a rooted device it is editable, so the integrity tag on the policy and the version floor on the binding stop naive or accidental writes, not a determined attacker on a store they fully control. The real factor is the hardware wallet in Seed Vault, which Bond never holds. On web the device signing key itself sits in `localStorage` in plaintext, readable by any script on the origin.
 - A single very large WebSocket frame from a hostile relay can still exhaust memory on a mobile client before the JavaScript size cap runs, because the platform WebSocket buffers the whole frame first. A native max-payload bound is the complete fix.
-- The skills entitlement proof is replayable only inside its short challenge window (about five minutes). A per-connection nonce is the complete fix and needs the per-user session the shared-bearer deployment does not have.
+- The skills entitlement proof is replayable only inside its short challenge window (about five minutes), and only by the device that holds the bound `did:key`, since the claim is signed by it. A one-time server nonce is the complete fix.
 - A 4-digit PIN is a convenience factor and is offline-crackable if the stored record leaks. The hardware wallet is the real security.
 - The SKR holder discount is derived from a client read, not a server attestation. A server-side re-derivation at settlement is future work.
 - The MCP import check validates literal hosts. A hostname that resolves to an internal address (DNS rebinding) is not caught. The MCP URL is operator-set and is never taken from a client request.
 - Everything settles on devnet. The only mainnet calls are reads: the Jupiter swap quote and the SKR price and balance. No mainnet funds move.
-- The device bearer ships inside the public APK as `EXPO_PUBLIC_BOND_TOKEN`, so it authenticates the deployment, not an individual user. It is paired with a rate limiter and the agent spend cap, so a token holder cannot drain funds or exhaust the service. A per-user auth model is future work.
+- A device session proves control of a `did:key`, and a `did:key` is free to mint, so sessions do not decide *who* may use the public app. Nothing shipped in a public client can. What they buy is no extractable secret in the bundle, one-hour tokens, revocation by rotating `SESSION_SECRET`, and a per-did rate limit on top of the per-IP one. Spend is bounded by the agent caps, not by authentication.
+- The published 1.2.0 APK and any web build made before this change still inline the old `EXPO_PUBLIC_BOND_TOKEN`. Treat that value as public: rotate `BOND_BEARER` on the server, and the extracted value stops working. Rebuild the APK from HEAD so it uses device sessions.
 - The agent keypair is ephemeral unless `AGENT_SOLANA_SECRET` is set to a funded devnet keypair, so agent-initiated transfers only work once that is provisioned.
-- The `/sync` WebSocket accepts the bearer in a `?token=` query parameter for browser clients that cannot set a header, which can land in intermediary access logs. Native clients use the header.
+- The `/sync` WebSocket takes its credential in a `?token=` query parameter, because neither browsers nor React Native can set a WebSocket header, so it can land in intermediary access logs. It is a one-hour device session, so a logged token expires. The operator bearer should never be used there.
 
 ## Supply chain
 
-`verify.sh` runs `audit-ci --high` in both workspaces and fails on any high or critical finding. Three upstream-unfixable advisories are allowlisted and tracked here:
+`verify.sh` runs `audit-ci --high` in both workspaces and fails on any high or critical finding.
 
-- `GHSA-3gc7-fjrx-p6mg` in `bigint-buffer`, pulled by `@solana/spl-token` (through `@solana/buffer-layout-utils`) in both the app and the server. There is no patched release and the only npm-offered fix is a breaking downgrade of the Solana stack. It is present in both workspaces. An earlier note that it had been removed from the server was wrong: dropping `solana-agent-kit` removed one path to it, but `@solana/spl-token` still pulls it on the server as well as in the app.
+- **Fixed:** `GHSA-3gc7-fjrx-p6mg` (CVE-2025-3194) in `bigint-buffer@1.1.5`, pulled by `@solana/spl-token` through `@solana/buffer-layout-utils`. It has no patched upstream release, so both workspaces replace it via npm `overrides` with [`vendor/bigint-buffer-safe`](vendor/bigint-buffer-safe/index.js). That is about 60 lines of pure JS with no native binding, and it implements only the four functions `buffer-layout-utils` calls. It rejects non-buffer, non-bigint, negative and over-width input with an error, where the original overflowed or silently truncated. It was checked to give identical output to the original on 15,000 random u8 to u256 round trips. `npm ls bigint-buffer` now resolves to `1.1.5-bond.1` in both lockfiles, and the advisory is no longer allowlisted.
+
+- **Fixed:** `stream-json@1.9.1` (GHSA-528h-pc64-c93x, GHSA-hqr4-qq8f-hg3x, GHSA-mjw6-4jj6-33hc) and `uuid@8.3.2` (GHSA-w5hq-g745-h8pq). Both came only through `jayson@4`, the JSON-RPC client inside `@solana/web3.js`. Both workspaces override `jayson` to `5.0.0`, which depends on neither: it generates request ids with `crypto.randomUUID` or `getRandomValues`, which `polyfill.js` provides on device. web3.js loads only `jayson/lib/client/browser`, whose interface is unchanged. Checked with real devnet calls: `getSlot`, `getBalance`, `getParsedTransaction` on the recorded purchase, a batched `getParsedTransactions`, and an RPC error that surfaces correctly.
+- **Fixed:** `uuid@7.0.3` (GHSA-w5hq-g745-h8pq) in the app, which `xcode` pulls in through Expo config plugins at prebuild time. It is overridden to `11.1.1`; `xcode` only calls `v4()`.
+- **Fixed:** `decode-uri-component@0.2.2` (GHSA-vcc3-ghjq-m6fr, exponential decoding), which `query-string@7` pulls in through `expo-router`. The fixed upstream release is ESM-only and `query-string@7` loads it with `require()`, so the app overrides it with [`vendor/decode-uri-component-safe`](vendor/decode-uri-component-safe/index.js). It is the same API with a linear-time fallback. A crafted 2,000-token input takes about 28 ms, against about 98 s in the original. Its output matches the original on 14 of 15 edge cases. The one difference is a lone malformed `%C2`, which it keeps as written instead of turning into `U+FFFD`.
+
+`npm audit` reports 0 vulnerabilities in the server. Two upstream-unfixable advisories remain allowlisted in the app, both build-time only:
+
 - `GHSA-86w9-cpqp-85rv` in `node-forge` (all versions up to 1.4.0, the latest, no patched release). Pulled only by Expo's CLI code-signing tooling at build time. It is not bundled into the APK or the web export.
 - `GHSA-vfj7-8cjw-p6xm` in `braces` (all versions up to 3.0.3, the latest, no patched release). A glob-pattern DoS reachable only through Metro and Jest file matching at build and test time, with developer-controlled patterns. It is not bundled into the APK or the web export.
 

@@ -38,11 +38,12 @@
   fit();
 
   /* ------------------------------------------------------------- headlines, word by word */
-  // The plain markup is kept so print can put it back: the spaces between word boxes are never
+  // The plain nodes are kept so print can put them back: the spaces between word boxes are never
   // painted, so a PDF built from split headlines would read and bookmark them as one long word.
+  // Kept as cloned DOM nodes, not an HTML string, so restoring never re-parses markup.
   const plain = new Map();
   function split(el) {
-    plain.set(el, el.innerHTML);
+    plain.set(el, Array.from(el.childNodes, (n) => n.cloneNode(true)));
     let i = 0;
     const word = (content) => {
       const w = doc.createElement("span");
@@ -581,7 +582,7 @@
   addEventListener("beforeprint", () => {
     stopTimelines();
     html.classList.remove("ov");
-    if (!unsplit) { plain.forEach((markup, el) => { el.innerHTML = markup; }); unsplit = true; }
+    if (!unsplit) { plain.forEach((nodes, el) => { el.replaceChildren(...nodes); }); unsplit = true; }
     slides.forEach((s) => { settle(s); s.removeAttribute("aria-hidden"); s.inert = false; });
   });
   addEventListener("afterprint", () => {
