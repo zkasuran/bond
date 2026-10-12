@@ -188,6 +188,17 @@
     });
   }
 
+  // Cover pulses: a travelling pulse is visible only while its animation runs, and its edge's
+  // resting pulse steps aside meanwhile, so before, after and without SMIL the drawing is the static frame.
+  const runs = Array.from(doc.querySelectorAll(".pulses-anim > g"));
+  const rests = Array.from(doc.querySelectorAll(".pulses-static > g"));
+  const restPulse = (i) => { runs[i].classList.remove("run"); rests[i]?.classList.remove("off"); };
+  runs.forEach((g, i) => {
+    const a = g.querySelector("animateMotion");
+    a.addEventListener("beginEvent", () => { g.classList.add("run"); rests[i]?.classList.add("off"); });
+    a.addEventListener("endEvent", () => restPulse(i));
+  });
+
   const TIMELINES = {
     s01(s) {
       s.querySelectorAll(".pulses-anim animateMotion").forEach((a, i) => {
@@ -304,6 +315,7 @@
   function settle(s) {
     s.querySelectorAll("[data-final]").forEach((el) => { el.textContent = el.dataset.final; });
     s.querySelectorAll(".pulses-anim animateMotion").forEach((a) => { try { a.endElement(); } catch (e) { /* no SMIL */ } });
+    if (s.querySelector(".pulses-anim")) runs.forEach((g, i) => restPulse(i));
     if (s.id === "s05") resetThread(s);
   }
 
@@ -318,6 +330,13 @@
   const help = doc.getElementById("help");
   const apBar = doc.getElementById("ap");
 
+  // One rule for what can take focus and clicks. Presenting: only the slide on screen (with
+  // ?static, every slide, so print and the PDF export see them all). Overview: no slide; the
+  // thumbnails are previews, opened by click, or by the arrow keys and Enter.
+  function applyInert() {
+    slides.forEach((s, i) => { s.inert = overview || (!isStatic && i !== cur); });
+  }
+
   function go(n, opts = {}) {
     n = Math.max(0, Math.min(N - 1, n));
     if (n === cur && !opts.replay) return;
@@ -328,12 +347,13 @@
     if (prev && prev !== next) {
       prev.classList.remove("on");
       prev.setAttribute("aria-hidden", "true");
-      if (!isStatic && !overview) prev.inert = true;
       settle(prev);
       if (motion() && !overview) {
         prev.style.setProperty("--dir", String(dir));
         prev.classList.add("out");
-        setTimeout(() => prev.classList.remove("out"), 650);
+        // Only the latest exit may clear the fade, so a quick back-and-forth never cuts one short.
+        const tok = (prev._out = (prev._out || 0) + 1);
+        setTimeout(() => { if (prev._out === tok) prev.classList.remove("out"); }, 650);
       }
     }
     if (opts.replay) {
@@ -341,11 +361,12 @@
       next.classList.remove("on");
       void next.offsetWidth; // restart the CSS animations
     }
+    next._out = (next._out || 0) + 1;
     next.classList.remove("out");
     next.classList.add("on");
     next.removeAttribute("aria-hidden");
-    next.inert = false;
     cur = n;
+    applyInert();
     sky(next);
     paintUi(next);
     if (motion() && !overview) {
@@ -398,20 +419,31 @@
     slides.forEach(settle);
     html.classList.toggle("ov", on);
     doc.querySelector('[data-act="grid"]').setAttribute("aria-pressed", String(on));
+    applyInert();
     if (on) {
       setPlaying(false);
-      slides.forEach((s) => { s.inert = false; });
       slides[cur].scrollIntoView({ block: "center" });
+      live.textContent = `Overview. Slide ${cur + 1} of ${N}: ${slides[cur].dataset.title || ""}. Arrow keys move, Enter opens.`;
       return;
     }
-    slides.forEach((s, i) => { if (!isStatic) s.inert = i !== cur; });
+    slides.forEach((s) => s.classList.remove("hov"));
     if (target !== cur) go(target);
     else go(cur, { replay: true, silent: true });
   }
+  // Thumbnails are inert, so the stage takes the pointer and finds the slide under it.
+  const slideAt = (x, y) => slides.findIndex((s) => {
+    const r = s.getBoundingClientRect();
+    return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
+  });
   stage.addEventListener("click", (e) => {
     if (!overview) return;
-    const s = e.target.closest(".slide");
-    if (s) setOverview(false, slides.indexOf(s));
+    const i = slideAt(e.clientX, e.clientY);
+    if (i >= 0) setOverview(false, i);
+  });
+  stage.addEventListener("mousemove", (e) => {
+    if (!overview) return;
+    const i = slideAt(e.clientX, e.clientY);
+    slides.forEach((s, j) => s.classList.toggle("hov", j === i));
   });
 
   /* ------------------------------------------------------------- panels */
@@ -420,12 +452,20 @@
     notes.hidden = !on;
     doc.querySelector('[data-act="notes"]').setAttribute("aria-pressed", String(on));
   }
+  // A real modal: everything behind it is inert while it is open, and the deck stops playing.
   let helpReturn = null;
+  const behindHelp = [doc.getElementById("deck"), doc.getElementById("ui"), notes];
   function toggleHelp(force) {
     const on = force ?? help.hidden;
     help.hidden = !on;
-    if (on) { helpReturn = doc.activeElement; help.querySelector(".help-x").focus(); }
-    else helpReturn?.focus?.();
+    behindHelp.forEach((el) => { el.inert = on; });
+    if (on) {
+      if (playing) setPlaying(false);
+      helpReturn = doc.activeElement;
+      help.querySelector(".help-x").focus();
+    } else {
+      helpReturn?.focus?.();
+    }
   }
   function fullscreen() {
     const el = doc.documentElement;
@@ -456,6 +496,12 @@
     const k = e.key;
     if (!help.hidden) {
       if (k === "Escape" || k === "?") { e.preventDefault(); toggleHelp(false); }
+      if (k === "Tab") { // keep focus going round the dialog
+        const f = Array.from(help.querySelectorAll("a[href], button"));
+        const i = f.indexOf(doc.activeElement);
+        e.preventDefault();
+        f[(i + (e.shiftKey ? -1 : 1) + f.length) % f.length].focus();
+      }
       return;
     }
     const manual = () => { if (playing) setPlaying(false); };
@@ -483,7 +529,7 @@
   });
 
   addEventListener("wheel", (e) => {
-    if (overview || !help.hidden) return;
+    if (overview || !help.hidden || e.target.closest?.("#notes")) return;
     if (Math.abs(e.deltaY) < 24 && Math.abs(e.deltaX) < 24) return;
     const now = Date.now();
     if (now < wheelLock) return;
@@ -496,7 +542,7 @@
   let tx = 0, ty = 0;
   addEventListener("touchstart", (e) => { tx = e.touches[0].clientX; ty = e.touches[0].clientY; }, { passive: true });
   addEventListener("touchend", (e) => {
-    if (overview) return;
+    if (overview || !help.hidden || e.target.closest?.("#notes")) return;
     const dx = e.changedTouches[0].clientX - tx;
     const dy = e.changedTouches[0].clientY - ty;
     if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.3) { if (playing) setPlaying(false); step(dx < 0 ? 1 : -1); }
@@ -513,12 +559,16 @@
     go(i);
   });
 
-  // The presenter bar fades out when the pointer rests.
+  // The presenter bar fades out when the pointer rests, but never under the pointer or under
+  // keyboard focus (a mouse click leaves no :focus-visible, so clicking Next still lets it fade).
   let idleTimer = 0;
+  const bar = doc.querySelector(".bar");
   const wake = () => {
     html.classList.remove("idle");
     clearTimeout(idleTimer);
-    idleTimer = setTimeout(() => { if (!overview && help.hidden) html.classList.add("idle"); }, 2600);
+    idleTimer = setTimeout(() => {
+      if (!overview && help.hidden && !bar.matches(":hover") && !bar.querySelector(":focus-visible")) html.classList.add("idle");
+    }, 2600);
   };
   ["mousemove", "pointerdown", "keydown", "touchstart"].forEach((t) => addEventListener(t, wake, { passive: true }));
   doc.querySelector(".bar").addEventListener("mouseenter", () => clearTimeout(idleTimer));
@@ -526,19 +576,19 @@
   // Printing (and the PDF export): settle everything, then the print stylesheet lays out one slide
   // per page. Every page is visible on paper, so every slide joins the accessibility tree, which is
   // what the tagged PDF and its bookmark outline are built from.
+  // Overview's grid outranks the print layout, so it steps aside for the print and comes back after.
   let unsplit = false;
   addEventListener("beforeprint", () => {
     stopTimelines();
+    html.classList.remove("ov");
     if (!unsplit) { plain.forEach((markup, el) => { el.innerHTML = markup; }); unsplit = true; }
     slides.forEach((s) => { settle(s); s.removeAttribute("aria-hidden"); s.inert = false; });
   });
   addEventListener("afterprint", () => {
+    html.classList.toggle("ov", overview);
     if (unsplit) { Array.from(plain.keys()).forEach(split); unsplit = false; }
-    slides.forEach((s, i) => {
-      if (i === cur) return;
-      s.setAttribute("aria-hidden", "true");
-      if (!isStatic && !overview) s.inert = true;
-    });
+    slides.forEach((s, i) => { if (i !== cur) s.setAttribute("aria-hidden", "true"); });
+    applyInert();
     if (!overview) go(cur, { replay: true, silent: true });
   });
 
@@ -553,7 +603,8 @@
   addEventListener("hashchange", () => { const i = fromHash(); if (i >= 0 && i !== cur) go(i, { silent: true }); });
 
   // Start once fonts are in, so the first headline does not re-wrap mid-animation.
-  slides.forEach((s) => { s.setAttribute("aria-hidden", "true"); if (!isStatic) s.inert = true; });
+  slides.forEach((s) => s.setAttribute("aria-hidden", "true"));
+  applyInert();
   const start = () => { const i = fromHash(); go(i >= 0 ? i : 0, { silent: true }); wake(); };
   if (doc.fonts && doc.fonts.ready) Promise.race([doc.fonts.ready, new Promise((r) => setTimeout(r, 1500))]).then(start);
   else start();

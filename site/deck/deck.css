@@ -129,7 +129,7 @@ html.anim .slide.on .draw { stroke-dasharray: 1 1; animation: draw 1.3s var(--ea
   background-size: 220% 100%; background-position: 0% 50%;
   -webkit-background-clip: text; background-clip: text; color: transparent; padding-right: .04em;
 }
-html.anim .slide.on .shine { animation: shine 7s var(--ease-io) 1.2s 3 alternate; }
+html.anim .slide.on .shine { animation: shine 7s var(--ease-io) 1.2s 4 alternate; } /* even count: ends where it began, no snap */
 @keyframes shine { from { background-position: 0% 50%; } to { background-position: 100% 50%; } }
 .lab {
   display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
@@ -243,9 +243,13 @@ html.anim .slide.on .pulse::after { animation: ping 2s var(--ease) .6s 4; }
 .net .ag-chip { fill: rgba(153,69,255,.16); stroke: rgba(180,140,255,.5); } .net .ag-t { font: 500 13px var(--f-mono); letter-spacing: .16em; fill: var(--violet-2); }
 .net .vbadge { fill: #0B2A1E; stroke: var(--mint); stroke-width: 2; } .net .vtick { fill: none; stroke: var(--mint); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
 .net .nd { transform-box: fill-box; transform-origin: center; }
+/* Each edge shows its resting pulse, except while that edge's travelling pulse runs (deck.js),
+   so the drawing never shows an unplaced SMIL dot, and without SMIL the static frame stays. */
 .pulses-anim { display: none; }
 html.anim .net .pulses-anim { display: inline; }
-html.anim .net .pulses-static { display: none; }
+.pulses-anim > g { visibility: hidden; }
+.pulses-anim > g.run { visibility: visible; }
+.pulses-static > g.off { visibility: hidden; }
 html.anim .slide.on .net .nd { animation: rv-s .9s var(--spring) both; animation-delay: calc(.7s + var(--i) * .12s); }
 html.anim .slide.on .net .tags g { animation: rv-f .7s var(--ease) both; animation-delay: 1.9s; }
 html.anim .slide.on .net .tags g:nth-child(2n) { animation-delay: 2.1s; }
@@ -687,12 +691,23 @@ kbd { display: inline-block; min-width: 30px; padding: 4px 9px; border-radius: 8
 html.ov .deck { overflow: auto; }
 html.ov .stage { position: relative; left: auto; top: auto; width: auto; height: auto; transform: none; display: grid; grid-template-columns: repeat(4, calc(1920px * var(--ovz, .2))); justify-content: center; gap: 22px; padding: 64px 40px 120px; }
 html.ov .slide { position: relative; inset: auto; width: 1920px; height: 1080px; zoom: var(--ovz, .2); visibility: visible; opacity: 1; cursor: pointer; border-radius: 30px; box-shadow: 0 0 0 4px rgba(255,255,255,.08); transition: box-shadow .3s; animation: none; }
-html.ov .slide:hover { box-shadow: 0 0 0 6px rgba(255,255,255,.3); }
+html.ov .stage { cursor: pointer; }
+html.ov .slide.hov { box-shadow: 0 0 0 6px rgba(255,255,255,.3); }
 html.ov .slide.cur { box-shadow: 0 0 0 8px var(--mint); }
 html.ov .slide .pbg { display: block; }
 html.ov .slide * { pointer-events: none; animation: none !important; }
 html.ov .slide, html.ov .slide.on, html.ov .slide.out { animation: none !important; }
 html.ov .sky .grid { opacity: .2; }
+
+/* ================================================================ no JavaScript: every finished slide, stacked */
+@media screen and (scripting: none) {
+  body { overflow: auto; }
+  .deck { position: static; }
+  .stage { position: static; width: 1920px; height: auto; transform: none; }
+  .slide { position: relative; inset: auto; visibility: visible; opacity: 1; margin-bottom: 24px; }
+  .pbg { display: block; }
+  .sky, .ui, .rotate { display: none; }
+}
 
 /* ================================================================ small screens */
 .rotate { display: none; }

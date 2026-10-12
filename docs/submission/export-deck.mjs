@@ -12,7 +12,7 @@
 // frames, so the PDF is exactly what the print stylesheet lays out.
 
 import { createServer } from "node:http";
-import { readFile, stat } from "node:fs/promises";
+import { readFile, stat, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { dirname, extname, join, normalize, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -87,8 +87,8 @@ try {
   // The deck's own print preparation: final frames, and every slide back in the accessibility tree.
   await page.evaluate(() => dispatchEvent(new Event("beforeprint")));
 
+  // Render to memory and check everything first, so a failed run never overwrites a good PDF.
   const pdf = await page.pdf({
-    path: out,
     width: "1920px",
     height: "1080px",
     preferCSSPageSize: true,
@@ -96,9 +96,11 @@ try {
     outline: true,
     tagged: true,
   });
-
+  if (problems.length) throw new Error("The deck reported problems while printing:\n  " + problems.join("\n  "));
   const pages = (pdf.toString("latin1").match(/\/Type\s*\/Page(?![a-zA-Z])/g) ?? []).length;
   if (pages !== slides) throw new Error(`Expected ${slides} pages, one per slide, but the PDF has ${pages}.`);
+
+  await writeFile(out, pdf);
   console.log(`Wrote ${out}: ${pages} pages, ${(pdf.length / 1048576).toFixed(2)} MB`);
 } finally {
   await browser.close();
